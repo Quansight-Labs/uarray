@@ -56,7 +56,7 @@ effort in order to make better progress.
 
 - [Summer Student Projects 2018 blog post by Matthew Rocklin](http://matthewrocklin.com/blog/work/2018/03/20/summer-projects)
 
-- [Massiv: Efficient Haskell Arrays featuring Parallel computation](https://github.com/lehins/massiv
+- [Massiv: Efficient Haskell Arrays featuring Parallel computation](https://github.com/lehins/massiv)
 
 - [Effective data parallel computation using the Psi calculus](https://paperpile.com/app/p/ad22b033-10cc-0f45-8c1d-05014496baee) 
 
