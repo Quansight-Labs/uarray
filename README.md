@@ -1,5 +1,7 @@
 # uarray - Universal Array Interface
 
+[![Join the chat at https://gitter.im/Plures/uarray](https://badges.gitter.im/Plures/uarray.svg)](https://gitter.im/Plures/uarray?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 ## Introduction
 
 NumPy has become very popular as an array object --- but it implements
