@@ -46,9 +46,6 @@ It is funded by donations and grants.  The efforts are highly
 experimental at this stage and we are looking for funding for the
 effort in order to make better progress.
 
-## Discussions
-
-[UArray Gitter channel](https://gitter.im/Plures/uarray)
 
 ## References
 
