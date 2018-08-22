@@ -53,6 +53,8 @@ effort in order to make better progress.
 
 - [[Numpy-discussion] Proposal to accept NEP-18, __array_function__ protocol](https://mail.python.org/pipermail/numpy-discussion/2018-August/078578.html)
 
+- [Beyond Numpy Arrays in Python](http://matthewrocklin.com/blog/work/2018/05/27/beyond-numpy)
+
 - [Summer Student Projects 2018 blog post by Matthew Rocklin](http://matthewrocklin.com/blog/work/2018/03/20/summer-projects)
 
 - [Massiv: Efficient Haskell Arrays featuring Parallel computation](https://github.com/lehins/massiv)
