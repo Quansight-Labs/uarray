@@ -61,3 +61,14 @@ effort in order to make better progress.
 
 - [Effective data parallel computation using the Psi calculus](https://paperpile.com/app/p/ad22b033-10cc-0f45-8c1d-05014496baee) 
 
+- MatchPy, pattern matching
+  - [Python library](https://github.com/HPAC/matchpy)
+  - ["Non-linear Associative-Commutative Many-to-One Pattern Matching with Sequence Variables" - Manuel Krebber](https://arxiv.org/abs/1705.00907)
+  
+ - Magne Haveraaen - head of [Bergen Language Design Laboratory](https://bldl.ii.uib.no/)
+   - [Specification of Generic APIs, or: Why Algebraic May Be Better Than Pre/Post](https://www.ii.uib.no/~anya/papers/bagge-haveraaen-hilt14-apispec.pdf)
+     - algebraic specifications have history in CS
+     - [Specification techniques for data abstractions - 1975](http://csg.csail.mit.edu/CSGArchives/memos/Memo-117.pdf)
+       - groups of operations can be partitioned by whether they create class we care about, transform it, or create other class. This corresponds to some of our taxonomy of NP methods, those oeprations which create NP arrays, transform them, or turn them into something else. Another good way to think about array library. We have operations that take things external and turn them into abstract arrays (reading existing data, creating lazily from sequence),  operations that tansform arrays (MoA operations), and then operations which leave the system (writing to storage, making concrete). ![](https://user-images.githubusercontent.com/1186124/44615089-f3e1e680-a7fe-11e8-9075-d8990ff44691.png)
+   - [An array API for finite difference methods.](https://paperpile.com/app/p/fc16d058-1ac9-0296-af0d-87e75234458d)
+   
