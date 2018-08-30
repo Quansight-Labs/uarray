@@ -62,7 +62,7 @@ effort in order to make better progress.
 * probabilistic programming
   * Similar API to pymc4 (https://sharanry.github.io/post/eight-schools-model/) but not tied to tensorflow (can run on TF, numpy, pytorch)
 * SciPy
-  * Add GPU backend
+  * scipy.stats, scipy.linalg, and scipy.optimize all being able to switch between GPU/CPU
 * [datatable](https://github.com/h2oai/datatable) (API: https://github.com/h2oai/datatable/issues/696)
   * Optimize expression tree, use with other backends 
 * [awkward-array](https://github.com/scikit-hep/awkward-array) (API: https://github.com/scikit-hep/awkward-array/blob/master/binder/array-types.ipynb)
