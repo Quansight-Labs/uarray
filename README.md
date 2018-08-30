@@ -47,6 +47,20 @@ experimental at this stage and we are looking for funding for the
 effort in order to make better progress.
 
 
+## Potential Usecases
+
+* Dask (source: conversation w/ @mrocklin)
+  * Optimize expressions before turning to graph (reduces size of graph, removes intermediaries) https://github.com/dask/dask/issues/2538 https://github.com/dask/dask/issues/3514 https://github.com/dask/dask/pull/3549 https://github.com/dask/dask/issues/746 https://github.com/dask/dask/pull/2608
+  * More intelligent automatic chunking optimizations based on operations (https://github.com/dask/dask/issues/3864) (UK Met office might be interested in this) 
+* xarray
+  * Use for lazy operations to optimize https://github.com/pydata/xarray/issues/2298 https://github.com/pydata/xarray/pull/2302
+* numba
+  * support array optimizations on array like objects (source: conversation w/ @sklam) 
+  * parallelization of array expressions https://github.com/numba/numba/issues/2432
+* xnd
+  * Generate optimized fused code outside of numba decorator
+* probabilistic programming
+  * Similar API to pymc4 (https://sharanry.github.io/post/eight-schools-model/) but not tied to tensorflow (can run on TF, numpy, pytorch)
 ## References
 
 - [NEP 18 — A dispatch mechanism for NumPy’s high level array functions](http://www.numpy.org/neps/nep-0018-array-function-protocol.html)
