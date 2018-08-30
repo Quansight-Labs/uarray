@@ -63,6 +63,8 @@ effort in order to make better progress.
   * Similar API to pymc4 (https://sharanry.github.io/post/eight-schools-model/) but not tied to tensorflow (can run on TF, numpy, pytorch)
 * SciPy
   * Add GPU backend
+* [datatable](https://github.com/h2oai/datatable)
+  * Optimize expression tree, use with other backends https://github.com/h2oai/datatable/issues/696
 
 ## References
 
