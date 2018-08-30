@@ -61,6 +61,9 @@ effort in order to make better progress.
   * Generate optimized fused code outside of numba decorator
 * probabilistic programming
   * Similar API to pymc4 (https://sharanry.github.io/post/eight-schools-model/) but not tied to tensorflow (can run on TF, numpy, pytorch)
+* SciPy
+  * Add GPU backend
+
 ## References
 
 - [NEP 18 — A dispatch mechanism for NumPy’s high level array functions](http://www.numpy.org/neps/nep-0018-array-function-protocol.html)
