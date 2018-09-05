@@ -8,6 +8,7 @@ NumPy has become very popular as an array object --- but it implements
 a very specific "kind" of array which is sometimes called a fancy
 pointer to strided memory. This model is quite popular and has allowed
 SciPy and many other tools to be built by linking to existing code.
+
 Over the past decade, newer hardware including GPUs and FPGA, newer
 software systems (including JIT compilers and code-generation systems)
 have become popular.  Also new "kinds" of arrays have been created or
@@ -17,7 +18,7 @@ downstream packages and algorithms that use these arrays don't need
 the implementation details of the array.  They just need a set of basic
 operations to work (the interface).
 
-The goal of *uarray* is to constract an interface to a general array
+The goal of *uarray* is to constract an interface to a general array 
 concept and build a high-level multiple-dispatch mechanism to
 re-direct function calls whose implementations are dependent on the
 specific kind of array.  The desire is for down-stream libraries to be
@@ -27,14 +28,14 @@ on the NumPy mailing list in order to retro-fit NumPy as this array
 interface.  *uarray* is an alternative approach with different
 contraints and benefits.
 
-
 Python array computing needs multiple-dispatch.  Ufuncs are
 fundamentally multiple-dispatch systems, but only at the lowest level.
 It is time to raise the visibility of this into Python.  This effort
 differs from [XND](https://xnd.io/) in that XND is low-level and
 cross-langauge.  The *uarray* is "high-level" and Python only.  The
 concepts could be applied to other languages but we do not try to
-solve that problem.
+solve that problem with this library.  XND can be *used* by some
+implementations of the uarray concept.
 
 Our desire with *uarray* is to build a useful array interface for Python
 that can help library writers write to a standard interface while
@@ -42,10 +43,9 @@ allowing backend implementers to innovate in performance.  This effort
 is being incubated at Quansight Labs which is an R&D group inside of
 Quansight that hires developers, community/product managers, and
 tech-writers to build and maintain shared open-source infrastructure.
-It is funded by donations and grants.  The efforts are highly
+It is funded by donations and grants. The efforts are highly
 experimental at this stage and we are looking for funding for the
 effort in order to make better progress.
-
 
 ## Potential Usecases
 
