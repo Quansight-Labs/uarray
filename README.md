@@ -47,6 +47,12 @@ It is funded by donations and grants. The efforts are highly
 experimental at this stage and we are looking for funding for the
 effort in order to make better progress.
 
+## Other repos exploring this concept
+
+* https://github.com/davidbrochart/uarray
+* https://github.com/saulshanabrook/moa
+* https://github.com/hameerabbasi/arrayish
+
 ## Potential Usecases
 
 * Dask (source: conversation w/ @mrocklin)
