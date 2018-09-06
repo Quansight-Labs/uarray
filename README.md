@@ -80,6 +80,8 @@ effort in order to make better progress.
 
 - [[Numpy-discussion] Proposal to accept NEP-18, __array_function__ protocol](https://mail.python.org/pipermail/numpy-discussion/2018-August/078578.html)
 
+- [Optimized Einsum: A tensor contraction order optimizer](https://github.com/dgasmith/opt_einsum)
+
 - Blog posts by Matthew Rocklin
   - [Beyond Numpy Arrays in Python](http://matthewrocklin.com/blog/work/2018/05/27/beyond-numpy)
   - [Summer Student Projects 2018](http://matthewrocklin.com/blog/work/2018/03/20/summer-projects)
