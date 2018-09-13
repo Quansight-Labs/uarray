@@ -3,6 +3,11 @@ import matchpy
 replacer = matchpy.ManyToOneReplacer()
 
 
+class Shape(matchpy.Operation):
+    name = "ρ"
+    arity = matchpy.Arity(1, True)
+
+
 class PythonArray(matchpy.Symbol):
     def __init__(self, name, shape, data):
         super().__init__(name)
@@ -20,7 +25,6 @@ PythonArray._base = PythonArray('base_array', (1,), (1,))
 
 python_array = matchpy.Wildcard.symbol("python_array", PythonArray)
 
-
 replacer.add(
     matchpy.ReplacementRule(
         matchpy.Pattern(Shape(python_array)),
@@ -29,6 +33,7 @@ replacer.add(
         ),
     )
 )
+
 
 
 class ToPythonArray(matchpy.Operation):
