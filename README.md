@@ -2,7 +2,7 @@
 
 [![Join the chat at https://gitter.im/Plures/uarray](https://badges.gitter.im/Plures/uarray.svg)](https://gitter.im/Plures/uarray?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-* [Meeting Notes](https://github.com/Quansight-Labs/uarray/wiki/Meeting-Notes)
+* [Meetings](https://github.com/Quansight-Labs/uarray/wiki/Meeting-Notes)
 * [Use Cases](https://github.com/Quansight-Labs/uarray/wiki/Use-Cases)
 * [References](https://github.com/Quansight-Labs/uarray/wiki/References)
 
