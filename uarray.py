@@ -1,7 +1,9 @@
 # pylint: disable=E1120,W0108,W0621,E1121
 import functools
+import itertools
 import operator
 import typing
+
 import matchpy
 
 ##
@@ -25,11 +27,12 @@ replace = replacer.replace
 
 x = matchpy.Wildcard.dot("x")
 x2 = matchpy.Wildcard.dot("x2")
+x3 = matchpy.Wildcard.dot("x3")
 xs = matchpy.Wildcard.star("xs")
 xs2 = matchpy.Wildcard.star("xs2")
 
 ##
-# Shape Operations
+# Basic Operations
 ##
 
 
@@ -38,142 +41,153 @@ class Shape(matchpy.Operation):
     arity = matchpy.Arity(1, True)
 
 
-class Concat(matchpy.Operation):
-    name = "++"
-    infix = True
-    arity = matchpy.Arity(2, True)
-
-
 class Index(matchpy.Operation):
     name = "ψ"
     infix = True
     arity = matchpy.Arity(2, True)
 
 
+class Ravel(matchpy.Operation):
+    name = "rav"
+    arity = matchpy.Arity(1, True)
+
+
+class Gamma(matchpy.Operation):
+    name = "γ"
+    arity = matchpy.Arity(2, True)
+
+
 ##
-# Literal arrays
+# Concrete arrays
 ##
 
 
 class Scalar(matchpy.Symbol):
-    """
-    An array with an empty shape and a literal value.
-    """
-
     def __init__(self, value):
         self.value = value
-
         super().__init__(repr(value), None)
 
 
-class EmptyVector(matchpy.Symbol):
-    pass
+class Vector(matchpy.Symbol):
+    def __init__(self, *values):
+        self.values = tuple(values)
+        super().__init__(f"<{' '.join(map(repr, values))}>", None)
+
+    @property
+    def length(self):
+        return len(self.values)
 
 
-class Stack(matchpy.Operation):
-    """
-    An array of sub arrays each with the same shape.
+class Array(matchpy.Symbol):
+    # _base = Concrete((1,), (1,))
+    def __init__(self, shape, data):
+        self.shape = shape
+        self.data = data
 
-    `Stack(x, *xs)` is defined when `xs` all have the shape of `x`.
-    """
-
-    arity = matchpy.Arity(1, False)
-    name = "Stack"
-
-    def __str__(self):
-        value = " ".join(str(o) for o in self.operands)
-        if isinstance(self.operands[0], Scalar):
-            value = f"<{value}>"
-        else:
-            value = f"[{value}]"
-        if self.variable_name:
-            value = "{}: {}".format(self.variable_name, value)
-        return value
+        super().__init__(f"[{' '.join(map(repr, data))}; ρ={repr(shape)}]", None)
 
 
 scalar = matchpy.Wildcard.symbol("scalar", Scalar)
-empty_vector = matchpy.Wildcard.symbol("empty_vector", EmptyVector)
+vector, vector1 = (
+    matchpy.Wildcard.symbol("vector", Vector),
+    matchpy.Wildcard.symbol("vector1", Vector),
+)
+array = matchpy.Wildcard.symbol("array", Array)
 
-register(Shape(empty_vector), lambda empty_vector: Stack(Scalar(0)))
-register(Shape(scalar), lambda scalar: EmptyVector("∅"))
+empty_vector = matchpy.CustomConstraint(lambda vector: vector.length == 0)
 
-# Shape of Stack is number of sub arrays concatted with shape of all sub components
-# we use the shape of the first one and assume all others are the same
+single_vector = matchpy.CustomConstraint(lambda vector: vector.length == 1)
+
+same_length_vectors = matchpy.CustomConstraint(
+    lambda vector, vector1: vector.length == vector1.length
+)
+
+scalar_array = matchpy.CustomConstraint(lambda array: array.shape == tuple())
+
+
+def row_major_gamma(idx, shape):
+    """
+    As defined in 3.30
+    """
+    if not idx:
+        return 0
+    return idx[-1] + shape[-1] * row_major_gamma(idx[:-1], shape[:-1])
+
+
+register(Shape(scalar), lambda scalar: Vector())
+register(Shape(vector), lambda vector: Vector(vector.length))
+register(Shape(array), lambda array: Vector(*array.shape))
+register(Index(vector, scalar), empty_vector, lambda scalar: scalar)
 register(
-    Shape(Stack(x, xs)), lambda x, xs: Concat(Stack(Scalar(len(xs) + 1)), Shape(x))
+    Index(vector, vector1),
+    single_vector,
+    lambda vector, vector1: Scalar(vector1.values[vector.values[0]]),
 )
-register(Concat(x, empty_vector), lambda x, empty_vector: x)
-register(Concat(empty_vector, x), lambda x, empty_vector: x)
-register(Concat(Stack(xs), Stack(xs2)), lambda xs, xs2: Stack(*xs, *xs2))
-register(Index(scalar, Stack(xs)), lambda scalar, xs: xs[scalar.value])
-
-##
-# Data Tuples
-##
-
-# Converts to and from a scalar of (shape, data), where data is nested tuples
-# representing the data in the aray.
-
-
-class DataTuple(typing.NamedTuple):
-    shape: typing.Tuple[int, ...]
-    data: typing.Any
-
-
-is_data_tuple = matchpy.CustomConstraint(
-    lambda scalar: isinstance(scalar.value, DataTuple)
+register(
+    Index(vector, array),
+    lambda vector, array: Index(Gamma(vector, Vector(array.shape)), Ravel(array)),
+)
+register(Ravel(array), lambda array: Vector(*array.data))
+register(
+    Gamma(vector, vector1),
+    same_length_vectors,
+    lambda vector, vector1: Scalar(row_major_gamma(vector.values, vector1.values)),
 )
 
+# Why not have them all be the same?
 
-class FromTuple(matchpy.Operation):
+
+##
+# Converting to
+##
+
+
+class AsArray(matchpy.Operation):
+    name = "AsArray"
     arity = matchpy.Arity(1, True)
-    name = "FromTuple"
 
 
-class ToTuple(matchpy.Operation):
-    arity = matchpy.Arity(1, True)
-    name = "ToTuple"
+class AsArrayWithShape(matchpy.Operation):
+    name = "AsArrayWithShape"
+    arity = matchpy.Arity(2, True)
 
 
-class StackTuple(matchpy.Operation):
+class AsArrayWithValues(matchpy.Operation):
+    name = "AsArrayWithValues"
     arity = matchpy.Arity(1, False)
-    name = "StackTuple"
 
 
-def from_tuple(scalar):
-    shape, data = scalar.value
-    if not shape:
-        return Scalar(data)
-    dim, *rest = shape
-    return Stack(*(FromTuple(Scalar((tuple(rest), data[i]))) for i in range(dim)))
+def idx_from_shape(shape):
+    return map(tuple, itertools.product(*map(range, shape)))
 
 
-register(FromTuple(scalar), from_tuple)
-
-
-def to_tuple(scalar, xs):
-    """
-    Scalar is a data tuple and all of xs are also scalars of data tuples
-
-    Can only pattern match on single symbol wildcard, or else we could do any number of them together
-    """
-    return Scalar(
-        DataTuple(
-            shape=(len(xs) + 1,) + scalar.value[0],
-            data=tuple(x.value[1] for x in (scalar,) + xs),
-        )
-    )
-
-def vector(xs):
-    return FromTuple(Scalar((len(xs),), xs))
-
-register(ToLiteralArray(scalar, x), is_data_tuple, lambda scalar, x: LiteralArray(scalar, *(Index(vector(ix), x) for ix in indices(scalar.data)))
-
+register(AsArray(x), lambda x: AsArrayWithShape(Shape(x), x))
 register(
-    ToTuple(scalar), lambda scalar: Scalar(DataTuple(shape=tuple(), data=scalar.value))
+    AsArrayWithShape(vector, x),
+    lambda vector, x: AsArrayWithValues(
+        vector, *(Index(Vector(*idx), x) for idx in idx_from_shape(vector.values))
+    ),
 )
-register(ToTuple(Stack(xs)), lambda xs: StackTuple(*map(ToTuple, xs)))
-register(StackTuple(scalar, xs), is_data_tuple, to_tuple)
+register(
+    AsArrayWithValues(vector, xs),
+    matchpy.CustomConstraint(lambda xs: all(isinstance(x, Scalar) for x in xs)),
+    lambda vector, xs: Array(vector.values, tuple(x.value for x in xs)),
+)
+
+
+##
+# Changing Arrays
+##
+
+
+# class Concat(matchpy.Operation):
+#     name = "++"
+#     infix = True
+#     arity = matchpy.Arity(2, True)
+
+
+# replace(Index(x, Index(x2, x3)), Index(Concat(x, x2), x3))
+# replace(Shape(Concat(x, xs)), Unify(Drop(Scalar(1), Shape(x)))
 
 
 ##
