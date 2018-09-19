@@ -3,13 +3,14 @@ channels:
   - conda-forge
 dependencies:
   - python=3.7
-  - numpy
-  - jupyterlab
-  - hypothesis
-  - pytest
+  - matchpy
+  - python-graphviz
+  # for development
   - mypy
   - black
   - pylint
-  # need unreleased Python 3.7 support https://github.com/HPAC/matchpy/pull/34
-  - pip:
-      - git+https://github.com/HPAC/matchpy.git
+  - jupyterlab
+  # for testing
+  - numpy
+  - hypothesis
+  - pytest
