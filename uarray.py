@@ -1,4 +1,10 @@
 # pylint: disable=E1120,W0108,W0621,E1121
+"""
+Guidelines:
+
+* We want there to be only one way to compile each expression, so don't write two replacement that could apply to the same thing
+  I am not sure if there is an order of preference for my specific rules
+"""
 import functools
 import itertools
 import operator
@@ -26,8 +32,10 @@ replace = replacer.replace
 ##
 
 x = matchpy.Wildcard.dot("x")
+x1 = matchpy.Wildcard.dot("x1")
 x2 = matchpy.Wildcard.dot("x2")
 x3 = matchpy.Wildcard.dot("x3")
+x4 = matchpy.Wildcard.dot("x4")
 xs = matchpy.Wildcard.star("xs")
 xs2 = matchpy.Wildcard.star("xs2")
 
@@ -65,7 +73,10 @@ class Gamma(matchpy.Operation):
 class Scalar(matchpy.Symbol):
     def __init__(self, value):
         self.value = value
-        super().__init__(repr(value), None)
+        super().__init__(str(value), None)
+
+    def __repr__(self):
+        return f"Scalar({repr(self.value)})"
 
 
 class Vector(matchpy.Symbol):
@@ -76,6 +87,9 @@ class Vector(matchpy.Symbol):
     @property
     def length(self):
         return len(self.values)
+
+    def __repr__(self):
+        return f"Vector({', '.join(map(repr, self.values))})"
 
 
 class Array(matchpy.Symbol):
@@ -88,11 +102,16 @@ class Array(matchpy.Symbol):
 
 
 scalar = matchpy.Wildcard.symbol("scalar", Scalar)
-vector, vector1 = (
-    matchpy.Wildcard.symbol("vector", Vector),
-    matchpy.Wildcard.symbol("vector1", Vector),
-)
+scalar1 = matchpy.Wildcard.symbol("scalar1", Scalar)
+vector = matchpy.Wildcard.symbol("vector", Vector)
+vector1 = matchpy.Wildcard.symbol("vector1", Vector)
 array = matchpy.Wildcard.symbol("array", Array)
+
+
+@matchpy.CustomConstraint
+def scalar_true(scalar):
+    return scalar.value
+
 
 empty_vector = matchpy.CustomConstraint(lambda vector: vector.length == 0)
 
@@ -117,15 +136,18 @@ def row_major_gamma(idx, shape):
 register(Shape(scalar), lambda scalar: Vector())
 register(Shape(vector), lambda vector: Vector(vector.length))
 register(Shape(array), lambda array: Vector(*array.shape))
-register(Index(vector, scalar), empty_vector, lambda scalar: scalar)
-register(
-    Index(vector, vector1),
-    single_vector,
-    lambda vector, vector1: Scalar(vector1.values[vector.values[0]]),
-)
+register(Index(vector, scalar), empty_vector, lambda vector, scalar: scalar)
+register(Index(vector, x), empty_vector, lambda vector, x: x)
+
+
+def index_vectors(vector, vector1):
+    return Scalar(vector1.values[vector.values[0]])
+
+
+register(Index(vector, vector1), single_vector, index_vectors)
 register(
     Index(vector, array),
-    lambda vector, array: Index(Gamma(vector, Vector(array.shape)), Ravel(array)),
+    lambda vector, array: Index(Gamma(vector, Vector(*array.shape)), Ravel(array)),
 )
 register(Ravel(array), lambda array: Vector(*array.data))
 register(
@@ -174,20 +196,223 @@ register(
     lambda vector, xs: Array(vector.values, tuple(x.value for x in xs)),
 )
 
-
 ##
 # Changing Arrays
 ##
 
 
-# class Concat(matchpy.Operation):
-#     name = "++"
-#     infix = True
-#     arity = matchpy.Arity(2, True)
+class Dim(matchpy.Operation):
+    name = "δ"
+    arity = matchpy.Arity(1, True)
 
+
+register(Dim(x), lambda x: Index(Vector(0), Shape(Shape(x))))
+
+
+class Take(matchpy.Operation):
+    name = "↑"
+    infix = True
+    arity = matchpy.Arity(2, True)
+
+
+register(
+    Take(scalar, vector), lambda scalar, vector: Vector(*vector.values[: scalar.value])
+)
+
+
+class Drop(matchpy.Operation):
+    name = "↓"
+    infix = True
+    arity = matchpy.Arity(2, True)
+
+
+register(
+    Drop(scalar, vector), lambda scalar, vector: Vector(*vector.values[scalar.value :])
+)
+
+
+class Equiv(matchpy.Operation):
+    name = "≡"
+    infix = True
+    arity = matchpy.Arity(2, True)
+
+
+register(
+    Equiv(scalar, scalar1),
+    lambda scalar, scalar1: Scalar(scalar.value == scalar1.value),
+)
+register(
+    Equiv(vector, vector1),
+    lambda vector, vector1: Scalar(vector.values == vector1.values),
+)
+
+
+class Concat(matchpy.Operation):
+    name = "‡"
+    infix = True
+    arity = matchpy.Arity(2, True)
+
+
+register(
+    Concat(vector, vector1),
+    lambda vector, vector1: Vector(*vector.values, *vector1.values),
+)
+
+
+class IsScalar(matchpy.Operation):
+    name = "IsScalar"
+    arity = matchpy.Arity(1, True)
+
+
+register(IsScalar(x), lambda x: Equiv(Dim(x), Scalar(0)))
+
+##
+# Logic
+##
+
+
+class Thunk(matchpy.Symbol):
+    def __init__(self, fn):
+        self.fn = fn
+        super().__init__(matchpy.utils.get_short_lambda_source(fn) or repr(fn), None)
+
+
+thunk = matchpy.Wildcard.symbol("thunk", Thunk)
+thunk1 = matchpy.Wildcard.symbol("thunk1", Thunk)
+
+
+class If(matchpy.Operation):
+    name = "if"
+    arity = matchpy.Arity(3, True)
+
+    def __str__(self):
+        expr, if_true, if_false = self.operands
+        return f"{expr} ? {if_true} : {if_false}"
+
+
+register(
+    If(scalar, thunk, thunk1),
+    lambda scalar, thunk, thunk1: thunk.fn() if scalar.value else thunk1.fn(),
+)
+
+##
+# Operations
+##
+
+
+class And(matchpy.Operation):
+    name = "and"
+    infix = True
+    arity = matchpy.Arity(2, True)
+
+
+register(
+    And(scalar, scalar1), lambda scalar, scalar1: Scalar(scalar.value and scalar1.value)
+)
+
+
+class Add(matchpy.Operation):
+    name = "+"
+    infix = True
+    arity = matchpy.Arity(2, True)
+
+
+register(
+    Add(scalar, scalar1), lambda scalar, scalar1: Scalar(scalar.value + scalar1.value)
+)
+
+
+##
+# Higher Order
+##
+
+
+class BinaryOperation(matchpy.Symbol):
+    def __init__(self, operation):
+        self.operation = operation
+        super().__init__(str(operation), None)
+
+
+binary_operation = matchpy.Wildcard.symbol("binary_operation", BinaryOperation)
+
+
+class OuterProduct(matchpy.Operation):
+    name = "·"
+    arity = matchpy.Arity(3, True)
+
+    def __str__(self):
+        l, op, r = self.operands
+        return f"{l} ·{op} {r}"
+
+
+register(
+    Shape(OuterProduct(x, binary_operation, x2)),
+    lambda x, binary_operation, x2: Concat(Shape(x), Shape(x2)),
+)
+
+
+def outer_product_index(x, x1, binary_operation, x3):
+    """
+    MoA Outer product but also support partial indexing. 
+
+    This is because it's hard right now to match based on the length
+    of an array, so hard to filter for valid indices when matching.
+    It also makes some sense to support it partially, so that it can reduce a partial expression.
+
+    Basically we try to take the all that the left array needs from the index, and then pass the rest
+    onto the right array. If they both end up being scalars, we have fully indexed the outer product and we
+    can compute the result. Otherwise, we recurse with a new outer product that has the arrays partially indexed.
+    """
+    index, left, right = x, x1, x3
+    d = Dim(left)
+    i = Take(d, index)
+    j = Drop(d, index)
+    new_left = Index(i, left)
+    new_right = Index(j, right)
+    return If(
+        And(IsScalar(new_left), IsScalar(new_right)),
+        Thunk(lambda: binary_operation.operation(new_left, new_right)),
+        Thunk(lambda: OuterProduct(new_left, binary_operation, new_right)),
+    )
+
+
+register(Index(x, OuterProduct(x1, binary_operation, x3)), outer_product_index)
+
+
+def replace_debug(expr, n=10, use_repr=False):
+    for i in range(n):
+        print((repr if use_repr else str)(replace(expr, i)))
+
+
+# class ConcatWithShapes(matchpy.Operation):
+#     name = "ConcatWithShapes"
+#     infix = False
+#     arity = matchpy.Arity(4, True)
+
+
+# def concat_shape(x, x1, x2, x3):
+#     a_shape, b_shape = x1, x3
+#     return Concat(
+#         Add(Take(Scalar(1), a_shape), Take(Scalar(1), b_shape)),
+#         Unify(Drop(Scalar(1), a_shape), Drop(Scalar(1), b_shape)),
+#     )
+
+# def concat_index(x, x1, x2, x3)
+
+# replace(Concat(x, x1), lambda x, x1: ConcatWithShapes(Shape(x), x, Shape(x1), x1))
+# replace(Shape(ConcatWithShapes(x, x1, x2, x3)), concat_shape)
+# replace(Index(x4, ConcatWithShapes(x, x1, x2, x3)), concat_with_shapes)
+
+
+# replacer.add(
+#     matchpy.ReplacementRule(
+#         matchpy.Pattern(Index(MoAConcatVector(i, j), MoAOuterProduct(El, op, Er))),
+#         lambda El, op, Er: op(Index(i, El), Index(j, Er)),
+#     )
+# )
 
 # replace(Index(x, Index(x2, x3)), Index(Concat(x, x2), x3))
-# replace(Shape(Concat(x, xs)), Unify(Drop(Scalar(1), Shape(x)))
+#
 
 
 ##
@@ -335,25 +560,6 @@ register(
 # )
 
 # replacer.matcher.as_graph().view()
-
-# class MoAOuterProduct(matchpy.Operation):
-#     name = "·"
-#     arity = matchpy.Arity(3, True)
-
-
-# replacer.add(
-#     matchpy.ReplacementRule(
-#         matchpy.Pattern(Shape(MoAOuterProduct(El, op, Er))),
-#         lambda El, Er: (MoAConcatVector(Shape(El), Shape(Er))),
-#     )
-# )
-
-# replacer.add(
-#     matchpy.ReplacementRule(
-#         matchpy.Pattern(Index(MoAConcatVector(i, j), MoAOuterProduct(El, op, Er))),
-#         lambda El, op, Er: op(Index(i, El), Index(j, Er)),
-#     )
-# )
 
 
 # outer_product = MoAOuterProduct(
