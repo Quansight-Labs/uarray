@@ -2,18 +2,10 @@
 
 [![Join the chat at https://gitter.im/Plures/uarray](https://badges.gitter.im/Plures/uarray.svg)](https://gitter.im/Plures/uarray?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-* [Future Meetings](https://calendar.google.com/calendar/embed?src=quansight.com_cg7sf4usbcn18gdhdb3l2c6v1g%40group.calendar.google.com&ctz=America%2FNew_York)
-* [Meeting Notes](https://github.com/Quansight-Labs/uarray/wiki/Meeting-Notes)
-* [Use Cases](https://github.com/Quansight-Labs/uarray/wiki/Use-Cases)
-* [References](https://github.com/Quansight-Labs/uarray/wiki/References)
-
-## Development
-
-
-```bash
-conda env create -f environment.yml
-conda activate uarray
-```
+- [Future Meetings](https://calendar.google.com/calendar/embed?src=quansight.com_cg7sf4usbcn18gdhdb3l2c6v1g%40group.calendar.google.com&ctz=America%2FNew_York)
+- [Meeting Notes](https://github.com/Quansight-Labs/uarray/wiki/Meeting-Notes)
+- [Use Cases](https://github.com/Quansight-Labs/uarray/wiki/Use-Cases)
+- [References](https://github.com/Quansight-Labs/uarray/wiki/References)
 
 ## Background
 
