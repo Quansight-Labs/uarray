@@ -1,0 +1,8 @@
+.vscode
+*.code-workspace
+.pytest_cache
+.mypy_cache
+.hypothesis
+__pycache__
+Digraph*
+.ipynb_checkpoints
