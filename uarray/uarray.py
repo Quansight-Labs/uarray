@@ -5,17 +5,21 @@ Guidelines:
 * We want there to be only one way to compile each expression, so don't write two replacement that could apply to the same thing
   I am not sure if there is an order of preference for my specific rules
 """
-import functools
 import itertools
-import operator
-import typing
 
 import matchpy
 
 ##
 # Replacer
 ##
+
 replacer = matchpy.ManyToOneReplacer()
+replace = replacer.replace
+
+
+def replace_debug(expr, n=10, use_repr=False):
+    for i in range(n):
+        print((repr if use_repr else str)(replace(expr, i)))
 
 
 def register(*args):
@@ -25,23 +29,81 @@ def register(*args):
     )
 
 
-replace = replacer.replace
-
 ##
-# General wildcards
+# Utils
 ##
 
-x = matchpy.Wildcard.dot("x")
-x1 = matchpy.Wildcard.dot("x1")
-x2 = matchpy.Wildcard.dot("x2")
-x3 = matchpy.Wildcard.dot("x3")
-x4 = matchpy.Wildcard.dot("x4")
-xs = matchpy.Wildcard.star("xs")
-xs2 = matchpy.Wildcard.star("xs2")
+
+def idx_from_shape(shape):
+    return map(tuple, itertools.product(*map(range, shape)))
+
+
+def row_major_gamma(idx, shape):
+    """
+    As defined in 3.30
+    """
+    if not idx:
+        return 0
+    return idx[-1] + shape[-1] * row_major_gamma(idx[:-1], shape[:-1])
+
 
 ##
-# Basic Operations
+# Symbols
 ##
+
+
+class Concrete(matchpy.Symbol):
+    def __init__(self, shape, data):
+        self.shape = shape
+        self.data = data
+
+        super().__init__(f"[{' '.join(map(repr, data))}; ρ={repr(shape)}]", None)
+
+    @classmethod
+    def vector(cls, *values):
+        return cls((len(values)), tuple(values))
+
+    @classmethod
+    def scalar(cls, value):
+        return cls(tuple(), (value,))
+
+    @property
+    def dim(self):
+        return len(self.shape)
+
+    @property
+    def is_vector(self):
+        return self.dim == 1
+
+    @property
+    def is_scalar(self):
+        return self.dim == 0
+
+
+class Thunk(matchpy.Symbol):
+    def __init__(self, fn):
+        self.fn = fn
+        super().__init__(matchpy.utils.get_short_lambda_source(fn) or repr(fn), None)
+
+
+class BinaryOperation(matchpy.Symbol):
+    def __init__(self, operation):
+        self.operation = operation
+        super().__init__(str(operation), None)
+
+
+##
+# Operations
+##
+
+
+class If(matchpy.Operation):
+    name = "if"
+    arity = matchpy.Arity(3, True)
+
+    def __str__(self):
+        expr, if_true, if_false = self.operands
+        return f"{expr} ? {if_true} : {if_false}"
 
 
 class Shape(matchpy.Operation):
@@ -65,239 +127,19 @@ class Gamma(matchpy.Operation):
     arity = matchpy.Arity(2, True)
 
 
-##
-# Concrete arrays
-##
-
-
-class Scalar(matchpy.Symbol):
-    def __init__(self, value):
-        self.value = value
-        super().__init__(str(value), None)
-
-    def __repr__(self):
-        return f"Scalar({repr(self.value)})"
-
-
-class Vector(matchpy.Symbol):
-    def __init__(self, *values):
-        self.values = tuple(values)
-        super().__init__(f"<{' '.join(map(repr, values))}>", None)
-
-    @property
-    def length(self):
-        return len(self.values)
-
-    def __repr__(self):
-        return f"Vector({', '.join(map(repr, self.values))})"
-
-
-class Array(matchpy.Symbol):
-    # _base = Concrete((1,), (1,))
-    def __init__(self, shape, data):
-        self.shape = shape
-        self.data = data
-
-        super().__init__(f"[{' '.join(map(repr, data))}; ρ={repr(shape)}]", None)
-
-
-scalar = matchpy.Wildcard.symbol("scalar", Scalar)
-scalar1 = matchpy.Wildcard.symbol("scalar1", Scalar)
-vector = matchpy.Wildcard.symbol("vector", Vector)
-vector1 = matchpy.Wildcard.symbol("vector1", Vector)
-array = matchpy.Wildcard.symbol("array", Array)
-
-
-@matchpy.CustomConstraint
-def scalar_true(scalar):
-    return scalar.value
-
-
-empty_vector = matchpy.CustomConstraint(lambda vector: vector.length == 0)
-
-single_vector = matchpy.CustomConstraint(lambda vector: vector.length == 1)
-
-same_length_vectors = matchpy.CustomConstraint(
-    lambda vector, vector1: vector.length == vector1.length
-)
-
-scalar_array = matchpy.CustomConstraint(lambda array: array.shape == tuple())
-
-
-def row_major_gamma(idx, shape):
-    """
-    As defined in 3.30
-    """
-    if not idx:
-        return 0
-    return idx[-1] + shape[-1] * row_major_gamma(idx[:-1], shape[:-1])
-
-
-register(Shape(scalar), lambda scalar: Vector())
-register(Shape(vector), lambda vector: Vector(vector.length))
-register(Shape(array), lambda array: Vector(*array.shape))
-register(Index(vector, scalar), empty_vector, lambda vector, scalar: scalar)
-register(Index(vector, x), empty_vector, lambda vector, x: x)
-
-
-def index_vectors(vector, vector1):
-    return Scalar(vector1.values[vector.values[0]])
-
-
-register(Index(vector, vector1), single_vector, index_vectors)
-register(
-    Index(vector, array),
-    lambda vector, array: Index(Gamma(vector, Vector(*array.shape)), Ravel(array)),
-)
-register(Ravel(array), lambda array: Vector(*array.data))
-register(
-    Gamma(vector, vector1),
-    same_length_vectors,
-    lambda vector, vector1: Scalar(row_major_gamma(vector.values, vector1.values)),
-)
-
-# Why not have them all be the same?
-
-
-##
-# Converting to
-##
-
-
-class AsArray(matchpy.Operation):
-    name = "AsArray"
+class AsConcrete(matchpy.Operation):
+    name = "AsConcrete"
     arity = matchpy.Arity(1, True)
 
 
-class AsArrayWithShape(matchpy.Operation):
-    name = "AsArrayWithShape"
+class AsConcreteWithShape(matchpy.Operation):
+    name = "AsConcreteWithShape"
     arity = matchpy.Arity(2, True)
 
 
-class AsArrayWithValues(matchpy.Operation):
-    name = "AsArrayWithValues"
+class AsConcreteWithValues(matchpy.Operation):
+    name = "AsConcreteWithValues"
     arity = matchpy.Arity(1, False)
-
-
-def idx_from_shape(shape):
-    return map(tuple, itertools.product(*map(range, shape)))
-
-
-register(AsArray(x), lambda x: AsArrayWithShape(Shape(x), x))
-register(
-    AsArrayWithShape(vector, x),
-    lambda vector, x: AsArrayWithValues(
-        vector, *(Index(Vector(*idx), x) for idx in idx_from_shape(vector.values))
-    ),
-)
-register(
-    AsArrayWithValues(vector, xs),
-    matchpy.CustomConstraint(lambda xs: all(isinstance(x, Scalar) for x in xs)),
-    lambda vector, xs: Array(vector.values, tuple(x.value for x in xs)),
-)
-
-##
-# Changing Arrays
-##
-
-
-class Dim(matchpy.Operation):
-    name = "δ"
-    arity = matchpy.Arity(1, True)
-
-
-register(Dim(x), lambda x: Index(Vector(0), Shape(Shape(x))))
-
-
-class Take(matchpy.Operation):
-    name = "↑"
-    infix = True
-    arity = matchpy.Arity(2, True)
-
-
-register(
-    Take(scalar, vector), lambda scalar, vector: Vector(*vector.values[: scalar.value])
-)
-
-
-class Drop(matchpy.Operation):
-    name = "↓"
-    infix = True
-    arity = matchpy.Arity(2, True)
-
-
-register(
-    Drop(scalar, vector), lambda scalar, vector: Vector(*vector.values[scalar.value :])
-)
-
-
-class Equiv(matchpy.Operation):
-    name = "≡"
-    infix = True
-    arity = matchpy.Arity(2, True)
-
-
-register(
-    Equiv(scalar, scalar1),
-    lambda scalar, scalar1: Scalar(scalar.value == scalar1.value),
-)
-register(
-    Equiv(vector, vector1),
-    lambda vector, vector1: Scalar(vector.values == vector1.values),
-)
-
-
-class Concat(matchpy.Operation):
-    name = "‡"
-    infix = True
-    arity = matchpy.Arity(2, True)
-
-
-register(
-    Concat(vector, vector1),
-    lambda vector, vector1: Vector(*vector.values, *vector1.values),
-)
-
-
-class IsScalar(matchpy.Operation):
-    name = "IsScalar"
-    arity = matchpy.Arity(1, True)
-
-
-register(IsScalar(x), lambda x: Equiv(Dim(x), Scalar(0)))
-
-##
-# Logic
-##
-
-
-class Thunk(matchpy.Symbol):
-    def __init__(self, fn):
-        self.fn = fn
-        super().__init__(matchpy.utils.get_short_lambda_source(fn) or repr(fn), None)
-
-
-thunk = matchpy.Wildcard.symbol("thunk", Thunk)
-thunk1 = matchpy.Wildcard.symbol("thunk1", Thunk)
-
-
-class If(matchpy.Operation):
-    name = "if"
-    arity = matchpy.Arity(3, True)
-
-    def __str__(self):
-        expr, if_true, if_false = self.operands
-        return f"{expr} ? {if_true} : {if_false}"
-
-
-register(
-    If(scalar, thunk, thunk1),
-    lambda scalar, thunk, thunk1: thunk.fn() if scalar.value else thunk1.fn(),
-)
-
-##
-# Operations
-##
 
 
 class And(matchpy.Operation):
@@ -306,34 +148,39 @@ class And(matchpy.Operation):
     arity = matchpy.Arity(2, True)
 
 
-register(
-    And(scalar, scalar1), lambda scalar, scalar1: Scalar(scalar.value and scalar1.value)
-)
-
-
 class Add(matchpy.Operation):
     name = "+"
     infix = True
     arity = matchpy.Arity(2, True)
 
 
-register(
-    Add(scalar, scalar1), lambda scalar, scalar1: Scalar(scalar.value + scalar1.value)
-)
+class Dim(matchpy.Operation):
+    name = "δ"
+    arity = matchpy.Arity(1, True)
 
 
-##
-# Higher Order
-##
+class Take(matchpy.Operation):
+    name = "↑"
+    infix = True
+    arity = matchpy.Arity(2, True)
 
 
-class BinaryOperation(matchpy.Symbol):
-    def __init__(self, operation):
-        self.operation = operation
-        super().__init__(str(operation), None)
+class Drop(matchpy.Operation):
+    name = "↓"
+    infix = True
+    arity = matchpy.Arity(2, True)
 
 
-binary_operation = matchpy.Wildcard.symbol("binary_operation", BinaryOperation)
+class Equiv(matchpy.Operation):
+    name = "≡"
+    infix = True
+    arity = matchpy.Arity(2, True)
+
+
+class Concat(matchpy.Operation):
+    name = "‡"
+    infix = True
+    arity = matchpy.Arity(2, True)
 
 
 class OuterProduct(matchpy.Operation):
@@ -345,6 +192,175 @@ class OuterProduct(matchpy.Operation):
         return f"{l} ·{op} {r}"
 
 
+##
+# Macros
+##
+
+
+def is_vector(expr):
+    return Equiv(Dim(expr), Concrete.scalar(2))
+
+
+def same_shape(expr1, expr2):
+    return Equiv(Shape(expr1), Shape(expr2))
+
+
+def is_empty_vector(expr):
+    return Shape(expr, Concrete.vector(0))
+
+
+##
+# Wildcards
+##
+
+
+x = matchpy.Wildcard.dot("x")
+x1 = matchpy.Wildcard.dot("x1")
+x2 = matchpy.Wildcard.dot("x2")
+x3 = matchpy.Wildcard.dot("x3")
+x4 = matchpy.Wildcard.dot("x4")
+xs = matchpy.Wildcard.star("xs")
+xs2 = matchpy.Wildcard.star("xs2")
+
+thunk = matchpy.Wildcard.symbol("thunk", Thunk)
+thunk1 = matchpy.Wildcard.symbol("thunk1", Thunk)
+
+
+concrete = matchpy.Wildcard.symbol("concrete", Concrete)
+concrete1 = matchpy.Wildcard.symbol("concrete1", Concrete)
+concrete2 = matchpy.Wildcard.symbol("concrete2", Concrete)
+
+
+binary_operation = matchpy.Wildcard.symbol("binary_operation", BinaryOperation)
+
+
+##
+# Constraints
+##
+
+
+concrete_is_scalar = matchpy.CustomConstraint(lambda concrete: concrete.is_scalar)
+concrete_is_true_scalar = matchpy.CustomConstraint(
+    lambda concrete: concrete.is_scalar and concrete.data[0]
+)
+
+concrete_is_empty_vector = matchpy.CustomConstraint(
+    lambda concrete: concrete.shape == (0,)
+)
+concrete_is_single_vector = matchpy.CustomConstraint(
+    lambda concrete: concrete.shape == (1,)
+)
+concrete_is_vector = matchpy.CustomConstraint(lambda concrete: concrete.is_vector)
+concrete_index_is_full = matchpy.CustomConstraint(
+    lambda concrete, concrete1: concrete.is_vector
+    and concrete.shape[0] == len(concrete1.shape)
+    and concrete1.dim * (0,) <= concrete1.shape
+    and concrete.data < concrete1.shape
+)
+concrete_same_length_vectors = matchpy.CustomConstraint(
+    lambda concrete, concrete1: concrete.is_vector
+    and concrete1.is_vector
+    and concrete.shape == concrete1.shape
+)
+
+##
+# Replacements
+##
+
+# Concrete indexing and shape
+
+register(Shape(concrete), lambda concrete: Concrete.vector(*concrete.shape))
+
+register(
+    Index(concrete, concrete1),
+    concrete_index_is_full,
+    matchpy.CustomConstraint(lambda concrete1: concrete1.dim > 1),
+    lambda concrete, concrete1: Concrete(
+        Gamma(concrete, Shape(concrete1)), Ravel(concrete1)
+    ),
+)
+register(
+    Index(concrete, concrete1),
+    concrete_index_is_full,
+    matchpy.CustomConstraint(lambda concrete1: concrete1.is_vector),
+    lambda concrete, concrete1: concrete.scalar(concrete1.values[concrete.values[0]]),
+)
+
+register(Ravel(concrete), lambda concrete: concrete.vector(*concrete.data))
+
+register(
+    Gamma(concrete, concrete1),
+    concrete_same_length_vectors,
+    lambda concrete, concrete1: row_major_gamma(concrete.data, concrete1.data),
+)
+
+# Generic indexing
+register(Index(x, Index(x1, x2)), lambda x, x1, x2: Index(Concat(x1, x), x2))
+
+
+register(
+    Concat(vector, vector1),
+    lambda vector, vector1: Vector(*vector.values, *vector1.values),
+)
+
+
+register(
+    Equiv(concrete, concrete1),
+    lambda concrete, concrete1: Scalar(vector.values == vector1.values),
+)
+
+register(
+    Take(scalar, vector), lambda scalar, vector: Vector(*vector.values[: scalar.value])
+)
+
+
+register(
+    Drop(scalar, vector), lambda scalar, vector: Vector(*vector.values[scalar.value :])
+)
+
+
+register(Dim(x), lambda x: Index(Vector(0), Shape(Shape(x))))
+
+
+register(
+    Gamma(concrete, concrete1),
+    concrete_same_length_vectors,
+    lambda concrete, concrete1: Concrete.scalar(
+        row_major_gamma(concrete.data, concrete1.data)
+    ),
+)
+
+
+register(AsConcrete(x), lambda x: AsConcreteWithShape(Shape(x), x))
+register(
+    AsConcreteWithShape(vector, x),
+    lambda vector, x: AsConcreteWithValues(
+        vector, *(Index(Vector(*idx), x) for idx in idx_from_shape(vector.values))
+    ),
+)
+register(
+    AsConcreteWithValues(vector, xs),
+    matchpy.CustomConstraint(lambda xs: all(isinstance(x, Scalar) for x in xs)),
+    lambda vector, xs: Array(vector.values, tuple(x.value for x in xs)),
+)
+
+
+register(
+    If(concrete, thunk, thunk1),
+    concrete_is_scalar,
+    lambda concrete, thunk, thunk1: thunk.fn() if concrete.data[0] else thunk1.fn(),
+)
+
+register(
+    And(scalar, scalar1), lambda scalar, scalar1: Scalar(scalar.value and scalar1.value)
+)
+
+
+register(
+    Add(scalar, scalar1), lambda scalar, scalar1: Scalar(scalar.value + scalar1.value)
+)
+
+
 register(
     Shape(OuterProduct(x, binary_operation, x2)),
     lambda x, binary_operation, x2: Concat(Shape(x), Shape(x2)),
@@ -353,7 +369,7 @@ register(
 
 def outer_product_index(x, x1, binary_operation, x3):
     """
-    MoA Outer product but also support partial indexing. 
+    MoA Outer product but also support partial indexing.
 
     This is because it's hard right now to match based on the length
     of an array, so hard to filter for valid indices when matching.
@@ -379,234 +395,40 @@ def outer_product_index(x, x1, binary_operation, x3):
 register(Index(x, OuterProduct(x1, binary_operation, x3)), outer_product_index)
 
 
-def replace_debug(expr, n=10, use_repr=False):
-    for i in range(n):
-        print((repr if use_repr else str)(replace(expr, i)))
-
-
-# class ConcatWithShapes(matchpy.Operation):
-#     name = "ConcatWithShapes"
-#     infix = False
-#     arity = matchpy.Arity(4, True)
-
-
-# def concat_shape(x, x1, x2, x3):
-#     a_shape, b_shape = x1, x3
-#     return Concat(
-#         Add(Take(Scalar(1), a_shape), Take(Scalar(1), b_shape)),
-#         Unify(Drop(Scalar(1), a_shape), Drop(Scalar(1), b_shape)),
-#     )
-
-# def concat_index(x, x1, x2, x3)
-
-# replace(Concat(x, x1), lambda x, x1: ConcatWithShapes(Shape(x), x, Shape(x1), x1))
-# replace(Shape(ConcatWithShapes(x, x1, x2, x3)), concat_shape)
-# replace(Index(x4, ConcatWithShapes(x, x1, x2, x3)), concat_with_shapes)
-
-
-# replacer.add(
-#     matchpy.ReplacementRule(
-#         matchpy.Pattern(Index(MoAConcatVector(i, j), MoAOuterProduct(El, op, Er))),
-#         lambda El, op, Er: op(Index(i, El), Index(j, Er)),
-#     )
-# )
-
-# replace(Index(x, Index(x2, x3)), Index(Concat(x, x2), x3))
-#
-
-
 ##
-# Data Operations
+# Gaurds and conversions
 ##
 
-
-# class PythonBinaryOperator(matchpy.Symbol):
-#     def __init__(self, name, operator_):
-#         super().__init__(name)
-#         self.operator = operator_
-
-
-# class BinaryOperator(matchpy.Operation):
-#     name = "BinaryOperator"
-#     arity = matchpy.Arity(3, True)
+# class NotDefined(matchpy.Symbol):
+#     def __init__(self, message):
+#         self.message = message
+#         super().__init__(message, None)
 
 
-# p_o = matchpy.Wildcard.symbol("python_binary_operator", PythonBinaryOperator)
-# o = matchpy.Wildcard.dot("o")
-
-# a = matchpy.Wildcard.dot("a")
-# a_l = matchpy.Wildcard.dot("a_l")
-# a_r = matchpy.Wildcard.dot("a_r")
-# v = matchpy.Wildcard.dot("v")
-
-# replacer.add(
-#     matchpy.ReplacementRule(
-#         matchpy.Pattern(Shape(BinaryOperator(o, a_l, a_r))), lambda a_l: Shape(a_l)
-#     )
-# )
-
-
-# replacer.add(
-#     matchpy.ReplacementRule(
-#         matchpy.Pattern(Index(v, BinaryOperator(o, a_l, a_r))),
-#         lambda v, a_l, a_r: BinaryOperator(o, Index(v, a_l), Index(v, a_r)),
-#     )
-# )
-# python_array_l = matchpy.Wildcard.symbol("python_array_l", PythonArray)
-# python_array_l_is_scalar = matchpy.CustomConstraint(
-#     lambda python_array_l: python_array_l.is_scalar
-# )
-
-# python_array_r = matchpy.Wildcard.symbol("python_array_r", PythonArray)
-# python_array_r_is_scalar = matchpy.CustomConstraint(
-#     lambda python_array_r: python_array_r.is_scalar
-# )
-
-# replacer.add(
-#     matchpy.ReplacementRule(
-#         matchpy.Pattern(
-#             BinaryOperator(p_o, python_array_l, python_array_r),
-#             python_array_l_is_scalar,
-#             python_array_r_is_scalar,
-#         ),
-#         lambda p_o, python_array_l, python_array_r: PythonArray(
-#             None, tuple(), p_o.operator(python_array_l.data, python_array_r.data)
-#         ),
-#     )
-# )
-
-
-# class Vector(matchpy.Operation):
-#     name = "Vector"
-#     arity = matchpy.Arity(0, False)
-
-
-# args = matchpy.Wildcard.star("args")
-
-# replacer.add(
-#     matchpy.ReplacementRule(
-#         matchpy.Pattern(Shape(Vector(args))),
-#         lambda args: PythonArray.vector("_", len(args)),
-#     )
-# )
-
-# replacer.add(
-#     matchpy.ReplacementRule(
-#         matchpy.Pattern(Shape(Vector(args))),
-#         lambda args: PythonArray.vector("_", len(args)),
-#     )
-# )
-
-
-# class If(matchpy.Operation):
-#     name = "if"
-#     arity = matchpy.Arity(3, True)
-
-
-# replacer.add(
-#     matchpy.ReplacementRule(
-#         matchpy.Pattern(If(python_array, a_l, a_r), python_array_is_scalar),
-#         lambda python_array, a_l, a_r: a_l if python_array.data else a_r,
-#     )
-# )
-
-
-# AddOperator = functools.partial(
-#     BinaryOperator, PythonBinaryOperator("add", operator.add)
-# )
-
-# LessEqualOperator = functools.partial(
-#     BinaryOperator, PythonBinaryOperator("<=", operator.le)
-# )
-
-
-# class MoAConcatVector(matchpy.Operation):
-#     name = "++"
-#     arity = matchpy.Arity(2, True)
-
-
-# replacer.add(
-#     matchpy.ReplacementRule(
-#         matchpy.Pattern(Shape(MoAConcatVector(a_l, a_r))),
-#         lambda a_l, a_r: AddOperator(Shape(a_l), Shape(a_r)),
-#     )
-# )
-
-# replacer.add(
-#     matchpy.ReplacementRule(
-#         matchpy.Pattern(Index(Vector(a), MoAConcatVector(a_l, a_r))),
-#         lambda a, a_l, a_r: If(LessEqualOperator()),
-#     )
-# )
-
-
-# class ToPythonArray(matchpy.Operation):
-#     name = "ToPythonArray"
-#     arity = matchpy.Arity(2, True)
-
-
-# replacer.add(
-#     matchpy.ReplacementRule(
-#         matchpy.Pattern(ToPythonArray(literal_vector, python_array)),
-#         lambda python_array: python_array,
-#     )
-# )
-
-# replacer.add(
-#     matchpy.ReplacementRule(
-#         matchpy.Pattern(ToPythonArray(literal_vector, array)),
-#         lambda python_array: python_array,
-#     )
-# )
-
-# replacer.matcher.as_graph().view()
-
-
-# outer_product = MoAOuterProduct(
-#     PythonVector([1, 2, 3]), PlusOperator, PythonVector([4, 5, 6])
-# )
-
-
-# print(to_python_array(replaced))
-# class MoAInnerProduct(matchpy.Operation):
-#     name = '·'
-#     arity = matchpy.Arity(4, True)
-
-# replacer.add(
-#     matchpy.ReplacementRule(
-#         matchpy.Pattern(Shape(MoAInnerProduct(El, op1, op2, Er))),
-#         lambda El, Er: (MoAConcat(MoADrop(-1, Shape(El)), MoADrop(1, Shape(Er))))
-#     )
-# )
-
-# replacer.add(
-#     matchpy.ReplacementRule(
-#         matchpy.Pattern(MoAIndex(MoAConcat(i, j), MoAInnerProduct(El, op, Er))),
-#         lambda El, op, Er: op(MoAIndex(i, El), MoAIndex(j, Er))
-#     )
-# )
-
-
-## old
-
-
-# class EmptyVector(matchpy.Symbol):
-#     pass
-
-
-# class BaseShape(matchpy.Symbol):
+# class WithConcrete(matchpy.Operation):
 #     """
-#     <1>
+#     WithConcrete(replacement_fn, *exprs)
+#     Transforms some expressions into concrete representations and calls replacement_fn
+#     with those concrete values when they are all converted.
 
-#     Only array with the shape equal to itself,
-#     useful as a singleton for the base case of Shape definitions
+#         >>> WithConcrete(
+#                 Thunk(lambda some_expr_concrete: Concrete.scalar(sum(some_expr_concrete.data))),
+#                 AsConcrete(SomeExpr)
+#             )
 #     """
 
-#     pass
+#     name = "WithConcrete"
+#     arity = matchpy.Arity(1, False)
 
 
-# empty_vector = matchpy.Wildcard.symbol("empty_vector", EmptyVector)
-# base_shape = matchpy.Wildcard.symbol("base_shape", BaseShape)
+# def assert_defined(message, conditional, expr):
+#     return If(conditional, lambda: expr, lambda: NotDefined(message))
 
 
-# register(Shape(empty_vector), lambda: ArrayElements(empty_vector, Scalar(0)))
+# def with_concrete(replacement_fn, *exprs):
+#     return WithConcrete(Thunk(replacement_fn), *map(AsConcrete, exprs))
+
+# register(
+#     If(x, thunk, thunk1),
+#     lambda x, thunk, thunk1: assert_defined("If takes scalar value", is_scalar(x), with_concrete(lambda x_concrete: thunk.fn() if x_concrete.data[0] else thunk1.fn(), x))
+# )
