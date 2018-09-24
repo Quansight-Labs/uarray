@@ -6,7 +6,7 @@ Guidelines:
   I am not sure if there is an order of preference for my specific rules
 """
 import itertools
-
+import functools
 import matchpy
 
 ##
@@ -14,7 +14,7 @@ import matchpy
 ##
 
 replacer = matchpy.ManyToOneReplacer()
-replace = replacer.replace
+replace = replacer.replace_post_order
 
 
 def replace_debug(expr, n=10, use_repr=False):
@@ -52,58 +52,15 @@ def row_major_gamma(idx, shape):
 ##
 
 
-class Concrete(matchpy.Symbol):
-    def __init__(self, shape, data):
-        self.shape = shape
-        self.data = data
-
-        super().__init__(f"[{' '.join(map(repr, data))}; ρ={repr(shape)}]", None)
-
-    @classmethod
-    def vector(cls, *values):
-        return cls((len(values)), tuple(values))
-
-    @classmethod
-    def scalar(cls, value):
-        return cls(tuple(), (value,))
-
-    @property
-    def dim(self):
-        return len(self.shape)
-
-    @property
-    def is_vector(self):
-        return self.dim == 1
-
-    @property
-    def is_scalar(self):
-        return self.dim == 0
-
-
-class Thunk(matchpy.Symbol):
-    def __init__(self, fn):
-        self.fn = fn
-        super().__init__(matchpy.utils.get_short_lambda_source(fn) or repr(fn), None)
-
-
-class BinaryOperation(matchpy.Symbol):
-    def __init__(self, operation):
-        self.operation = operation
-        super().__init__(str(operation), None)
+class Scalar(matchpy.Symbol):
+    def __init__(self, value, name=None):
+        self.value = value
+        super().__init__(name or repr(value), None)
 
 
 ##
 # Operations
 ##
-
-
-class If(matchpy.Operation):
-    name = "if"
-    arity = matchpy.Arity(3, True)
-
-    def __str__(self):
-        expr, if_true, if_false = self.operands
-        return f"{expr} ? {if_true} : {if_false}"
 
 
 class Shape(matchpy.Operation):
@@ -117,8 +74,64 @@ class Index(matchpy.Operation):
     arity = matchpy.Arity(2, True)
 
 
+class Total(matchpy.Operation):
+    name = "τ"
+    arity = matchpy.Arity(1, True)
+
+
+class Vector(matchpy.Operation):
+    name = "Vector"
+    arity = matchpy.Arity(0, False)
+
+    def __str__(self):
+        return f"<{' '.join(map(repr, self.operands))}>"
+
+
+class ExplodeVector(matchpy.Operation):
+    """
+    ExplodeVector(length, x) where Shape(x) == <length>
+    """
+
+    name = "ExplodeVectorWithLength"
+    arity = matchpy.Arity(2, True)
+
+
+class Reshape(matchpy.Operation):
+    name = "ρ"
+    arity = matchpy.Arity(2, True)
+    infix = True
+
+
+class ReshapeVector(matchpy.Operation):
+    """
+    Reshape where we know the array is a vector
+    """
+
+    name = "ρ_"
+    arity = matchpy.Arity(2, True)
+    infix = True
+
+
+class If(matchpy.Operation):
+    name = "if"
+    arity = matchpy.Arity(3, True)
+
+    def __str__(self):
+        expr, if_true, if_false = self.operands
+        return f"{expr} ? {if_true} : {if_false}"
+
+
 class Ravel(matchpy.Operation):
     name = "rav"
+    arity = matchpy.Arity(1, True)
+
+
+class RavelArray(matchpy.Operation):
+    """
+    Ravel where dim array > 1
+    """
+
+    name = "rav_"
     arity = matchpy.Arity(1, True)
 
 
@@ -127,24 +140,23 @@ class Gamma(matchpy.Operation):
     arity = matchpy.Arity(2, True)
 
 
-class AsConcrete(matchpy.Operation):
-    name = "AsConcrete"
-    arity = matchpy.Arity(1, True)
+class And(matchpy.Operation):
+    """
+    And(first, lambda: second)
+    """
 
-
-class AsConcreteWithShape(matchpy.Operation):
-    name = "AsConcreteWithShape"
+    name = "and"
+    infix = True
     arity = matchpy.Arity(2, True)
 
 
-class AsConcreteWithValues(matchpy.Operation):
-    name = "AsConcreteWithValues"
-    arity = matchpy.Arity(1, False)
+class Not(matchpy.Operation):
+    name = "not"
+    arity = matchpy.Arity(1, True)
 
 
-class And(matchpy.Operation):
-    name = "and"
-    infix = True
+class Mod(matchpy.Operation):
+    name = "mod"
     arity = matchpy.Arity(2, True)
 
 
@@ -154,7 +166,28 @@ class Add(matchpy.Operation):
     arity = matchpy.Arity(2, True)
 
 
+class Abs(matchpy.Operation):
+    name = "abs"
+    arity = matchpy.Arity(1, True)
+
+
+class Subtract(matchpy.Operation):
+    name = "-"
+    infix = True
+    arity = matchpy.Arity(2, True)
+
+
+class LessThen(matchpy.Operation):
+    name = "<"
+    infix = True
+    arity = matchpy.Arity(2, True)
+
+
 class Dim(matchpy.Operation):
+    """
+    Dimensionality
+    """
+
     name = "δ"
     arity = matchpy.Arity(1, True)
 
@@ -177,10 +210,63 @@ class Equiv(matchpy.Operation):
     arity = matchpy.Arity(2, True)
 
 
-class Concat(matchpy.Operation):
-    name = "‡"
+class EquivScalar(matchpy.Operation):
+    name = "≡s"
     infix = True
     arity = matchpy.Arity(2, True)
+
+
+class EquivVector(matchpy.Operation):
+    name = "≡v"
+    infix = True
+    arity = matchpy.Arity(2, True)
+
+
+class Pi(matchpy.Operation):
+    name = "π"
+    arity = matchpy.Arity(1, True)
+
+
+# class Concat(matchpy.Operation):
+#     name = "‡"
+#     infix = True
+#     arity = matchpy.Arity(2, True)
+
+
+class ConcatVector(matchpy.Operation):
+    name = "‡v"
+    infix = True
+    arity = matchpy.Arity(2, True)
+
+
+# class ConcatArray(matchpy.Operation):
+#     name = "‡a"
+#     infix = True
+#     arity = matchpy.Arity(2, True)
+
+
+class BinaryOperation(matchpy.Operation):
+    name = "BinOp"
+    arity = matchpy.Arity(3, True)
+
+    def __str__(self):
+        l, op, r = self.operands
+        return f"{l} {op.value} {r}"
+
+
+class BinaryOperationScalarExtension(matchpy.Operation):
+    name = "BinOp"
+    arity = matchpy.Arity(3, True)
+
+
+class BinaryOperationArray(matchpy.Operation):
+    name = "BinOp"
+    arity = matchpy.Arity(3, True)
+
+
+class Iota(matchpy.Operation):
+    name = "ι"
+    arity = matchpy.Arity(1, True)
 
 
 class OuterProduct(matchpy.Operation):
@@ -197,16 +283,66 @@ class OuterProduct(matchpy.Operation):
 ##
 
 
+def and_(first, second):
+    return And(first, lambda: second)
+
+
+def if_(cond, if_true, if_false):
+    return If(cond, lambda: if_true, lambda: if_false)
+
+
+def vector(*values):
+    return Vector(*map(Scalar, values))
+
+
+def explode_vector(vec):
+    return ExplodeVector(vector_first(Shape(vec)), vec)
+
+
+def to_vector(expr):
+    return explode_vector(Ravel(expr))
+
+
+def is_empty(expr):
+    return EquivScalar(Pi(expr), Scalar(0))
+
+
+def is_scalar(expr):
+    return EquivScalar(Dim(expr), Scalar(0))
+
+
 def is_vector(expr):
-    return Equiv(Dim(expr), Concrete.scalar(2))
+    return EquivScalar(Dim(expr), Scalar(1))
 
 
-def same_shape(expr1, expr2):
-    return Equiv(Shape(expr1), Shape(expr2))
+def add(l, r):
+    return BinaryOperation(l, Scalar(Add), r)
 
 
-def is_empty_vector(expr):
-    return Shape(expr, Concrete.vector(0))
+def vector_first(expr):
+    return Index(vector(0), expr)
+
+
+# def vector_first_is_one(expr):
+#     return EquivScalar(Scalar(1), Index(vector(0), expr))
+
+
+# def is_base_vector(expr):
+#     """
+#     If expr == <1> which is base vector (shape is same as data)
+#     """
+#     return and_(
+#         is_vector(expr),
+#         and_(vector_first_is_one(Shape(expr), vector_first_is_one(expr))),
+#     )
+
+
+# def same_shape(expr1, expr2):
+#     return Equiv(Shape(expr1), Shape(expr2))
+
+
+# def is_empty_vector(expr):
+#     return Shape(expr, Concrete.vector(0))
 
 
 ##
@@ -219,155 +355,216 @@ x1 = matchpy.Wildcard.dot("x1")
 x2 = matchpy.Wildcard.dot("x2")
 x3 = matchpy.Wildcard.dot("x3")
 x4 = matchpy.Wildcard.dot("x4")
+
 xs = matchpy.Wildcard.star("xs")
-xs2 = matchpy.Wildcard.star("xs2")
+xs1 = matchpy.Wildcard.star("xs1")
 
-thunk = matchpy.Wildcard.symbol("thunk", Thunk)
-thunk1 = matchpy.Wildcard.symbol("thunk1", Thunk)
-
-
-concrete = matchpy.Wildcard.symbol("concrete", Concrete)
-concrete1 = matchpy.Wildcard.symbol("concrete1", Concrete)
-concrete2 = matchpy.Wildcard.symbol("concrete2", Concrete)
-
-
-binary_operation = matchpy.Wildcard.symbol("binary_operation", BinaryOperation)
+scalar = matchpy.Wildcard.symbol("scalar", Scalar)
+scalar1 = matchpy.Wildcard.symbol("scalar1", Scalar)
+scalar2 = matchpy.Wildcard.symbol("scalar2", Scalar)
 
 
 ##
 # Constraints
 ##
-
-
-concrete_is_scalar = matchpy.CustomConstraint(lambda concrete: concrete.is_scalar)
-concrete_is_true_scalar = matchpy.CustomConstraint(
-    lambda concrete: concrete.is_scalar and concrete.data[0]
-)
-
-concrete_is_empty_vector = matchpy.CustomConstraint(
-    lambda concrete: concrete.shape == (0,)
-)
-concrete_is_single_vector = matchpy.CustomConstraint(
-    lambda concrete: concrete.shape == (1,)
-)
-concrete_is_vector = matchpy.CustomConstraint(lambda concrete: concrete.is_vector)
-concrete_index_is_full = matchpy.CustomConstraint(
-    lambda concrete, concrete1: concrete.is_vector
-    and concrete.shape[0] == len(concrete1.shape)
-    and concrete1.dim * (0,) <= concrete1.shape
-    and concrete.data < concrete1.shape
-)
-concrete_same_length_vectors = matchpy.CustomConstraint(
-    lambda concrete, concrete1: concrete.is_vector
-    and concrete1.is_vector
-    and concrete.shape == concrete1.shape
+xs_are_scalars = matchpy.CustomConstraint(
+    lambda xs: all(isinstance(x_, Scalar) for x_ in xs)
 )
 
 ##
 # Replacements
 ##
 
-# Concrete indexing and shape
-
-register(Shape(concrete), lambda concrete: Concrete.vector(*concrete.shape))
-
+# Scalar replacements
+register(Shape(scalar), lambda scalar: vector())
+register(Not(scalar), lambda scalar: Scalar(not scalar.value))
+register(Abs(scalar), lambda scalar: Scalar(abs(scalar.value)))
 register(
-    Index(concrete, concrete1),
-    concrete_index_is_full,
-    matchpy.CustomConstraint(lambda concrete1: concrete1.dim > 1),
-    lambda concrete, concrete1: Concrete(
-        Gamma(concrete, Shape(concrete1)), Ravel(concrete1)
-    ),
+    And(scalar, scalar1),
+    lambda scalar, scalar1: scalar1.value() if scalar.value else Scalar(scalar.value),
 )
 register(
-    Index(concrete, concrete1),
-    concrete_index_is_full,
-    matchpy.CustomConstraint(lambda concrete1: concrete1.is_vector),
-    lambda concrete, concrete1: concrete.scalar(concrete1.values[concrete.values[0]]),
-)
-
-register(Ravel(concrete), lambda concrete: concrete.vector(*concrete.data))
-
-register(
-    Gamma(concrete, concrete1),
-    concrete_same_length_vectors,
-    lambda concrete, concrete1: row_major_gamma(concrete.data, concrete1.data),
-)
-
-# Generic indexing
-register(Index(x, Index(x1, x2)), lambda x, x1, x2: Index(Concat(x1, x), x2))
-
-
-register(
-    Concat(vector, vector1),
-    lambda vector, vector1: Vector(*vector.values, *vector1.values),
-)
-
-
-register(
-    Equiv(concrete, concrete1),
-    lambda concrete, concrete1: Scalar(vector.values == vector1.values),
-)
-
-register(
-    Take(scalar, vector), lambda scalar, vector: Vector(*vector.values[: scalar.value])
-)
-
-
-register(
-    Drop(scalar, vector), lambda scalar, vector: Vector(*vector.values[scalar.value :])
-)
-
-
-register(Dim(x), lambda x: Index(Vector(0), Shape(Shape(x))))
-
-
-register(
-    Gamma(concrete, concrete1),
-    concrete_same_length_vectors,
-    lambda concrete, concrete1: Concrete.scalar(
-        row_major_gamma(concrete.data, concrete1.data)
-    ),
-)
-
-
-register(AsConcrete(x), lambda x: AsConcreteWithShape(Shape(x), x))
-register(
-    AsConcreteWithShape(vector, x),
-    lambda vector, x: AsConcreteWithValues(
-        vector, *(Index(Vector(*idx), x) for idx in idx_from_shape(vector.values))
-    ),
+    LessThen(scalar, scalar1),
+    lambda scalar, scalar1: Scalar(scalar.value < scalar1.value),
 )
 register(
-    AsConcreteWithValues(vector, xs),
-    matchpy.CustomConstraint(lambda xs: all(isinstance(x, Scalar) for x in xs)),
-    lambda vector, xs: Array(vector.values, tuple(x.value for x in xs)),
+    Mod(scalar, scalar1), lambda scalar, scalar1: Scalar(scalar.value % scalar1.value)
 )
-
-
-register(
-    If(concrete, thunk, thunk1),
-    concrete_is_scalar,
-    lambda concrete, thunk, thunk1: thunk.fn() if concrete.data[0] else thunk1.fn(),
-)
-
-register(
-    And(scalar, scalar1), lambda scalar, scalar1: Scalar(scalar.value and scalar1.value)
-)
-
 
 register(
     Add(scalar, scalar1), lambda scalar, scalar1: Scalar(scalar.value + scalar1.value)
 )
-
-
 register(
-    Shape(OuterProduct(x, binary_operation, x2)),
-    lambda x, binary_operation, x2: Concat(Shape(x), Shape(x2)),
+    Subtract(scalar, scalar1),
+    lambda scalar, scalar1: Scalar(scalar.value - scalar1.value),
+)
+register(
+    If(scalar, scalar1, scalar2),
+    lambda scalar, scalar1, scalar2: scalar1.value()
+    if scalar.value
+    else scalar2.value(),
+)
+register(
+    EquivScalar(scalar, scalar1), lambda scalar, scalar1: scalar.value == scalar1.value
+)
+
+# Vector replacements
+register(Shape(Vector(xs)), lambda xs: vector(len(xs)))
+register(Index(Vector(scalar), Vector(xs)), lambda x, xs: xs[x.data[0]])
+register(
+    Gamma(Vector(xs), Vector(xs1)),
+    xs_are_scalars,
+    xs_are_scalars.with_renamed_vars({"xs": "xs1"}),
+    lambda xs, xs1: Scalar(
+        row_major_gamma([x_.value for x_ in xs], [x_.value for x_ in xs1])
+    ),
 )
 
 
-def outer_product_index(x, x1, binary_operation, x3):
+def _equiv_vector(x, xs, x1, xs1):
+    return and_(EquivScalar(x, x1), EquivVector(Vector(*xs), Vector(*xs1)))
+
+
+register(EquivVector(Vector(), Vector()), lambda: Scalar(True))
+register(EquivVector(Vector(x, xs), Vector(x1, xs1)), _equiv_vector)
+
+
+def pi_vector(xs):
+    r = 1
+    for x_ in xs:
+        r *= x_.value
+    return Scalar(r)
+
+
+register(Pi(Vector(xs)), xs_are_scalars, pi_vector)
+
+# Converstion to concrete
+register(
+    ExplodeVector(scalar, x),
+    lambda scalar, x: vector(*(Index(vector(i), x) for i in range(scalar.value))),
+)
+
+# Generic definitions
+
+
+def _equiv(x, x1):
+    return if_(
+        and_(is_scalar(x), is_scalar(x1)),
+        EquivScalar(x, x1),
+        and_(
+            EquivVector(to_vector(Shape(x)), to_vector(Shape(x1))),
+            EquivVector(to_vector(x), to_vector(x1)),
+        ),
+    )
+
+
+register(Equiv(x, x1), _equiv)
+register(Dim(x), lambda x: vector_first(Shape(Shape(x))))
+
+
+def reshape(x, x1):
+    """
+    TODO: Handle if x has zero, then return empty array
+    """
+    return if_(is_vector(x), ReshapeVector(x, x1), ReshapeVector(x, Ravel(x1)))
+
+
+register(Reshape(x, x1), reshape)
+
+
+register(Shape(ReshapeVector(x, x1)), lambda x, x1: x)
+register(
+    Index(x, ReshapeVector(x1, x2)), lambda: Index(Mod(Gamma(x, x1), Total(x2)), x2)
+)
+
+
+def _ravel(x):
+    return if_(is_scalar(x), Vector(x), if_(is_vector(x), x, RavelArray(x)))
+
+
+register(Ravel(x), _ravel)
+
+
+def _binary_operation(x, scalar, x1):
+    return if_(
+        is_scalar(x),
+        if_(
+            is_scalar(x1),
+            scalar.value(x, x1),
+            BinaryOperationScalarExtension(x, scalar, x1),
+        ),
+        if_(
+            is_scalar(x1),
+            BinaryOperationScalarExtension(x1, scalar, x),
+            BinaryOperationArray(x, scalar, x1),
+        ),
+    )
+
+
+register(BinaryOperation(x, scalar, x1), _binary_operation)
+
+register(Shape(BinaryOperationArray(x, scalar, x1), lambda x, scalar, x1: Shape(x)))
+register(
+    Index(
+        x,
+        BinaryOperationArray(x1, scalar, x2),
+        lambda x, x1, scalar, x2: BinaryOperation(Index(x, x1), scalar, Index(x, x2)),
+    )
+)
+register(
+    Shape(BinaryOperationScalarExtension(x, scalar, x1)),
+    lambda x, scalar, x1: Shape(x1),
+)
+register(
+    Index(
+        x,
+        BinaryOperationScalarExtension(x1, scalar, x2),
+        lambda x, x1, scalar, x2: BinaryOperation(x1, scalar, Index(x, x2)),
+    )
+)
+
+register(Shape(ConcatVector(x, x1)), lambda x, x1: add(Shape(x), Shape(x1)))
+
+
+def _index_concat_vector(x, x1, x2):
+    idx = vector_first(x)
+    size_first = vector_first(Shape(x1))
+    modified_index = Subtract(idx, size_first)
+    return if_(LessThen(idx, size_first), Index(x, x1), Index(modified_index, x2))
+
+
+register(Index(x, ConcatVector(x1, x2)), lambda x, x1: add(Shape(x), Shape(x1)))
+
+register(Shape(Iota(x)), lambda x: Vector(x))
+register(Index(x, Iota(x1)), lambda x, x1: vector_first(x))
+
+register(Shape(Take(x, x1)), lambda x, x1: Vector(Abs(vector_first(x))))
+register(
+    Index(x, Take(x1, x2)),
+    lambda x, x1, x2: if_(
+        LessThen(vector_first(x1), Scalar(0)),
+        Index(Vector(Add(Add(Total(x2), x1), vector_first(x))), x2),
+        Index(x, x2),
+    ),
+)
+register(
+    Shape(Drop(x, x1)), lambda x, x1: Vector(Subtract(Total(x1), Abs(vector_first(x))))
+)
+register(
+    Index(x, Drop(x1, x2)),
+    lambda x, x1, x2: if_(
+        LessThen(vector_first(x1), Scalar(0)),
+        Index(x, x2),
+        Index(Vector(Add(x1, vector_first(x))), x2),
+    ),
+)
+
+
+register(Shape(Index(x, x1)), lambda x, x1: Drop(Total(x), Shape(x1)))
+register(Index(x, Index(x1, x2)), lambda x, x1, x2: Index(ConcatVector(x1, x), x2))
+
+
+def outer_product_index(x, x1, scalar, x3):
     """
     MoA Outer product but also support partial indexing.
 
@@ -385,14 +582,14 @@ def outer_product_index(x, x1, binary_operation, x3):
     j = Drop(d, index)
     new_left = Index(i, left)
     new_right = Index(j, right)
-    return If(
-        And(IsScalar(new_left), IsScalar(new_right)),
-        Thunk(lambda: binary_operation.operation(new_left, new_right)),
-        Thunk(lambda: OuterProduct(new_left, binary_operation, new_right)),
+    return if_(
+        and_(is_scalar(new_left), is_scalar(new_right)),
+        scalar.value(new_left, new_right),
+        OuterProduct(new_left, scalar, new_right),
     )
 
 
-register(Index(x, OuterProduct(x1, binary_operation, x3)), outer_product_index)
+register(Index(x, OuterProduct(x1, scalar, x3)), outer_product_index)
 
 
 ##
