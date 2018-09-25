@@ -72,9 +72,16 @@ def row_major_gamma(idx, shape):
 
 
 class Scalar(matchpy.Symbol):
+    """
+    Scalar(value) returns a scalar with a value
+    """
+
     def __init__(self, value, name=None):
         self.value = value
         super().__init__(name or repr(value), None)
+
+    def __str__(self):
+        return str(self.value)
 
 
 ##
