@@ -1,4 +1,4 @@
-# pylint: disable=E1120,W0108,W0621,E1121
+# pylint: disable=E1120,W0108,W0621,E1121,E1101
 """
 Guidelines:
 
