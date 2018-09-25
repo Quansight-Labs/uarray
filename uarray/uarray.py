@@ -6,15 +6,16 @@ Guidelines:
   I am not sure if there is an order of preference for my specific rules
 """
 import itertools
-import functools
 import matchpy
+import pprint
+
 
 ##
 # Replacer
 ##
 
 replacer = matchpy.ManyToOneReplacer()
-replace = replacer.replace_post_order
+replace = replacer.replace
 
 
 def replace_debug(expr, n=10, use_repr=False):
