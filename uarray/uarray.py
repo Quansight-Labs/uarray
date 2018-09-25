@@ -18,9 +18,27 @@ replacer = matchpy.ManyToOneReplacer()
 replace = replacer.replace
 
 
-def replace_debug(expr, n=10, use_repr=False):
-    for i in range(n):
-        print((repr if use_repr else str)(replace(expr, i)))
+def _pprint_operation(self, object, stream, indent, allowance, context, level):
+    stream.write(f"{type(object).__name__}(")
+    self._format_items(object.operands, stream, indent, allowance + 1, context, level)
+    stream.write(")")
+
+
+pprint.PrettyPrinter._pprint_operation = _pprint_operation
+pprint.PrettyPrinter._dispatch[
+    matchpy.Operation.__repr__
+] = pprint.PrettyPrinter._pprint_operation
+
+
+def replace_debug(expr, use_pprint=False, n=400):
+    res = expr
+    for _ in range(n):
+        new_res = replace(res, 1)
+        if new_res == res:
+            return res
+        res = new_res
+        (pprint.pprint if use_pprint else print)(res)
+    raise RuntimeError(f"Replaced more than {n} times.")
 
 
 def register(*args):
