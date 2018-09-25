@@ -10,6 +10,7 @@ dependencies:
   - black
   - pylint
   - jupyterlab
+  - flake8
   # for testing
   - numpy
   - hypothesis

@@ -6,7 +6,6 @@ Guidelines:
   I am not sure if there is an order of preference for my specific rules
 """
 import itertools
-import matchpy
 import pprint
 
 
