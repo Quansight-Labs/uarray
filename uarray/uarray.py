@@ -110,7 +110,7 @@ class Vector(matchpy.Operation):
     arity = matchpy.Arity(0, False)
 
     def __str__(self):
-        return f"<{' '.join(map(repr, self.operands))}>"
+        return f"<{' '.join(map(str, self.operands))}>"
 
 
 class ExplodeVector(matchpy.Operation):
@@ -133,7 +133,7 @@ class ReshapeVector(matchpy.Operation):
     Reshape where we know the array is a vector
     """
 
-    name = "ρ_"
+    name = "ρ-v"
     arity = matchpy.Arity(2, True)
     infix = True
 
@@ -157,7 +157,7 @@ class RavelArray(matchpy.Operation):
     Ravel where dim array > 1
     """
 
-    name = "rav_"
+    name = "rav-a"
     arity = matchpy.Arity(1, True)
 
 
