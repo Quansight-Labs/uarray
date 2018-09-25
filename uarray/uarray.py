@@ -477,6 +477,8 @@ register(
 
 # Generic definitions
 
+register(Total(x), lambda x: Pi(Shape(x)))
+
 
 def _equiv(x, x1):
     return if_(
