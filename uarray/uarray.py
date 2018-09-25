@@ -314,11 +314,11 @@ class OuterProduct(matchpy.Operation):
 
 
 def and_(first, second):
-    return And(first, lambda: second)
+    return And(first, Scalar(lambda: second))
 
 
 def if_(cond, if_true, if_false):
-    return If(cond, lambda: if_true, lambda: if_false)
+    return If(cond, Scalar(lambda: if_true), Scalar(lambda: if_false))
 
 
 def vector(*values):
@@ -330,7 +330,7 @@ def explode_vector(vec):
 
 
 def to_vector(expr):
-    return explode_vector(Ravel(expr))
+    return ExplodeVector(Total(expr), Ravel(expr))
 
 
 def is_empty(expr):
@@ -411,7 +411,7 @@ register(Not(scalar), lambda scalar: Scalar(not scalar.value))
 register(Abs(scalar), lambda scalar: Scalar(abs(scalar.value)))
 register(
     And(scalar, scalar1),
-    lambda scalar, scalar1: scalar1.value() if scalar.value else Scalar(scalar.value),
+    lambda scalar, scalar1: scalar1.value() if scalar.value else scalar,
 )
 register(
     LessThen(scalar, scalar1),
@@ -435,12 +435,13 @@ register(
     else scalar2.value(),
 )
 register(
-    EquivScalar(scalar, scalar1), lambda scalar, scalar1: scalar.value == scalar1.value
+    EquivScalar(scalar, scalar1),
+    lambda scalar, scalar1: Scalar(scalar.value == scalar1.value),
 )
 
 # Vector replacements
 register(Shape(Vector(xs)), lambda xs: vector(len(xs)))
-register(Index(Vector(scalar), Vector(xs)), lambda x, xs: xs[x.data[0]])
+register(Index(Vector(scalar), Vector(xs)), lambda scalar, xs: xs[scalar.value])
 register(
     Gamma(Vector(xs), Vector(xs1)),
     xs_are_scalars,
@@ -471,7 +472,7 @@ register(Pi(Vector(xs)), xs_are_scalars, pi_vector)
 # Converstion to concrete
 register(
     ExplodeVector(scalar, x),
-    lambda scalar, x: vector(*(Index(vector(i), x) for i in range(scalar.value))),
+    lambda scalar, x: Vector(*(Index(vector(i), x) for i in range(scalar.value))),
 )
 
 # Generic definitions
@@ -533,24 +534,18 @@ def _binary_operation(x, scalar, x1):
 
 register(BinaryOperation(x, scalar, x1), _binary_operation)
 
-register(Shape(BinaryOperationArray(x, scalar, x1), lambda x, scalar, x1: Shape(x)))
+register(Shape(BinaryOperationArray(x, scalar, x1)), lambda x, scalar, x1: Shape(x))
 register(
-    Index(
-        x,
-        BinaryOperationArray(x1, scalar, x2),
-        lambda x, x1, scalar, x2: BinaryOperation(Index(x, x1), scalar, Index(x, x2)),
-    )
+    Index(x, BinaryOperationArray(x1, scalar, x2)),
+    lambda x, x1, scalar, x2: BinaryOperation(Index(x, x1), scalar, Index(x, x2)),
 )
 register(
     Shape(BinaryOperationScalarExtension(x, scalar, x1)),
     lambda x, scalar, x1: Shape(x1),
 )
 register(
-    Index(
-        x,
-        BinaryOperationScalarExtension(x1, scalar, x2),
-        lambda x, x1, scalar, x2: BinaryOperation(x1, scalar, Index(x, x2)),
-    )
+    Index(x, BinaryOperationScalarExtension(x1, scalar, x2)),
+    lambda x, x1, scalar, x2: BinaryOperation(x1, scalar, Index(x, x2)),
 )
 
 register(Shape(ConcatVector(x, x1)), lambda x, x1: add(Shape(x), Shape(x1)))
