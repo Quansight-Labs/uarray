@@ -291,6 +291,10 @@ class BinaryOperationArray(matchpy.Operation):
 
 
 class Iota(matchpy.Operation):
+    """
+    Iota(n) returns a vector of 0 to n-1.
+    """
+
     name = "ι"
     arity = matchpy.Arity(1, True)
 
