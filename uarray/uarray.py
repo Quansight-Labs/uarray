@@ -98,15 +98,16 @@ def row_major_gamma_inverse(n, shape):
 
 class Scalar(matchpy.Symbol):
     """
-    Scalar(value) returns a scalar with a value
+    Scalar(value, name=None) returns a scalar with a value
     """
 
-    def __init__(self, value, name=None):
+    def __init__(self, value, display_value=None):
         self.value = value
-        super().__init__(name or repr(value), None)
+        self._display_value = display_value or value
+        super().__init__(repr(self._display_value), None)
 
     def __str__(self):
-        return str(self.value)
+        return str(self._display_value)
 
 
 ##
@@ -158,7 +159,7 @@ class ReshapeVector(matchpy.Operation):
     Reshape where we know the array is a vector
     """
 
-    name = "ρ-v"
+    name = "ρ"
     arity = matchpy.Arity(2, True)
     infix = True
 
@@ -348,7 +349,9 @@ def and_(first, second):
 
 
 def if_(cond, if_true, if_false):
-    return If(cond, Scalar(lambda: if_true), Scalar(lambda: if_false))
+    return If(
+        cond, Scalar(lambda: if_true, if_true), Scalar(lambda: if_false, if_false)
+    )
 
 
 def vector(*values):
@@ -606,6 +609,7 @@ register(Index(x, ConcatVector(x1, x2)), lambda x, x1: add(Shape(x), Shape(x1)))
 register(Shape(Iota(x)), lambda x: Vector(x))
 register(Index(x, Iota(x1)), lambda x, x1: vector_first(x))
 
+# TOOD: Does this support more than vector
 register(Shape(Take(x, x1)), lambda x, x1: Vector(Abs(vector_first(x))))
 register(
     Index(x, Take(x1, x2)),

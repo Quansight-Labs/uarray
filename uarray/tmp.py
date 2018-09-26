@@ -3,4 +3,5 @@ from uarray import *
 
 
 i = Iota(Scalar(10))
-print(replace_debug(as_vector(Reshape(vector(2, 2), i)), False))
+two_by_two = Reshape(vector(2, 2), i)
+print(replace_debug(as_vector(Take(vector(1), two_by_two))))
