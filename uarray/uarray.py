@@ -8,6 +8,7 @@ Guidelines:
 import itertools
 import pprint
 
+import matchpy
 
 ##
 # Replacer
@@ -52,6 +53,13 @@ def register(*args):
 ##
 
 
+def product(xs):
+    r = 1
+    for x_ in xs:
+        r *= x_
+    return r
+
+
 def idx_from_shape(shape):
     return map(tuple, itertools.product(*map(range, shape)))
 
@@ -60,9 +68,27 @@ def row_major_gamma(idx, shape):
     """
     As defined in 3.30
     """
+    assert len(idx) == len(shape)
     if not idx:
         return 0
-    return idx[-1] + shape[-1] * row_major_gamma(idx[:-1], shape[:-1])
+    assert idx < shape
+    return idx[-1] + (shape[-1] * row_major_gamma(idx[:-1], shape[:-1]))
+
+
+def row_major_gamma_inverse(n, shape):
+    """
+    As defined in 3.41
+    """
+    assert n >= 0
+    assert n < product(shape)
+    for x_ in shape:
+        assert x_ > 0
+
+    if len(shape) == 1:
+        return (n,)
+
+    *next_shape, dim = shape
+    return (*row_major_gamma_inverse(n // dim, next_shape), n % dim)
 
 
 ##
@@ -162,6 +188,11 @@ class RavelArray(matchpy.Operation):
 
 class Gamma(matchpy.Operation):
     name = "γ"
+    arity = matchpy.Arity(2, True)
+
+
+class GammaInverse(matchpy.Operation):
+    name = "γ'"
     arity = matchpy.Arity(2, True)
 
 
@@ -332,6 +363,10 @@ def to_vector(expr):
     return ExplodeVector(Total(expr), Ravel(expr))
 
 
+def as_vector(expr):
+    return Reshape(Shape(expr), to_vector(expr))
+
+
 def is_empty(expr):
     return EquivScalar(Pi(expr), Scalar(0))
 
@@ -449,6 +484,13 @@ register(
         row_major_gamma([x_.value for x_ in xs], [x_.value for x_ in xs1])
     ),
 )
+register(
+    GammaInverse(scalar, Vector(xs)),
+    xs_are_scalars,
+    lambda scalar, xs: vector(
+        *row_major_gamma_inverse(scalar.value, [x_.value for x_ in xs])
+    ),
+)
 
 
 def _equiv_vector(x, xs, x1, xs1):
@@ -457,16 +499,9 @@ def _equiv_vector(x, xs, x1, xs1):
 
 register(EquivVector(Vector(), Vector()), lambda: Scalar(True))
 register(EquivVector(Vector(x, xs), Vector(x1, xs1)), _equiv_vector)
-
-
-def pi_vector(xs):
-    r = 1
-    for x_ in xs:
-        r *= x_.value
-    return Scalar(r)
-
-
-register(Pi(Vector(xs)), xs_are_scalars, pi_vector)
+register(
+    Pi(Vector(xs)), xs_are_scalars, lambda xs: Scalar(product(x_.value for x_ in xs))
+)
 
 # Converstion to concrete
 register(
@@ -506,7 +541,8 @@ register(Reshape(x, x1), reshape)
 
 register(Shape(ReshapeVector(x, x1)), lambda x, x1: x)
 register(
-    Index(x, ReshapeVector(x1, x2)), lambda: Index(Mod(Gamma(x, x1), Total(x2)), x2)
+    Index(x, ReshapeVector(x1, x2)),
+    lambda x, x1, x2: Index(Vector(Mod(Gamma(x, x1), Total(x2))), x2),
 )
 
 
@@ -515,6 +551,12 @@ def _ravel(x):
 
 
 register(Ravel(x), _ravel)
+
+
+register(
+    Index(x, RavelArray(x1)),
+    lambda x, x1: Index(GammaInverse(vector_first(x), Shape(x1)), x1),
+)
 
 
 def _binary_operation(x, scalar, x1):
