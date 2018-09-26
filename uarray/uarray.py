@@ -19,8 +19,18 @@ replace = replacer.replace
 
 
 def _pprint_operation(self, object, stream, indent, allowance, context, level):
-    stream.write(f"{type(object).__name__}(")
-    self._format_items(object.operands, stream, indent, allowance + 1, context, level)
+    """
+    Modified from pprint dict https://github.com/python/cpython/blob/3.7/Lib/pprint.py#L194
+    """
+    operands = object.operands
+    if not operands:
+        stream.write(repr(object))
+        return
+    cls = object.__class__
+    stream.write(cls.__name__ + "(")
+    self._format_items(
+        operands, stream, indent + len(cls.__name__), allowance + 1, context, level
+    )
     stream.write(")")
 
 
@@ -37,7 +47,9 @@ def replace_debug(expr, use_pprint=False, n=400):
         if new_res == res:
             return res
         res = new_res
-        (pprint.pprint if use_pprint else print)(res)
+        printer = pprint.pprint if use_pprint else print
+        printer(res)
+
     raise RuntimeError(f"Replaced more than {n} times.")
 
 
@@ -344,14 +356,16 @@ class OuterProduct(matchpy.Operation):
 ##
 
 
+def thunk(value):
+    return Scalar(lambda: value, value)
+
+
 def and_(first, second):
-    return And(first, Scalar(lambda: second))
+    return And(first, thunk(second))
 
 
 def if_(cond, if_true, if_false):
-    return If(
-        cond, Scalar(lambda: if_true, if_true), Scalar(lambda: if_false, if_false)
-    )
+    return If(cond, thunk(if_true), thunk(if_false))
 
 
 def vector(*values):
@@ -437,6 +451,9 @@ scalar2 = matchpy.Wildcard.symbol("scalar2", Scalar)
 xs_are_scalars = matchpy.CustomConstraint(
     lambda xs: all(isinstance(x_, Scalar) for x_ in xs)
 )
+xs1_are_scalars = matchpy.CustomConstraint(
+    lambda xs1: all(isinstance(x_, Scalar) for x_ in xs1)
+)
 
 ##
 # Replacements
@@ -482,7 +499,7 @@ register(Index(Vector(scalar), Vector(xs)), lambda scalar, xs: xs[scalar.value])
 register(
     Gamma(Vector(xs), Vector(xs1)),
     xs_are_scalars,
-    xs_are_scalars.with_renamed_vars({"xs": "xs1"}),
+    xs1_are_scalars,
     lambda xs, xs1: Scalar(
         row_major_gamma([x_.value for x_ in xs], [x_.value for x_ in xs1])
     ),
