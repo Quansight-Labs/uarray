@@ -1,8 +1,52 @@
 # import typing
 # import itertools
-# import hypothesis
+import pytest
+import hypothesis
+import hypothesis.extra.numpy
+import hypothesis.strategies
 
-# import uarray
+import uarray
+
+
+shape = hypothesis.strategies.shared(
+    hypothesis.extra.numpy.array_shapes(min_dims=1), key="_"
+)
+
+
+def shape_to_n(shape_):
+    return hypothesis.strategies.integers(
+        min_value=0, max_value=uarray.product(shape_) - 1
+    )
+
+
+def test_row_major_gamma():
+    assert uarray.row_major_gamma((0, 1, 0), (2, 2, 1)) == 1
+
+
+@pytest.mark.parametrize(
+    "n,shape_,expected",
+    [
+        (0, (2, 2), (0, 0)),
+        (1, (2, 2), (0, 1)),
+        (2, (2, 2), (1, 0)),
+        (3, (2, 2), (1, 1)),
+        (0, (2, 2, 1), (0, 0, 0)),
+        (1, (2, 2, 1), (0, 1, 0)),
+        (2, (2, 2, 1), (1, 0, 0)),
+        (3, (2, 2, 1), (1, 1, 0)),
+    ],
+)
+def test_row_major_gamma_inverse(n, shape_, expected):
+    assert uarray.row_major_gamma_inverse(n, shape_) == expected
+
+
+@hypothesis.given(x=shape, n=shape.flatmap(shape_to_n))
+def test_row_major_gamma_3_40(x, n):
+    """
+    eq. 3.40
+    """
+    assert uarray.row_major_gamma(uarray.row_major_gamma_inverse(n, x), x) == n
+
 
 # def data_strategy(shape: typing.Tuple[int, ...]):
 #     if not shape:
@@ -61,4 +105,3 @@
 #     shape, data = res.value
 #     assert shape = a[0] + b[0]
 #     for idx in indices_from_shape(shape):
-
