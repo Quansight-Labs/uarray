@@ -324,7 +324,7 @@ class BinaryOperation(matchpy.Operation):
 
 
 class BinaryOperationScalarExtension(matchpy.Operation):
-    name = "BinOp"
+    name = "BinOpScalar"
     arity = matchpy.Arity(3, True)
 
 
@@ -560,6 +560,9 @@ register(Reshape(x, x1), reshape)
 
 
 register(Shape(ReshapeVector(x, x1)), lambda x, x1: x)
+# Something is wrong here
+# (<0> ψ (<2 2> ρ ι(10))) with (<mod(γ(<0>, <2 2>), τ(ι(10)))> ψ ι(10))
+
 register(
     Index(x, ReshapeVector(x1, x2)),
     lambda x, x1, x2: Index(Vector(Mod(Gamma(x, x1), Total(x2))), x2),
