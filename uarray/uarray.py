@@ -535,6 +535,9 @@ register(Total(x), lambda x: Pi(Shape(x)))
 
 
 def _equiv(x, x1):
+    # operations and operands are the same, and variable names are the same (if not none)
+    if x == x1:
+        return Scalar(True)
     return if_(
         and_(is_scalar(x), is_scalar(x1)),
         EquivScalar(x, x1),
@@ -654,6 +657,11 @@ register(
 
 register(Shape(Index(x, x1)), lambda x, x1: Drop(Total(x), Shape(x1)))
 register(Index(x, Index(x1, x2)), lambda x, x1, x2: Index(ConcatVector(x1, x), x2))
+
+register(
+    Shape(OuterProduct(x, scalar, x2)),
+    lambda x, binary_operation, x2: ConcatVector(Shape(x), Shape(x2)),
+)
 
 
 def outer_product_index(x, x1, scalar, x3):
