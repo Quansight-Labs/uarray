@@ -10,12 +10,6 @@ x = add(Scalar(1), i)
 print(replace(x))
 
 
-register(
-    InnerProduct(op1, op2, x, x2),
-    lambda
-)
+# TODO: Add partial and full index
 
-register(
-    InnerProduct(op1, op2, x, BinOpScalar(scalar, op3, x2)),
-    lambda
-)
+# TODO: Add
