@@ -59,17 +59,6 @@ def register(*args):
     )
 
 
-# doesn't work cause expressions are re-created when replaced so adding on to passed in expression doesn't work
-# def print_tree(expr):
-#     """
-#     Print's the expressiond preceeded by the express
-#     it replaced, and recursing.
-#     """
-#     if hasattr(expr, "_previous"):
-#         print_tree(expr._previous)
-#     print(expr)
-
-
 ##
 # Utils
 ##
@@ -179,15 +168,6 @@ class Vector(matchpy.Operation):
 
     def __str__(self):
         return f"<{' '.join(map(str, self.operands))}>"
-
-
-class ExplodeVector(matchpy.Operation):
-    """
-    ExplodeVector(length, x) where Shape(x) == <length>
-    """
-
-    name = "ExplodeVector"
-    arity = matchpy.Arity(2, True)
 
 
 class AbstractWithDimension(matchpy.Operation):
@@ -333,14 +313,22 @@ class Equiv(matchpy.Operation):
     arity = matchpy.Arity(2, True)
 
 
+class EquivArray(matchpy.Operation):
+    """
+    EquivArray(dim_l, dim_r, l, r)
+    """
+
+    name = "≡a"
+    infix = True
+    arity = matchpy.Arity(4, True)
+
+    def __str__(self):
+        d_l, d_r, l, r = self.operands
+        return f"({l}^{d_l} ≡a {r}^{d_l})"
+
+
 class EquivScalar(matchpy.Operation):
     name = "≡s"
-    infix = True
-    arity = matchpy.Arity(2, True)
-
-
-class EquivVector(matchpy.Operation):
-    name = "≡v"
     infix = True
     arity = matchpy.Arity(2, True)
 
@@ -350,22 +338,10 @@ class Pi(matchpy.Operation):
     arity = matchpy.Arity(1, True)
 
 
-# class Concat(matchpy.Operation):
-#     name = "‡"
-#     infix = True
-#     arity = matchpy.Arity(2, True)
-
-
 class ConcatVector(matchpy.Operation):
     name = "‡v"
     infix = True
     arity = matchpy.Arity(2, True)
-
-
-# class ConcatArray(matchpy.Operation):
-#     name = "‡a"
-#     infix = True
-#     arity = matchpy.Arity(2, True)
 
 
 class BinaryOperation(matchpy.Operation):
@@ -419,36 +395,8 @@ class InnerProduct(matchpy.Operation):
 ##
 
 
-def thunk(value):
-    return Scalar(lambda: value, value)
-
-
-def and_(first, second):
-    return And(first, thunk(second))
-
-
-def if_(cond, if_true, if_false):
-    return If(cond, thunk(if_true), thunk(if_false))
-
-
 def vector(*values):
     return Vector(*map(Scalar, values))
-
-
-def explode_vector(vec):
-    return ExplodeVector(vector_first(Shape(vec)), vec)
-
-
-def to_vector(expr):
-    return ExplodeVector(Total(expr), Ravel(expr))
-
-
-def as_vector(expr):
-    return Reshape(Shape(expr), to_vector(expr))
-
-
-def sum_vector(expr):
-    return Pi(explode_vector(expr))
 
 
 def is_scalar(expr):
@@ -508,8 +456,7 @@ register(Shape(scalar), lambda scalar: vector())
 register(Not(scalar), lambda scalar: Scalar(not scalar.value))
 register(Abs(scalar), lambda scalar: Scalar(abs(scalar.value)))
 register(
-    And(scalar, scalar1),
-    lambda scalar, scalar1: scalar1.value() if scalar.value else scalar,
+    And(scalar, scalar1), lambda scalar, scalar1: Scalar(scalar.value and scalar1.value)
 )
 register(
     LessThen(scalar, scalar1),
@@ -526,12 +473,7 @@ register(
     Subtract(scalar, scalar1),
     lambda scalar, scalar1: Scalar(scalar.value - scalar1.value),
 )
-register(
-    If(scalar, scalar1, scalar2),
-    lambda scalar, scalar1, scalar2: scalar1.value()
-    if scalar.value
-    else scalar2.value(),
-)
+register(If(scalar, x, x1), lambda scalar, x, x1: x if scalar.value else x1)
 register(
     EquivScalar(scalar, scalar1),
     lambda scalar, scalar1: Scalar(scalar.value == scalar1.value),
@@ -556,13 +498,62 @@ register(
     ),
 )
 
+# dim && shape && contents are the same
+register(
+    Equiv(x, x1),
+    lambda x, x1: And(
+        EquivScalar(Dim(x), Dim(x1)),
+        And(
+            EquivArray(Scalar(1), Scalar(1), Shape(x), Shape(x1)),
+            EquivArray(Dim(x), Dim(x1), x, x1),
+        ),
+    ),
+)
 
-def _equiv_vector(x, xs, x1, xs1):
-    return and_(EquivScalar(x, x1), EquivVector(Vector(*xs), Vector(*xs1)))
+
+def _abstract_vector(prefix_name, length):
+    return Vector(
+        *(
+            AbstractWithDimension(Scalar(0), variable_name=f"{prefix_name}_{i}")
+            for i in range(length)
+        )
+    )
 
 
-register(EquivVector(Vector(), Vector()), lambda: Scalar(True))
-register(EquivVector(Vector(x, xs), Vector(x1, xs1)), _equiv_vector)
+# Contents are the same if fully indexing both result in equiv scalars
+register(
+    EquivArray(scalar, scalar1, x, x1),
+    lambda scalar, scalar1, x, x1: EquivScalar(
+        FullIndex(_abstract_vector("_equiv", scalar.value), x),
+        FullIndex(_abstract_vector("_equiv", scalar1.value), x1),
+    ),
+)
+
+# two scalars are equivalent if their forms are the same
+register(
+    EquivScalar(x, x1),
+    matchpy.EqualVariablesConstraint("x", "x1"),
+    lambda x, x1: Scalar(True),
+)
+
+# we know if they are equivalent if both are scalars
+register(
+    EquivScalar(scalar, scalar1), lambda scalar, scalar1: Scalar(scalar == scalar1)
+)
+
+# Also if we are comparing two concrete vectors indexed abstractly
+# we know if they are not equal if their forms are not equal
+register(
+    EquivScalar(
+        Index(Vector(AbstractWithDimension(x)), Vector(xs)),
+        Index(Vector(AbstractWithDimension(x1)), Vector(xs1)),
+    ),
+    xs_are_scalars,
+    xs1_are_scalars,
+    matchpy.EqualVariablesConstraint("x", "x1"),
+    lambda x, x1, xs, xs1: Scalar(xs == xs1),
+)
+
 register(
     Pi(Vector(xs)), xs_are_scalars, lambda xs: Scalar(product(x_.value for x_ in xs))
 )
@@ -580,40 +571,18 @@ register(
 # register(ConcatVector(Vector(xs), Vector(xs1)), lambda xs, xs1: Vector(*xs, *xs1))
 
 
-# Converstion to concrete
-register(
-    ExplodeVector(scalar, x),
-    lambda scalar, x: Vector(*(FullIndex(vector(i), x) for i in range(scalar.value))),
-)
-
 # Generic definitions
 
-register(Total(x), lambda x: sum_vector(Shape(x)))
+register(Total(x), lambda x: Pi(Shape(x)))
 
-
-def _equiv(x, x1):
-    # operations and operands are the same, and variable names are the same (if not none)
-    if x == x1:
-        return Scalar(True)
-    return if_(
-        and_(is_scalar(x), is_scalar(x1)),
-        EquivScalar(x, x1),
-        and_(
-            EquivVector(explode_vector(Shape(x)), explode_vector(Shape(x1))),
-            EquivVector(to_vector(x), to_vector(x1)),
-        ),
-    )
-
-
-register(Equiv(x, x1), _equiv)
-register(Dim(x), lambda x: vector_first(Shape(Shape(x))))
+register(Dim(x), lambda x: Pi(Shape(Shape(x))))
 
 
 def reshape(x, x1):
     """
     TODO: Handle if x has zero, then return empty array
     """
-    return if_(is_vector(x), ReshapeVector(x, x1), ReshapeVector(x, Ravel(x1)))
+    return If(is_vector(x), ReshapeVector(x, x1), ReshapeVector(x, Ravel(x1)))
 
 
 register(Reshape(x, x1), reshape)
@@ -627,11 +596,9 @@ register(
 )
 
 
-def _ravel(x):
-    return if_(is_scalar(x), Vector(x), if_(is_vector(x), x, RavelArray(x)))
-
-
-register(Ravel(x), _ravel)
+register(
+    Ravel(x), lambda x: If(is_scalar(x), Vector(x), If(is_vector(x), x, RavelArray(x)))
+)
 
 
 register(
@@ -641,14 +608,14 @@ register(
 
 
 def _binary_operation(x, scalar, x1):
-    return if_(
+    return If(
         is_scalar(x),
-        if_(
+        If(
             is_scalar(x1),
             scalar.value(x, x1),
             BinaryOperationScalarExtension(x, scalar, x1),
         ),
-        if_(
+        If(
             is_scalar(x1),
             BinaryOperationScalarExtension(x1, scalar, x),
             BinaryOperationArray(x, scalar, x1),
@@ -681,7 +648,7 @@ def _index_concat_vector(x, x1, x2):
     idx = vector_first(x)
     size_first = vector_first(Shape(x1))
     modified_index = Subtract(idx, size_first)
-    return if_(
+    return If(
         LessThen(idx, size_first), FullIndex(x, x1), FullIndex(modified_index, x2)
     )
 
@@ -696,7 +663,7 @@ register(FullIndex(x, Iota(x1)), lambda x, x1: vector_first(x))
 register(Shape(Take(x, x1)), lambda x, x1: Vector(Abs(vector_first(x))))
 register(
     FullIndex(x, Take(x1, x2)),
-    lambda x, x1, x2: if_(
+    lambda x, x1, x2: If(
         LessThen(vector_first(x1), Scalar(0)),
         FullIndex(Vector(Add(Add(Total(x2), x1), vector_first(x))), x2),
         FullIndex(x, x2),
@@ -707,7 +674,7 @@ register(
 )
 register(
     FullIndex(x, Drop(x1, x2)),
-    lambda x, x1, x2: if_(
+    lambda x, x1, x2: If(
         LessThen(vector_first(x1), Scalar(0)),
         FullIndex(x, x2),
         FullIndex(Vector(Add(x1, vector_first(x))), x2),
@@ -718,8 +685,8 @@ register(
 # full indexing is if shape of index is == shape of shape of value
 register(
     Index(x, x1),
-    lambda x, x1: if_(
-        Equiv(Shape(x), Shape(Shape(x1))), FullIndex(x, x1), PartialIndex(x, x1)
+    lambda x, x1: If(
+        EquivScalar(Total(x), Dim(x1)), FullIndex(x, x1), PartialIndex(x, x1)
     ),
 )
 
@@ -728,6 +695,7 @@ register(
 register(PartialIndex(Vector(), x), lambda x: x)
 register(FullIndex(Vector(), x), lambda x: x)
 
+# register(Shape(Index(x, x1)), lambda x, x1: Drop(Vector(Total(x)), Shape(x1)))
 register(Shape(FullIndex(x, x1)), lambda x, x1: vector())
 register(Shape(PartialIndex(x, x1)), lambda x, x1: Drop(Vector(Total(x)), Shape(x1)))
 register(
@@ -767,4 +735,3 @@ register(
     PartialIndex(x, OuterProduct(x1, scalar, x3)),
     lambda x, x1, scalar, x3: outer_product_index(True, x, x1, scalar, x3),
 )
-
