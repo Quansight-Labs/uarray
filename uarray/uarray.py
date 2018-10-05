@@ -558,19 +558,6 @@ register(
     Pi(Vector(xs)), xs_are_scalars, lambda xs: Scalar(product(x_.value for x_ in xs))
 )
 
-# superflous vector replacements
-# only valid when value positive
-# TODO: Replace all with ExplodeVector somewhere in chain
-# register(
-#     Take(Vector(scalar), Vector(xs)), lambda scalar, xs: Vector(*xs[: scalar.value])
-# )
-# register(
-#     Drop(Vector(scalar), Vector(xs)), lambda scalar, xs: Vector(*xs[: -scalar.value])
-# )
-
-# register(ConcatVector(Vector(xs), Vector(xs1)), lambda xs, xs1: Vector(*xs, *xs1))
-
-
 # Generic definitions
 
 register(Total(x), lambda x: Pi(Shape(x)))
@@ -690,10 +677,6 @@ register(
     ),
 )
 
-# TODO: make these not depend on vector but just shape of index array
-# Change Index to be IndexWithShapes.
-register(PartialIndex(Vector(), x), lambda x: x)
-register(FullIndex(Vector(), x), lambda x: x)
 
 # register(Shape(Index(x, x1)), lambda x, x1: Drop(Vector(Total(x)), Shape(x1)))
 register(Shape(FullIndex(x, x1)), lambda x, x1: vector())
