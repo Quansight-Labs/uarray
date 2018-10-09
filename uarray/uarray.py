@@ -473,41 +473,28 @@ abstract_with_dimension = matchpy.Wildcard.symbol(
 )
 
 
-def _abstract_with_dimension(name, n_dim):
-    shape = UnboundAccessor(variable_name=f"{name}_shape")
-    content = UnboundAccessor(variable_name=f"{name}_content")
+def _abstract_with_dimension_inner(shape, content, n_dim, i=0):
+    if i == n_dim:
+        return Array(NoLengthAccessor(), content)
 
-    length_final = NoLengthAccessor()
-    if n_dim == 0:
-        return Array(length_final, content)
-
-    idx_0, subs_0 = get_index_accessor()
-    content = Content(Get(idx_0, content))
-    length_0 = Content(Get(ScalarAccessor(0), shape))
-    if n_dim == 1:
-        return Array(length_0, subs_0(Array(length_final, content)))
-
-    idx_1, subs_1 = get_index_accessor()
-    content = Content(Get(idx_1, content))
-    length_1 = Content(Get(ScalarAccessor(1), shape))
-    if n_dim == 2:
-        return Array(
-            length_0, subs_0(Array(length_1, subs_1(Array(length_final, content))))
-        )
-
-
-"""
-AbstractWithDimension(0, "hi") -> Array(NoLengthAccessor(), UnboundAccessor(variable_name="hi"))
-
-AbstractWithDimension(1, "hi") -> Array(UnboundAccessor(variable_name="ρ hi [0]"), UnboundAccessor(variable_name="hi"))
-Get(x, Content(AbstractWithDimension(1, "hi"))) -> Array(NoLengthAccessor(), Content(Get(x, UnboundAccessor(variable_name="hi"))
-"""
+    return Array(
+        Content(Get(ScalarAccessor(i), shape)),
+        with_get(
+            lambda idx: _abstract_with_dimension_inner(
+                shape=shape, content=Content(Get(idx, content)), n_dim=n_dim, i=i + 1
+            )
+        ),
+    )
 
 
 register(
     abstract_with_dimension,
-    lambda abstract_with_dimension: _abstract_with_dimension(
-        abstract_with_dimension.variable_name, abstract_with_dimension.n
+    lambda abstract_with_dimension: _abstract_with_dimension_inner(
+        UnboundAccessor(variable_name=f"{abstract_with_dimension.variable_name}_shape"),
+        UnboundAccessor(
+            variable_name=f"{abstract_with_dimension.variable_name}_content"
+        ),
+        abstract_with_dimension.n,
     ),
 )
 
@@ -569,9 +556,11 @@ def _outer_product(x, x1, x2, x3, x4):
 
     l_is_scalar = isinstance(l_length, NoLengthAccessor)
     if l_is_scalar:
-        return BinaryOperation(op, l, r)
+        return BinaryOperation(l, op, r)
 
-    return Array(l_length, with_get(lambda idx: OuterProduct(Get(idx, l), op, r)))
+    return Array(
+        l_length, with_get(lambda idx: OuterProduct(Get(idx, l_content), op, r))
+    )
 
 
 register(OuterProduct(Array(x, x1), x2, Array(x3, x4)), _outer_product)
