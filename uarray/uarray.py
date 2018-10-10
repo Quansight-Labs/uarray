@@ -163,43 +163,39 @@ def scalar(value):
     return Array(NoLengthAccessor(), ScalarAccessor(value))
 
 
-class VectorAccessor(matchpy.Symbol):
-    def __init__(self, items):
-        for i in items:
-            assert isinstance(i, matchpy.Expression)
-        self.items = items
-        super().__init__(repr(items), None)
+class VectorAccessor(matchpy.Operation):
+    name = "VectorAccessor"
+    arity = matchpy.Arity(0, False)
 
     def __str__(self):
-        return f"<{' '.join(map(str, self.items))}>"
+        return f"<{' '.join(map(str, self.operands))}>"
 
 
-def vector(*values):
-    accessor = VectorAccessor(tuple(ScalarAccessor(v) for v in values))
+def vector_of(*values):
+    accessor = VectorAccessor(*values)
     return Array(ScalarAccessor(len(values)), accessor)
 
 
-vector_accessor = matchpy.Wildcard.symbol("vector_accessor", VectorAccessor)
+def vector(*values):
+    return vector_of(*(ScalarAccessor(v) for v in values))
 
 
-class VectorAccessorGetContents(matchpy.Operation):
-    name = "VectorAccessorGetContents"
-    arity = matchpy.Arity(2, True)
+class VectorAccessorGet(matchpy.Operation):
+    name = "VectorAccessorGet"
+    arity = matchpy.Arity(1, False)
 
 
 register(
-    VectorAccessorGetContents(scalar_accessor, vector_accessor),
-    lambda scalar_accessor, vector_accessor: vector_accessor.items[
-        scalar_accessor.value
-    ],
+    VectorAccessorGet(scalar_accessor, xs),
+    lambda scalar_accessor, xs: xs[scalar_accessor.value],
 )
 
 register(
-    Get(x, vector_accessor),
-    lambda x, vector_accessor: Array(
+    Get(x, VectorAccessor(xs)),
+    lambda x, xs: Array(
         NoLengthAccessor(),
         # defer getting contents to new operation which is just defined for
-        VectorAccessorGetContents(x, vector_accessor),
+        VectorAccessorGet(x, *xs),
     ),
 )
 
@@ -344,14 +340,21 @@ class Add(matchpy.Operation):
     arity = matchpy.Arity(2, True)
 
 
+class AddAccessor(matchpy.Operation):
+    name = "+A"
+    infix = True
+    arity = matchpy.Arity(2, True)
+
+
 register(
-    Add(
-        Array(NoLengthAccessor(), scalar_accessor),
-        Array(NoLengthAccessor(), scalar_accessor_1),
-    ),
-    lambda scalar_accessor, scalar_accessor_1: Array(
-        NoLengthAccessor(),
-        ScalarAccessor(scalar_accessor.value + scalar_accessor_1.value),
+    Add(Array(NoLengthAccessor(), x), Array(NoLengthAccessor(), x1)),
+    lambda x, x1: Array(NoLengthAccessor(), AddAccessor(x, x1)),
+)
+
+register(
+    AddAccessor(scalar_accessor, scalar_accessor_1),
+    lambda scalar_accessor, scalar_accessor_1: ScalarAccessor(
+        scalar_accessor.value + scalar_accessor_1.value
     ),
 )
 
@@ -395,8 +398,9 @@ class GetBySubstituting(matchpy.Operation):
     GetBySubstituting(variable_name, form)
     """
 
-    name = "GetBySubstituting"
+    name = "->"
     arity = matchpy.Arity(2, True)
+    infix = True
 
 
 register(
@@ -555,8 +559,7 @@ def _outer_product(x, x1, x2, x3, x4):
     r_length, r_content = x3, x4
     l, r = Array(l_length, l_content), Array(r_length, r_content)
 
-    l_is_scalar = isinstance(l_length, NoLengthAccessor)
-    if l_is_scalar:
+    if isinstance(l_length, NoLengthAccessor):
         return BinaryOperation(l, op, r)
 
     return Array(
