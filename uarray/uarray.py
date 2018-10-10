@@ -62,42 +62,42 @@ def register(*args):
 ##
 
 
-def product(xs):
-    r = 1
-    for x_ in xs:
-        r *= x_
-    return r
+# def product(xs):
+#     r = 1
+#     for x_ in xs:
+#         r *= x_
+#     return r
 
 
-def idx_from_shape(shape):
-    return map(tuple, itertools.product(*map(range, shape)))
+# def idx_from_shape(shape):
+#     return map(tuple, itertools.product(*map(range, shape)))
 
 
-def row_major_gamma(idx, shape):
-    """
-    As defined in 3.30
-    """
-    assert len(idx) == len(shape)
-    if not idx:
-        return 0
-    assert idx < shape
-    return idx[-1] + (shape[-1] * row_major_gamma(idx[:-1], shape[:-1]))
+# def row_major_gamma(idx, shape):
+#     """
+#     As defined in 3.30
+#     """
+#     assert len(idx) == len(shape)
+#     if not idx:
+#         return 0
+#     assert idx < shape
+#     return idx[-1] + (shape[-1] * row_major_gamma(idx[:-1], shape[:-1]))
 
 
-def row_major_gamma_inverse(n, shape):
-    """
-    As defined in 3.41
-    """
-    assert n >= 0
-    assert n < product(shape)
-    for x_ in shape:
-        assert x_ > 0
+# def row_major_gamma_inverse(n, shape):
+#     """
+#     As defined in 3.41
+#     """
+#     assert n >= 0
+#     assert n < product(shape)
+#     for x_ in shape:
+#         assert x_ > 0
 
-    if len(shape) == 1:
-        return (n,)
+#     if len(shape) == 1:
+#         return (n,)
 
-    *next_shape, dim = shape
-    return (*row_major_gamma_inverse(n // dim, next_shape), n % dim)
+#     *next_shape, dim = shape
+#     return (*row_major_gamma_inverse(n // dim, next_shape), n % dim)
 
 
 ##
@@ -156,6 +156,7 @@ class ScalarAccessor(matchpy.Symbol):
 
 scalar_accessor = matchpy.Wildcard.symbol("scalar_accessor", ScalarAccessor)
 scalar_accessor_1 = matchpy.Wildcard.symbol("scalar_accessor_1", ScalarAccessor)
+scalar_accessor_2 = matchpy.Wildcard.symbol("scalar_accessor_2", ScalarAccessor)
 
 
 def scalar(value):
@@ -574,6 +575,65 @@ class InnerProduct(matchpy.Operation):
         l, op_l, op_r, r = self.operands
         return f"({l} {op_l}·{op_r} {r})"
 
+
+def scalar_accessor_is(x, prefix=""):
+    return matchpy.CustomConstraint(lambda y: y.value == x).with_renamed_vars(
+        {"y": f"scalar_accessor_{prefix}"}
+    )
+
+
+# inner product is associative with scalar multiplication
+register(
+    InnerProduct(
+        x,
+        scalar_accessor,
+        scalar_accessor_1,
+        BinaryOperation(Array(NoLengthAccessor(), x1), scalar_accessor_2, x2),
+    ),
+    scalar_accessor_is(Add),
+    scalar_accessor_is(Multiply, "_1"),
+    scalar_accessor_is(Multiply, "_2"),
+    lambda x, scalar_accessor, scalar_accessor_1, x1, scalar_accessor_2, x2: BinaryOperation(
+        Array(NoLengthAccessor(), x1),
+        scalar_accessor_2,
+        InnerProduct(x, scalar_accessor, scalar_accessor_1, x2),
+    ),
+)
+# InnerProduct(Array(Content(Get(ScalarAccessor('2'),
+#                                UnboundAccessor('', variable_name=A_shape))),
+#                    GetBySubstituting(ScalarAccessor("'idx_66'"),
+#                                      Array(NoLengthAccessor(),
+#                                            Content(Get(UnboundAccessor('', variable_name=idx_66),
+#                                                        Content(Get(ScalarAccessor('0'),
+#                                                                    Content(Get(ScalarAccessor('1'),
+#                                                                                UnboundAccessor('', variable_name=A_content)))))))))),
+#              ScalarAccessor("Add['+', Arity(min_count=2, fixed_size=True), infix]"),
+#              ScalarAccessor("Multiply['*', Arity(min_count=2, fixed_size=True), infix]"),
+#              BinaryOperation(Array(NoLengthAccessor(),
+#                                    Content(Get(ScalarAccessor('2'),
+#                                                Content(Get(ScalarAccessor('0'),
+#                                                            Content(Get(ScalarAccessor('1'),
+#                                                                        UnboundAccessor('', variable_name=A_content)))))))),
+#                              ScalarAccessor("Multiply['*', Arity(min_count=2, fixed_size=True), infix]"),
+#                              Array(Content(Get(ScalarAccessor('2'),
+#                                                UnboundAccessor('', variable_name=B_shape))),
+#                                    GetBySubstituting(ScalarAccessor("'idx_72'"),
+#                                                      Array(NoLengthAccessor(),
+#                                                            Content(Get(UnboundAccessor('', variable_name=idx_72),
+#                                                                        Content(Get(ScalarAccessor('1'),
+#                                                                                    Content(Get(ScalarAccessor('0'),
+#                                                                                                UnboundAccessor('', variable_name=B_content))))))))))))
+
+# class NumpyCodeStringAccessor(matchpy.Symbol):
+#     def __init__(self, code):
+#         self.code = code
+#         super().__init__(repr(code), None)
+
+#     def __str__(self):
+#         return f"NP({self.code})"
+
+
+# register()
 
 # class Reshape(matchpy.Operation):
 #     name = "ρ"
