@@ -583,6 +583,7 @@ def scalar_accessor_is(x, prefix=""):
 
 
 # inner product is associative with scalar multiplication
+# TODO: Make this commutative so works for other orders of inner product and binary op.
 register(
     InnerProduct(
         x,
@@ -599,30 +600,7 @@ register(
         InnerProduct(x, scalar_accessor, scalar_accessor_1, x2),
     ),
 )
-# InnerProduct(Array(Content(Get(ScalarAccessor('2'),
-#                                UnboundAccessor('', variable_name=A_shape))),
-#                    GetBySubstituting(ScalarAccessor("'idx_66'"),
-#                                      Array(NoLengthAccessor(),
-#                                            Content(Get(UnboundAccessor('', variable_name=idx_66),
-#                                                        Content(Get(ScalarAccessor('0'),
-#                                                                    Content(Get(ScalarAccessor('1'),
-#                                                                                UnboundAccessor('', variable_name=A_content)))))))))),
-#              ScalarAccessor("Add['+', Arity(min_count=2, fixed_size=True), infix]"),
-#              ScalarAccessor("Multiply['*', Arity(min_count=2, fixed_size=True), infix]"),
-#              BinaryOperation(Array(NoLengthAccessor(),
-#                                    Content(Get(ScalarAccessor('2'),
-#                                                Content(Get(ScalarAccessor('0'),
-#                                                            Content(Get(ScalarAccessor('1'),
-#                                                                        UnboundAccessor('', variable_name=A_content)))))))),
-#                              ScalarAccessor("Multiply['*', Arity(min_count=2, fixed_size=True), infix]"),
-#                              Array(Content(Get(ScalarAccessor('2'),
-#                                                UnboundAccessor('', variable_name=B_shape))),
-#                                    GetBySubstituting(ScalarAccessor("'idx_72'"),
-#                                                      Array(NoLengthAccessor(),
-#                                                            Content(Get(UnboundAccessor('', variable_name=idx_72),
-#                                                                        Content(Get(ScalarAccessor('1'),
-#                                                                                    Content(Get(ScalarAccessor('0'),
-#                                                                                                UnboundAccessor('', variable_name=B_content))))))))))))
+
 
 # class NumpyCodeStringAccessor(matchpy.Symbol):
 #     def __init__(self, code):
