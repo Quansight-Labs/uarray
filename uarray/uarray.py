@@ -209,6 +209,9 @@ class UnboundAccessor(matchpy.Symbol):
         return f"UnboundAccessor({self.variable_name or '' })"
 
 
+unbound_accessor = matchpy.Wildcard.symbol("unbound_accessor", UnboundAccessor)
+
+
 register(Get(x, scalar_accessor), lambda x, scalar_accessor: vector())
 
 
@@ -230,7 +233,7 @@ def _shape_inner(scalar_accessor, x, x1):
     current_shape: typing.Tuple[int, ...] = scalar_accessor.value
     # If there is no length here, we are at a scalar dimension, so return what we have
     if isinstance(x, NoLengthAccessor):
-        return vector(*current_shape)
+        return vector_of(*current_shape)
     # otherwise get the next dimension
     new_shape = current_shape + (x,)
     return ShapeInner(ScalarAccessor(new_shape), Get(UnboundAccessor(), x1))
@@ -478,6 +481,43 @@ abstract_with_dimension = matchpy.Wildcard.symbol(
 )
 
 
+# class DimShapeIndex(matchpy.Operation):
+#     """
+#     DimShapeIndex(dim_accessor, shape_accessor, indexor (Function of arity dim_accessor))
+#     """
+
+#     name = "DimShapeIndex"
+#     arity = matchpy.Arity(3, True)
+
+
+class ForwardGetAccessor(matchpy.Operation):
+    """
+    ForwardGetAccessor(Array(length, content)) defines an accessor
+    that returns the array passed in, except the get operations is passed through to the content.
+
+    Useful when getting values returns the same shape, but a different content.
+    """
+
+    name = "ForwardGetAccessor"
+    arity = matchpy.Arity(1, True)
+
+
+register(
+    Get(x, ForwardGetAccessor(Array(x1, x2))),
+    lambda x, x1, x2: Array(x1, Content(Get(x, x2))),
+)
+
+# simplify unbound accessor that just forward
+register(
+    GetBySubstituting(scalar_accessor, Array(x, Content(Get(unbound_accessor, x1)))),
+    matchpy.CustomConstraint(
+        lambda scalar_accessor, unbound_accessor: scalar_accessor.value
+        == unbound_accessor.variable_name
+    ),
+    lambda scalar_accessor, x, unbound_accessor, x1: ForwardGetAccessor(Array(x, x1)),
+)
+
+
 def _abstract_with_dimension_inner(shape, content, n_dim, i=0):
     if i == n_dim:
         return Array(NoLengthAccessor(), content)
@@ -605,14 +645,55 @@ register(
 )
 
 
-# class NumpyCodeStringAccessor(matchpy.Symbol):
-#     def __init__(self, code):
-#         self.code = code
-#         super().__init__(repr(code), None)
+class NumpyAccessor(matchpy.Symbol):
+    def __init__(self, code):
+        self.code = code
+        super().__init__(repr(code), None)
 
-#     def __str__(self):
-#         return f"NP({self.code})"
+    def __str__(self):
+        return self.code
 
+
+numpy_accessor = matchpy.Wildcard.symbol("numpy_accessor", NumpyAccessor)
+numpy_accessor_1 = matchpy.Wildcard.symbol("numpy_accessor_1", NumpyAccessor)
+
+
+register(
+    Content(Get(scalar_accessor, numpy_accessor)),
+    lambda scalar_accessor, numpy_accessor: NumpyAccessor(
+        f"{numpy_accessor}[{scalar_accessor.value}]"
+    ),
+)
+
+register(
+    ForwardGetAccessor(Array(x, numpy_accessor)),
+    lambda x, numpy_accessor: NumpyAccessor(f"{numpy_accessor}[:]"),
+)
+
+register(
+    InnerProduct(
+        Array(x, numpy_accessor),
+        scalar_accessor,
+        scalar_accessor_1,
+        Array(x1, numpy_accessor_1),
+    ),
+    scalar_accessor_is(Add),
+    scalar_accessor_is(Multiply, "_1"),
+    lambda x, numpy_accessor, scalar_accessor, scalar_accessor_1, x1, numpy_accessor_1: Array(
+        NoLengthAccessor(),
+        NumpyAccessor(f"np.inner({numpy_accessor}, {numpy_accessor_1})"),
+    ),
+)
+
+register(
+    BinaryOperation(
+        Array(x, numpy_accessor), scalar_accessor, Array(x1, numpy_accessor_1)
+    ),
+    scalar_accessor_is(Multiply),
+    lambda x, numpy_accessor, scalar_accessor, x1, numpy_accessor_1: NumpyAccessor(
+        f"{numpy_accessor} * {numpy_accessor_1}"
+    ),
+)
 
 # register()
 
