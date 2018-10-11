@@ -1,8 +1,5 @@
 # pylint: disable=E1120,W0108,W0621,E1121,E1101
-"""
-
-"""
-import itertools
+import inspect
 import pprint
 import typing
 
@@ -14,6 +11,45 @@ import matchpy
 
 replacer = matchpy.ManyToOneReplacer()
 replace = replacer.replace
+
+
+MAX_COUNT = 1000
+
+
+def _matchpy_reduce(self):
+    replaced = True
+    replace_count = 0
+    while replaced and replace_count < MAX_COUNT:
+        replaced = False
+        for subexpr, pos in matchpy.expressions.functions.preorder_iter_with_position(
+            self
+        ):
+            try:
+                replacement, subst = next(iter(replacer.matcher.match(subexpr)))
+                try:
+                    result = replacement(**subst)
+                except TypeError as e:
+                    # TODO: set custom traceback with line number
+                    # https://docs.python.org/3/library/traceback.html
+                    # https://docs.python.org/3/library/inspect.html#inspect.getsource
+                    raise TypeError(
+                        f"Couldn't call {inspect.getsourcelines(replacement)} with {repr(subst)} when matching {repr(subexpr)}"
+                    ) from e
+                # TODO: Handle multiple return expressions
+                if not isinstance(result, matchpy.Expression):
+                    raise ValueError(
+                        f"Replacement {replacement}({inspect.getsourcelines(replacement)}) should return an Expression instead of {result}"
+                    )
+                self = matchpy.functions.replace(self, pos, result)
+                yield self
+                replaced = True
+                break
+            except StopIteration:
+                pass
+        replace_count += 1
+
+
+matchpy.Operation.r = property(_matchpy_reduce)
 
 
 def _pprint_operation(self, object, stream, indent, allowance, context, level):
