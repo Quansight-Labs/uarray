@@ -646,12 +646,16 @@ register(
 
 
 class NumpyAccessor(matchpy.Symbol):
-    def __init__(self, code):
+    def __init__(self, code, index=()):
         self.code = code
-        super().__init__(repr(code), None)
+        self.index = index
+        super().__init__((code, index), None)
 
     def __str__(self):
+        if self.index:
+            return f'{self.code}[{", ".join(map(str, self.index))}]'
         return self.code
+
 
 
 numpy_accessor = matchpy.Wildcard.symbol("numpy_accessor", NumpyAccessor)
@@ -660,14 +664,12 @@ numpy_accessor_1 = matchpy.Wildcard.symbol("numpy_accessor_1", NumpyAccessor)
 
 register(
     Content(Get(scalar_accessor, numpy_accessor)),
-    lambda scalar_accessor, numpy_accessor: NumpyAccessor(
-        f"{numpy_accessor}[{scalar_accessor.value}]"
-    ),
+    lambda scalar_accessor, numpy_accessor: NumpyAccessor(numpy_accessor.code, numpy_accessor.index + (scalar_accessor.value,))
 )
 
 register(
     ForwardGetAccessor(Array(x, numpy_accessor)),
-    lambda x, numpy_accessor: NumpyAccessor(f"{numpy_accessor}[:]"),
+    lambda x, numpy_accessor: NumpyAccessor(numpy_accessor.code, numpy_accessor.index + (':',)),
 )
 
 register(
