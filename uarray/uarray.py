@@ -368,14 +368,20 @@ class Multiply(matchpy.Operation):
     arity = matchpy.Arity(2, True)
 
 
+class MultiplyAccessor(matchpy.Operation):
+    name = "*A"
+    infix = True
+    arity = matchpy.Arity(2, True)
+
+
 register(
-    Multiply(
-        Array(NoLengthAccessor(), scalar_accessor),
-        Array(NoLengthAccessor(), scalar_accessor_1),
-    ),
-    lambda scalar_accessor, scalar_accessor_1: Array(
-        NoLengthAccessor(),
-        ScalarAccessor(scalar_accessor.value * scalar_accessor_1.value),
+    Multiply(Array(NoLengthAccessor(), x), Array(NoLengthAccessor(), x1)),
+    lambda x, x1: Array(NoLengthAccessor(), MultiplyAccessor(x, x1)),
+)
+register(
+    MultiplyAccessor(scalar_accessor, scalar_accessor_1),
+    lambda scalar_accessor, scalar_accessor_1: ScalarAccessor(
+        scalar_accessor.value * scalar_accessor_1.value
     ),
 )
 
@@ -550,7 +556,7 @@ class BinaryOperation(matchpy.Operation):
 
     def __str__(self):
         l, op, r = self.operands
-        return f"({l} {op.value} {r})"
+        return f"({l} {op} {r})"
 
 
 def _binary_operation(x, x1, x2, x3, x4):
@@ -691,11 +697,8 @@ register(
 )
 
 register(
-    BinaryOperation(
-        Array(x, numpy_accessor), scalar_accessor, Array(x1, numpy_accessor_1)
-    ),
-    scalar_accessor_is(Multiply),
-    lambda x, numpy_accessor, scalar_accessor, x1, numpy_accessor_1: NumpyAccessor(
+    MultiplyAccessor(numpy_accessor, numpy_accessor_1),
+    lambda numpy_accessor, numpy_accessor_1: NumpyAccessor(
         f"{numpy_accessor} * {numpy_accessor_1}"
     ),
 )
