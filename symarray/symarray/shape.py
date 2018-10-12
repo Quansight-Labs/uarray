@@ -1,6 +1,10 @@
 
+from .calculus import Integer, Int
+
 def _inttuple(obj):
-    if isinstance(obj, (int, slice)):
+    if isinstance(obj, tuple) and len(obj)==1:
+        obj = obj[0]
+    if isinstance(obj, (int, slice, Integer, Int)):
         return (obj,)
     return tuple(obj)
 
@@ -96,7 +100,9 @@ class NDShape(Shape):
         self.itemsize = itemsize
 
     def __repr__(self):
-        return f'{type(self).__name__}({self.dims}, {self.strides}, {self.offset}, {self.itemsize})'
+        sdims = ', '.join(map(str, self.dims))
+        sstrides = ', '.join(map(str, self.strides))
+        return f'{type(self).__name__}(dims=({sdims}), strides=({sstrides}), offset={self.offset}, itemsize={self.itemsize})'
 
     def __getitem__(self, item):
         item = _inttuple(item)
@@ -112,7 +118,7 @@ class NDShape(Shape):
             pass
         raise NotImplementedError(repr(item))
 
-    def __call__(self, index):
+    def __call__(self, *index):
         """
         By definition, for N-dimensional array we have:
           pointer = offset + itemsize * sum(index[i] * strides[i], i=0..ndims-1)

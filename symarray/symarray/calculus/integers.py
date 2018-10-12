@@ -54,7 +54,9 @@ class IntegerCalculus(base.BaseCalculus):
         return IntegerAtom
 
 class IntegerAtom (IntegerCalculus, base.BaseAtom):
-    pass
+
+    def normalize(self):
+        return self
 
 class Int(IntegerAtom): # constant integer
     

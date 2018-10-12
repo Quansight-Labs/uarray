@@ -326,6 +326,7 @@ class BaseCalculus(object):
         """
         sops = ', '.join (type (k).__name__ for k in self.ops)
         print(f'base.{type(self).__name__}.normalize: not implemented: {sops}')
+        raise
         return self
 
     def __getitem__(self, item):
@@ -929,7 +930,7 @@ class BaseComponent(BaseCalculus):
     def normalize (self):
         A, indices = self.ops
         if isinstance (A, A.atom_type):
-            return A.components.get(indices, self)
+            return self
         if isinstance (A, A.terms_type):
             r = self.scalar_zero
             for t, c in A.ops.items ():
@@ -943,10 +944,5 @@ class BaseComponent(BaseCalculus):
         if isinstance (A, A.composite_type):
             func, args = A.ops
             return func[indices] (*args)
-        if isinstance (A, A.conjugate_type):
-            C = A.ops[0][indices]
-            if isinstance(C, type (self)) and C.ops[0] == A.ops[0]:
-                return self
-            return C.conjugate()
         return BaseCalculus.normalize(self)
 
