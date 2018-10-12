@@ -458,7 +458,7 @@ _counter = 0
 
 def get_index_accessor():
     """
-    Returns index variable and fn of array -> GetBySubstituting 
+    Returns index variable and fn of array -> GetBySubstituting
     """
     global _counter
     variable_name = f"idx_{_counter}"
@@ -491,9 +491,7 @@ class Iota(matchpy.Operation):
 
 register(
     Iota(Array(NoLengthAccessor(), x)),
-    lambda x: Array(
-        x, with_get(lambda idx: Array(NoLengthAccessor(), idx))
-    ),
+    lambda x: Array(x, with_get(lambda idx: Array(NoLengthAccessor(), idx))),
 )
 
 
