@@ -1,71 +1,62 @@
+"""Symbolic shape.
+
+"""
+# Author: Pearu Peterson
+# Created: October 2018
 
 from .calculus import Integer, Int
+
+integer_types = (int, Int, Integer)
 
 def _inttuple(obj):
     if isinstance(obj, tuple) and len(obj)==1:
         obj = obj[0]
-    if isinstance(obj, (int, slice, Integer, Int)):
+    if isinstance(obj, (slice,)+integer_types):
         return (obj,)
     return tuple(obj)
 
+
 def _allint(obj):
     for _o in obj:
-        if not isinstance(_o, int):
+        if not isinstance(_o, integer_types):
             return False
     return True
 
-class Stride(object):
-
-    def __init__(self, start, step, size):
-        self.start = start
-        self.step = step
-        self.size = size
-
-    def __getitem__(self, item):
-        if isinstance(item, slice):
-            start, stop, step = item.start, item.stop, item.step
-
-            new_start = self.start + self.step * start
-            new_step = self.step * step
-            last = self.start + self.step * (stop - 1)
 
 class Shape(object):
 
-    def __init__(self):
-        pass
-
     def __getitem__(self, item):
-        """Indexing operation
+        """Get the shape of a subarray.
 
         Parameters
         ----------
-        item : {int, slice, index}
+        item : {int, slice, IntegerBase}
           Specify index.
 
         Returns
         -------
         shape : Shape
-          Shape of subarray.
+          Shape of a subarray.
         """
-        return Item(self, item)
+        raise NotImplementedError(repr(item))
     
-    def __call__(self, index):
-        """Index-pointer mapping
+    def __call__(self, *index):
+        """Index-pointer mapping (the gamma function)
 
         Parameters
         ----------
         index : tuple
-          Specify index.
+          Specify index as a tuple of (symbolic or numeric) integers.
         Returns
         -------
         pointer: int
           Pointer value for given index.
         """
-        return Apply(self, index)
-
+        #return Apply(self, index)
+        raise NotImplementedError(repr(index))
 
 class NDShape(Shape):
-    """ Represents a shape of an N-dimensional array.
+    """ Represents a shape of a multi-dimensional array.
     """
 
     def __init__(self,
@@ -74,7 +65,8 @@ class NDShape(Shape):
                  strides=None,
                  offset=0,
                  itemsize=1,
-                 # Optional parameters used for calculating the default strides
+                 # Optional parameters used for calculating the
+                 # default strides, not stored as attributes:
                  ordering='C'
     ):
         dims = _inttuple(dims)
@@ -93,6 +85,7 @@ class NDShape(Shape):
             else:
                 # TODO: mixed ordering
                 raise NotImplementedError(repr(ordering))
+        assert len(dims) == len(strides)
         self.ndim = len(dims)
         self.dims = dims
         self.strides = strides
@@ -109,10 +102,32 @@ class NDShape(Shape):
         ndim = len(item)
         if ndim == self.ndim and _allint(item):
             # 0-dimensional array
-            return type(cls)((), offset=self(item), itemsize=self.itemsize)
+            return type(self)((), offset=self(item), itemsize=self.itemsize)
         elif ndim <= self.ndim:
-            # a subarray
-            pass
+            dims = []
+            strides = []
+            offset = self.offset
+            for i, d in enumerate(item):
+                if isinstance(d, slice):
+                    start, stop, step = d.start, d.stop, d.step
+                    if start is None and stop is None and step is None:
+                        dims.append(self.dims[i])
+                        strides.append(self.strides[i])
+                        continue
+                    if start is None: start = 0
+                    if step is None: step = 1
+                    if stop is None: stop = self.dims[i]
+                    dims.append((stop-start)//step)
+                    strides.append(self.strides[i] * step)
+                elif isinstance(d, integer_types):
+                    start, stop, step = d, self.dims[i], 1
+                else:
+                    raise TypeError(f'expected integer or slice, got {type(d).__name__}')
+                offset = offset + self.strides[i] * start * self.itemsize
+            for i in range(len(item), self.ndim):
+                dims.append(self.dims[i])
+                strides.append(self.strides[i])
+            return type(self)(dims, strides=strides, offset=offset, itemsize=self.itemsize)
         else:
             # a broadcasted array
             pass
@@ -121,7 +136,7 @@ class NDShape(Shape):
     def __call__(self, *index):
         """
         By definition, for N-dimensional array we have:
-          pointer = offset + itemsize * sum(index[i] * strides[i], i=0..ndims-1)
+          pointer = offset + itemsize * sum(index[i] * strides[i], i=0..N-1)
         """
         index = _inttuple(index)
         ndim = len(index)

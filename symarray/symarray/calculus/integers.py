@@ -52,6 +52,10 @@ class IntegerCalculus(base.BaseCalculus):
     @property
     def atom_type(self):
         return IntegerAtom
+    @property
+    def floordiv_type(self):
+        return IntegerFloorDiv
+    
 
 class IntegerAtom (IntegerCalculus, base.BaseAtom):
 
@@ -91,19 +95,13 @@ class Int(IntegerAtom): # constant integer
         if isinstance (other, self.number_types):
             return Int (self.ops[0] * other)
         return NotImplemented
-    def __div__(self, other):
+
+    def __floordiv__(self, other):
+        if isinstance (other, int):
+            return Int(self.ops[0] // other)
         if isinstance (other, Int):
-            if isinstance (other.ops[0], int):
-                return Int (self.ops[0] * Fraction(1, other.ops[0]))
-            return Int (self.ops[0] / other.ops[0])
-        if isinstance (other, self.number_types):
-            if isinstance (other, int):
-                other = Fraction(other, 1)
-            return Int (self.ops[0] / other)
-        if isinstance (other, self.algebra_type):
-            pass
+            return Int(self.ops[0] // other.ops[0])
         return NotImplemented
-    __truediv__ = __div__
 
     def __pow__(self, other):
         if isinstance (other, self.number_types):
@@ -142,6 +140,10 @@ class IntegerFactors(base.BaseFactors, IntegerCalculus):
 
 
 class IntegerComposite (base.BaseComposite, IntegerCalculus):
+
+    pass
+
+class IntegerFloorDiv(base.BaseFloorDiv, IntegerCalculus):
 
     pass
 

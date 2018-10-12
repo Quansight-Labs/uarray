@@ -156,6 +156,9 @@ class BaseCalculus(object):
     @property
     def pairs_type(self):
         return BasePairs
+    @property
+    def floordiv_type(self):
+        return BaseFloorDiv
 
     @property
     def algebra_zero(self):
@@ -311,6 +314,16 @@ class BaseCalculus(object):
 
     __rtruediv__ = __rdiv__
 
+    def __floordiv__(self, other):
+        if isinstance (other, self.number_types):
+            other = self.number_type(other)
+        return self.floordiv_type(self, other).normalize()
+
+    def __rfloordiv__ (self, other):
+        if isinstance (other, self.number_types):
+            return self.number_type(other) // self
+        return NotImplemented
+    
     @check_rtype
     #@_normalize
     def __call__(self, *arguments):
@@ -946,3 +959,44 @@ class BaseComponent(BaseCalculus):
             return func[indices] (*args)
         return BaseCalculus.normalize(self)
 
+class BaseFloorDiv(BaseCalculus):
+
+    def __init__ (self, op1, op2):
+        BaseCalculus.__init__ (self, (op1, op2))
+
+    def get_precedence (self, target='python'):
+        if target=='tree':
+            return 0
+        return precedence['call']
+
+        
+    def tostr(self, target='python', parent=None, level = 0):
+        if target in ['python']:
+            snumer, sdenom = self.ops[0].tostr(target, parent=self, level=level+1), self.ops[1].tostr(target, parent=self, level=level+1)
+            return f'floor({snumer}, {sdenom})'
+        return BaseCalculus.tostr(self, target, parent=parent, level = level)
+        
+    @check_rtype
+    def normalize(self):
+        n, d = self.ops
+        if n==d:
+            return self.algebra_one
+        if d==self.scalar_one:
+            return n
+        if isinstance(n, (self.atom_type, self.terms_type)):
+            return self
+        return BaseCalculus.normalize(self)
+    
+    @check_rtype
+    def normalize (self):
+        numer, denom = self.ops
+        if numer == self.algebra_zero or denom==self.scalar_one:
+            return numer
+        if numer == denom:
+            return self.algebra_one
+        if numer == -denom:
+            return -self.algebra_one
+        if isinstance(numer, self.number_type):
+            if isinstance(denom, self.number_type):
+                return numer // denom
+        return self
