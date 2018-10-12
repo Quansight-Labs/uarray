@@ -1,8 +1,5 @@
 # pylint: disable=E1120,W0108,W0621,E1121,E1101
-"""
-
-"""
-import itertools
+import inspect
 import pprint
 import typing
 
@@ -14,6 +11,45 @@ import matchpy
 
 replacer = matchpy.ManyToOneReplacer()
 replace = replacer.replace
+
+
+MAX_COUNT = 1000
+
+
+def _matchpy_reduce(self):
+    replaced = True
+    replace_count = 0
+    while replaced and replace_count < MAX_COUNT:
+        replaced = False
+        for subexpr, pos in matchpy.expressions.functions.preorder_iter_with_position(
+            self
+        ):
+            try:
+                replacement, subst = next(iter(replacer.matcher.match(subexpr)))
+                try:
+                    result = replacement(**subst)
+                except TypeError as e:
+                    # TODO: set custom traceback with line number
+                    # https://docs.python.org/3/library/traceback.html
+                    # https://docs.python.org/3/library/inspect.html#inspect.getsource
+                    raise TypeError(
+                        f"Couldn't call {inspect.getsourcelines(replacement)} with {repr(subst)} when matching {repr(subexpr)}"
+                    ) from e
+                # TODO: Handle multiple return expressions
+                if not isinstance(result, matchpy.Expression):
+                    raise ValueError(
+                        f"Replacement {replacement}({inspect.getsourcelines(replacement)}) should return an Expression instead of {result}"
+                    )
+                self = matchpy.functions.replace(self, pos, result)
+                yield self
+                replaced = True
+                break
+            except StopIteration:
+                pass
+        replace_count += 1
+
+
+matchpy.Operation.r = property(_matchpy_reduce)
 
 
 def _pprint_operation(self, object, stream, indent, allowance, context, level):
@@ -368,14 +404,20 @@ class Multiply(matchpy.Operation):
     arity = matchpy.Arity(2, True)
 
 
+class MultiplyAccessor(matchpy.Operation):
+    name = "*A"
+    infix = True
+    arity = matchpy.Arity(2, True)
+
+
 register(
-    Multiply(
-        Array(NoLengthAccessor(), scalar_accessor),
-        Array(NoLengthAccessor(), scalar_accessor_1),
-    ),
-    lambda scalar_accessor, scalar_accessor_1: Array(
-        NoLengthAccessor(),
-        ScalarAccessor(scalar_accessor.value * scalar_accessor_1.value),
+    Multiply(Array(NoLengthAccessor(), x), Array(NoLengthAccessor(), x1)),
+    lambda x, x1: Array(NoLengthAccessor(), MultiplyAccessor(x, x1)),
+)
+register(
+    MultiplyAccessor(scalar_accessor, scalar_accessor_1),
+    lambda scalar_accessor, scalar_accessor_1: ScalarAccessor(
+        scalar_accessor.value * scalar_accessor_1.value
     ),
 )
 
@@ -550,7 +592,7 @@ class BinaryOperation(matchpy.Operation):
 
     def __str__(self):
         l, op, r = self.operands
-        return f"({l} {op.value} {r})"
+        return f"({l} {op} {r})"
 
 
 def _binary_operation(x, x1, x2, x3, x4):
@@ -691,11 +733,8 @@ register(
 )
 
 register(
-    BinaryOperation(
-        Array(x, numpy_accessor), scalar_accessor, Array(x1, numpy_accessor_1)
-    ),
-    scalar_accessor_is(Multiply),
-    lambda x, numpy_accessor, scalar_accessor, x1, numpy_accessor_1: NumpyAccessor(
+    MultiplyAccessor(numpy_accessor, numpy_accessor_1),
+    lambda numpy_accessor, numpy_accessor_1: NumpyAccessor(
         f"{numpy_accessor} * {numpy_accessor_1}"
     ),
 )
