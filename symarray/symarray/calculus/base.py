@@ -56,7 +56,7 @@ def fix_sign (s):
 
 
 def check_rtype(func):
-    return func # comment in when debugging
+    #return func # comment in when debugging
     def wrapper (self, *arguments, **parameters):
         r = func (self, *arguments, **parameters)
         if r is NotImplemented:

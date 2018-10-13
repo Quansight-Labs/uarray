@@ -81,13 +81,13 @@ Current state:
     >>> n2 = Integer('n2')
     >>> n3 = Integer('n3')
     >>> 
-    >>> # Shape of a 3-dimesional array
-    ... s3 = NDShape((n1, n2, n3), offset=2000, itemsize=8)
+    >>> # Shape of a 3-dimensional array
+    >>> s3 = NDShape((n1, n2, n3), offset=2000, itemsize=8)
     >>> print(s3)
     NDShape(dims=(n1, n2, n3), strides=(n1 * n2, n2, 1), offset=2000, itemsize=8)
     >>> 
-    >>> # Get the pointer the value of array item with index (i1,i2,i3):
-    ... i1 = Integer('i1')
+    >>> # Get the pointer the value of array item with index (i1,i2,i3) --- the gamma function:
+    >>> i1 = Integer('i1')
     >>> i2 = Integer('i2')
     >>> i3 = Integer('i3')
     >>> p = s3(i1,i2,i3)
@@ -95,7 +95,7 @@ Current state:
     2000 + 8 * i1 * n1 * n2 + 8 * i2 * n2 + 8 * i3
     >>> 
     >>> # The shape of a subarray
-    ... j1 = Integer('j1')
+    >>> j1 = Integer('j1')
     >>> j2 = Integer('j2')
     >>> j3 = Integer('j3')
     >>> s2 = s3[i1,:,i3:j3]
