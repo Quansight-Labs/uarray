@@ -490,9 +490,9 @@ class Iota(matchpy.Operation):
 
 
 register(
-    Iota(Array(NoLengthAccessor(), scalar_accessor)),
-    lambda scalar_accessor: Array(
-        scalar_accessor, with_get(lambda idx: Array(NoLengthAccessor(), idx))
+    Iota(Array(NoLengthAccessor(), x)),
+    lambda x: Array(
+        x, with_get(lambda idx: Array(NoLengthAccessor(), idx))
     ),
 )
 
