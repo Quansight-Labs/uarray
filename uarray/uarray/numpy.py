@@ -14,14 +14,26 @@ class Numpy(matchpy.Symbol):
         return self.code
 
 
-class ToNumpy(matchpy.Operation):
-    name = "ToNumpy"
-    arity = matchpy.Arity(1, True)
+# class ToNumpy(matchpy.Operation):
+#     name = "ToNumpy"
+#     arity = matchpy.Arity(1, True)
 
 
 register(
     Call(Content(Numpy.w.x), Value.w.idx),
-    lambda x, idx: Numpy(x.code, x.index + (idx.value,)),
+    lambda x, idx: Numpy(x.code, x.index + (idx,)),
+)
+
+
+register(
+    Call(Content(Numpy.w.x), Content(Numpy.w.idx)),
+    lambda x, idx: Numpy(x.code, x.index + (idx,)),
+)
+
+
+register(
+    Scalar(Multiply(Content(Numpy.w.l), Content(Numpy.w.r))),
+    lambda l, r: Numpy(f"{l} * {r}"),
 )
 
 register(Scalar(Content(Numpy.w.x)), lambda x: x)
