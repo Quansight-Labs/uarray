@@ -128,7 +128,7 @@ class BaseCalculus(object):
     
     # Python types that are mapped to BaseNumeric instances
     number_types = (int, float, Fraction)
-
+    
     @property
     def algebra_type (self):
         return BaseCalculus
@@ -138,6 +138,15 @@ class BaseCalculus(object):
     @property
     def number_type (self):
         return int
+    @property
+    def index_type (self):
+        return int
+    @property
+    def slice_type (self):
+        return slice
+    @property
+    def exponent_type(self):
+        return BaseCalculus
     @property
     def terms_type (self):
         return BaseTerms
@@ -279,8 +288,10 @@ class BaseCalculus(object):
     def __pow__ (self, other):
         if isinstance (other, self.number_types):
             other = self.number_type(other)
-        if isinstance (other, self.number_type):
+        if isinstance (other, self.exponent_type):
             return self.factors_type({self: other}).normalize()
+        #if isinstance (other, self.number_type):
+        #    return self.factors_type({self: other}).normalize()
         if isinstance (other, self.algebra_type) and self.is_scalar_algebra:
             return self.factors_type({self: other}).normalize()
         return NotImplemented
@@ -341,10 +352,15 @@ class BaseCalculus(object):
         print(f'base.{type(self).__name__}.normalize: not implemented: {sops}')
         raise
         return self
-
+    
     def __getitem__(self, item):
         if not isinstance(item, tuple):
             item = item,
+        def index_or_slice(obj):
+            if isinstance(obj, slice):
+                return self.slice_type(obj)
+            return self.index_type(obj)
+        item = map(index_or_slice, item)
         return self.component_type(self, *item).normalize ()
 
     def get_precedence(self, target='python'):
@@ -957,7 +973,35 @@ class BaseComponent(BaseCalculus):
         if isinstance (A, A.composite_type):
             func, args = A.ops
             return func[indices] (*args)
+        if isinstance (A, A.component_type):
+            A1, indices1 = A.ops
+            print (A1, indices, indices1)
+            return A1[indices1 + indices]
+
         return BaseCalculus.normalize(self)
+
+
+class BaseIndex(BaseAtom):
+
+    pass
+
+class BaseSlice(BaseAtom):
+
+    def tostr(self, target='python', parent=None, level=0):
+        if target == 'python':
+            s = self.ops[0]
+            r = ''
+            if s.start is not None:
+                r += str(s.start)
+            if s.stop is not None:
+                r += ':' + str(s.stop)
+                if s.step is not None:
+                    r += ':' + str(s.step)
+            elif s.step is not None:
+                r += '::' + str(s.step)
+            return r
+        return BaseAtom.tostr(self, target=target, parent=parent, level=level)
+
 
 class BaseFloorDiv(BaseCalculus):
 

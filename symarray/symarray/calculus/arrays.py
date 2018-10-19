@@ -22,7 +22,7 @@ def check_shape(func):
 
 
 class ArrayCalculus(base.BaseCalculus):
-
+    
     @property
     def algebra_type (self):
         return ArrayCalculus
@@ -34,12 +34,23 @@ class ArrayCalculus(base.BaseCalculus):
     def number_type (self):
         return integers.Int # temporary
     @property
+    def index_type(self):
+        return ArrayIndex
+    @property
+    def slice_type(self):
+        return ArraySlice
+    @property
+    def exponent_type (self):
+        return integers.IntegerCalculus
+    @property
     def terms_type (self):
         return ArrayTerms
     @property
     def factors_type (self):
         return ArrayFactors
-
+    @property
+    def component_type(self):
+        return ArrayComponent
     @property
     def algebra_zero(self):
         return AZERO
@@ -74,10 +85,19 @@ class ArrayCalculus(base.BaseCalculus):
 
     def __str__ (self):
         r = self.tostr(target = 'python')
-        if self.shape is not None:
+        if 0 and self.shape is not None:
             s = str(self.shape)
             r = r + ' $ ' + s
         return r
+
+    def power(self, other):
+        if isinstance(other, integers.Int):
+            n = other.ops[0]
+            if n==0:
+                return AONE
+            if n==1:
+                return self
+        return NotImplemented
     
 class ArrayAtom(ArrayCalculus, base.BaseAtom):
 
@@ -96,13 +116,12 @@ class ArrayAtom(ArrayCalculus, base.BaseAtom):
     def shape(self):
         return self.ops[1]
 
-    def __getitem__(self, item):
-        if self.shape is None:
-            return self
-        shape = self.shape[item]
-        return type(self)(self.ops[0], shape)
-
-
+    def tostr(self, target='python', parent=None, level = 0):
+        r = base.BaseAtom.tostr(self, target=target, parent=parent, level=level)
+        if self.shape is not None:
+            r += self.shape.rank * "'"
+        return r
+    
 class ArrayConstant(ArrayAtom):
 
     pass
@@ -147,3 +166,26 @@ class ArrayFactors(base.BaseFactors, ArrayPairs):
     @base.check_rtype
     def normalize(self):
         return base.BaseFactors.normalize(self)
+
+class ArrayComponent(ArrayCalculus, base.BaseComponent):
+
+    @base.check_rtype
+    def normalize(self):
+        A, item = self.ops
+        if isinstance(A, ArrayAtom) and A.shape is not None:
+            item = tuple(map(lambda x: x.ops[0], item))
+            shape = A.shape[item]
+            return type(A)(A.ops[0], shape)
+        return base.BaseComponent.normalize(self)
+
+    @property
+    def shape(self):
+        return
+
+class ArrayIndex(base.BaseIndex):
+
+    pass
+
+class ArraySlice(base.BaseSlice):
+
+    pass

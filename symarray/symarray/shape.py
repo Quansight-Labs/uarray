@@ -92,6 +92,10 @@ class NDShape(Shape):
         self.offset = offset
         self.itemsize = itemsize
 
+    @property
+    def rank(self):
+        return len(self.dims)
+        
     def __repr__(self):
         sdims = ', '.join(map(str, self.dims))
         sstrides = ', '.join(map(str, self.strides))

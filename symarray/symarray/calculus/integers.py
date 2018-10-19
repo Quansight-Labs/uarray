@@ -16,6 +16,9 @@ class IntegerCalculus(base.BaseCalculus):
     def number_type (self):
         return Int
     @property
+    def exponent_type(self):
+        return IntegerCalculus
+    @property
     def terms_type (self):
         return IntegerTerms
     @property
@@ -55,7 +58,9 @@ class IntegerCalculus(base.BaseCalculus):
     @property
     def floordiv_type(self):
         return IntegerFloorDiv
-    
+
+IntegerCalculus.exponent_types = (IntegerCalculus,)
+
 
 class IntegerAtom (IntegerCalculus, base.BaseAtom):
 
