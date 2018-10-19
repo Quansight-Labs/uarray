@@ -16,6 +16,7 @@ replace = replacer.replace
 MAX_COUNT = 1000
 
 
+@property
 def _matchpy_reduce(self):
     replaced = True
     replace_count = 0
@@ -49,7 +50,7 @@ def _matchpy_reduce(self):
         replace_count += 1
 
 
-matchpy.Operation.r = property(_matchpy_reduce)
+matchpy.Operation.r = _matchpy_reduce
 
 
 def _pprint_operation(self, object, stream, indent, allowance, context, level):
@@ -93,52 +94,6 @@ def register(*args):
     )
 
 
-##
-# Utils
-##
-
-
-# def product(xs):
-#     r = 1
-#     for x_ in xs:
-#         r *= x_
-#     return r
-
-
-# def idx_from_shape(shape):
-#     return map(tuple, itertools.product(*map(range, shape)))
-
-
-# def row_major_gamma(idx, shape):
-#     """
-#     As defined in 3.30
-#     """
-#     assert len(idx) == len(shape)
-#     if not idx:
-#         return 0
-#     assert idx < shape
-#     return idx[-1] + (shape[-1] * row_major_gamma(idx[:-1], shape[:-1]))
-
-
-# def row_major_gamma_inverse(n, shape):
-#     """
-#     As defined in 3.41
-#     """
-#     assert n >= 0
-#     assert n < product(shape)
-#     for x_ in shape:
-#         assert x_ > 0
-
-#     if len(shape) == 1:
-#         return (n,)
-
-#     *next_shape, dim = shape
-#     return (*row_major_gamma_inverse(n // dim, next_shape), n % dim)
-
-
-##
-
-
 x = matchpy.Wildcard.dot("x")
 x1 = matchpy.Wildcard.dot("x1")
 x2 = matchpy.Wildcard.dot("x2")
@@ -148,40 +103,31 @@ x4 = matchpy.Wildcard.dot("x4")
 xs = matchpy.Wildcard.star("xs")
 xs1 = matchpy.Wildcard.star("xs1")
 
-# Everything (Operations and Symbols) are one of two types:
-#
-# Arrays: Reduce down to Array(length: Accessor, content: Accessor)
-# Accessors: Accessors support calling Get(index: Accessor, content: Accessor) -> Array
 
-
-class Array(matchpy.Operation):
+class Sequence(matchpy.Operation):
     """
-    Array(length, content)
+    Sequence(length, getitem)
     """
 
-    name = "Array"
-    arity = matchpy.Arity(2, True)
-
-    # def __str__(self):
-    #     return f"Array({str(self.operands[1])}, l={self.operands[0]})"
-
-
-class Get(matchpy.Operation):
-    """
-    Get(index, content)
-    """
-
-    name = "Get"
+    name = "Sequence"
     arity = matchpy.Arity(2, True)
 
 
-# What about scalars? Those are also Arrays, but with length of NoLengthAccessor
-class NoLengthAccessor(matchpy.Operation):
-    name = "NoLengthAccessor"
+class Call(matchpy.Operation):
+    """
+    Call(callable, *args)
+    """
+
+    name = "Call"
+    arity = matchpy.Arity(1, False)
+
+
+class NoLength(matchpy.Operation):
+    name = "NoLength"
     arity = matchpy.Arity(0, True)
 
 
-class ScalarAccessor(matchpy.Symbol):
+class Value(matchpy.Symbol):
     def __init__(self, value):
         self.value = value
         super().__init__(repr(value), None)
@@ -190,13 +136,13 @@ class ScalarAccessor(matchpy.Symbol):
         return str(self.value)
 
 
-scalar_accessor = matchpy.Wildcard.symbol("scalar_accessor", ScalarAccessor)
-scalar_accessor_1 = matchpy.Wildcard.symbol("scalar_accessor_1", ScalarAccessor)
-scalar_accessor_2 = matchpy.Wildcard.symbol("scalar_accessor_2", ScalarAccessor)
+value = matchpy.Wildcard.symbol("value", Value)
+value_1 = matchpy.Wildcard.symbol("value_1", Value)
+value_2 = matchpy.Wildcard.symbol("value_2", Value)
 
 
 def scalar(value):
-    return Array(NoLengthAccessor(), ScalarAccessor(value))
+    return Sequence(NoLength(), Value(value))
 
 
 class VectorAccessor(matchpy.Operation):
@@ -209,11 +155,11 @@ class VectorAccessor(matchpy.Operation):
 
 def vector_of(*values):
     accessor = VectorAccessor(*values)
-    return Array(ScalarAccessor(len(values)), accessor)
+    return Sequence(Value(len(values)), accessor)
 
 
 def vector(*values):
-    return vector_of(*(ScalarAccessor(v) for v in values))
+    return vector_of(*(Value(v) for v in values))
 
 
 class VectorAccessorGet(matchpy.Operation):
@@ -221,15 +167,12 @@ class VectorAccessorGet(matchpy.Operation):
     arity = matchpy.Arity(1, False)
 
 
-register(
-    VectorAccessorGet(scalar_accessor, xs),
-    lambda scalar_accessor, xs: xs[scalar_accessor.value],
-)
+register(VectorAccessorGet(value, xs), lambda value, xs: xs[value.value])
 
 register(
     Get(x, VectorAccessor(xs)),
-    lambda x, xs: Array(
-        NoLengthAccessor(),
+    lambda x, xs: Sequence(
+        NoLength(),
         # defer getting contents to new operation which is just defined for
         VectorAccessorGet(x, *xs),
     ),
@@ -248,7 +191,7 @@ class UnboundAccessor(matchpy.Symbol):
 unbound_accessor = matchpy.Wildcard.symbol("unbound_accessor", UnboundAccessor)
 
 
-register(Get(x, scalar_accessor), lambda x, scalar_accessor: vector())
+register(Get(x, value), lambda x, value: vector())
 
 
 class Shape(matchpy.Operation):
@@ -265,21 +208,21 @@ class ShapeInner(matchpy.Operation):
     arity = matchpy.Arity(2, True)
 
 
-def _shape_inner(scalar_accessor, x, x1):
-    current_shape: typing.Tuple[int, ...] = scalar_accessor.value
+def _shape_inner(value, x, x1):
+    current_shape: typing.Tuple[int, ...] = value.value
     # If there is no length here, we are at a scalar dimension, so return what we have
-    if isinstance(x, NoLengthAccessor):
+    if isinstance(x, NoLength):
         return vector_of(*current_shape)
     # otherwise get the next dimension
     new_shape = current_shape + (x,)
-    return ShapeInner(ScalarAccessor(new_shape), Get(UnboundAccessor(), x1))
+    return ShapeInner(Value(new_shape), Get(UnboundAccessor(), x1))
 
 
 register(
-    Shape(Array(x, x1)), lambda x, x1: ShapeInner(ScalarAccessor(tuple()), Array(x, x1))
+    Shape(Sequence(x, x1)), lambda x, x1: ShapeInner(Value(tuple()), Sequence(x, x1))
 )
 
-register(ShapeInner(scalar_accessor, Array(x, x1)), _shape_inner)
+register(ShapeInner(value, Sequence(x, x1)), _shape_inner)
 
 
 class Index(matchpy.Operation):
@@ -290,15 +233,12 @@ class Index(matchpy.Operation):
 
 def _index(idx_length, idx_content, array):
     for i in range(idx_length):
-        index_value = Get(ScalarAccessor(i), idx_content)
+        index_value = Get(Value(i), idx_content)
         array = Get(Content(index_value), Content(array))
     return array
 
 
-register(
-    Index(Array(scalar_accessor, x), x1),
-    lambda scalar_accessor, x, x1: _index(scalar_accessor.value, x, x1),
-)
+register(Index(Sequence(value, x), x1), lambda value, x, x1: _index(value.value, x, x1))
 
 
 class Content(matchpy.Operation):
@@ -306,7 +246,7 @@ class Content(matchpy.Operation):
     arity = matchpy.Arity(1, True)
 
 
-register(Content(Array(x, x1)), lambda x, x1: x1)
+register(Content(Sequence(x, x1)), lambda x, x1: x1)
 
 
 class Apply(matchpy.Operation):
@@ -318,9 +258,7 @@ class Apply(matchpy.Operation):
     arity = matchpy.Arity(1, False)
 
 
-register(
-    Apply(scalar_accessor, xs), lambda scalar_accessor, xs: scalar_accessor.value(*xs)
-)
+register(Apply(value, xs), lambda value, xs: value.value(*xs))
 
 
 class ReduceVector(matchpy.Operation):
@@ -342,16 +280,15 @@ class ReduceVectorInner(matchpy.Operation):
 
 
 register(
-    ReduceVector(x, x1, x2),
-    lambda x, x1, x2: ReduceVectorInner(ScalarAccessor(0), x, x1, x2),
+    ReduceVector(x, x1, x2), lambda x, x1, x2: ReduceVectorInner(Value(0), x, x1, x2)
 )
 
 
-def _reduce_vector_inner(scalar_accessor, x, x1, scalar_accessor_1, x3):
-    current_idx = scalar_accessor
+def _reduce_vector_inner(value, x, x1, value_1, x3):
+    current_idx = value
     current_value = x
     operation = x1
-    vector_length = scalar_accessor_1
+    vector_length = value_1
     vector_content = x3
 
     # if we have gone all the way through the vector return the reduced value
@@ -360,17 +297,14 @@ def _reduce_vector_inner(scalar_accessor, x, x1, scalar_accessor_1, x3):
 
     next_value = Apply(operation, current_value, Get(current_idx, vector_content))
     return ReduceVectorInner(
-        ScalarAccessor(current_idx.value + 1),
+        Value(current_idx.value + 1),
         next_value,
         operation,
-        Array(vector_length, vector_content),
+        Sequence(vector_length, vector_content),
     )
 
 
-register(
-    ReduceVectorInner(scalar_accessor, x, x1, Array(scalar_accessor_1, x3)),
-    _reduce_vector_inner,
-)
+register(ReduceVectorInner(value, x, x1, Sequence(value_1, x3)), _reduce_vector_inner)
 
 
 class Add(matchpy.Operation):
@@ -386,15 +320,13 @@ class AddAccessor(matchpy.Operation):
 
 
 register(
-    Add(Array(NoLengthAccessor(), x), Array(NoLengthAccessor(), x1)),
-    lambda x, x1: Array(NoLengthAccessor(), AddAccessor(x, x1)),
+    Add(Sequence(NoLength(), x), Sequence(NoLength(), x1)),
+    lambda x, x1: Sequence(NoLength(), AddAccessor(x, x1)),
 )
 
 register(
-    AddAccessor(scalar_accessor, scalar_accessor_1),
-    lambda scalar_accessor, scalar_accessor_1: ScalarAccessor(
-        scalar_accessor.value + scalar_accessor_1.value
-    ),
+    AddAccessor(value, value_1),
+    lambda value, value_1: Value(value.value + value_1.value),
 )
 
 
@@ -411,14 +343,12 @@ class MultiplyAccessor(matchpy.Operation):
 
 
 register(
-    Multiply(Array(NoLengthAccessor(), x), Array(NoLengthAccessor(), x1)),
-    lambda x, x1: Array(NoLengthAccessor(), MultiplyAccessor(x, x1)),
+    Multiply(Sequence(NoLength(), x), Sequence(NoLength(), x1)),
+    lambda x, x1: Sequence(NoLength(), MultiplyAccessor(x, x1)),
 )
 register(
-    MultiplyAccessor(scalar_accessor, scalar_accessor_1),
-    lambda scalar_accessor, scalar_accessor_1: ScalarAccessor(
-        scalar_accessor.value * scalar_accessor_1.value
-    ),
+    MultiplyAccessor(value, value_1),
+    lambda value, value_1: Value(value.value * value_1.value),
 )
 
 
@@ -427,7 +357,7 @@ class Pi(matchpy.Operation):
     arity = matchpy.Arity(1, True)
 
 
-register(Pi(x), lambda x: ReduceVector(scalar(1), ScalarAccessor(Multiply), x))
+register(Pi(x), lambda x: ReduceVector(scalar(1), Value(Multiply), x))
 
 
 class Total(matchpy.Operation):
@@ -437,21 +367,6 @@ class Total(matchpy.Operation):
 
 register(Total(x), lambda x: Pi(Shape(x)))
 
-
-class GetBySubstituting(matchpy.Operation):
-    """
-    GetBySubstituting(variable_name, form)
-    """
-
-    name = "->"
-    arity = matchpy.Arity(2, True)
-    infix = True
-
-
-register(
-    Get(x, GetBySubstituting(scalar_accessor, x1)),
-    lambda x, scalar_accessor, x1: matchpy.substitute(x1, {scalar_accessor.value: x}),
-)
 
 _counter = 0
 
@@ -466,9 +381,7 @@ def get_index_accessor():
     idx_variable = UnboundAccessor(variable_name=variable_name)
     return (
         idx_variable,
-        lambda a, variable_name=variable_name: GetBySubstituting(
-            ScalarAccessor(variable_name), a
-        ),
+        lambda a, variable_name=variable_name: Function(Value(variable_name), a),
     )
 
 
@@ -490,8 +403,8 @@ class Iota(matchpy.Operation):
 
 
 register(
-    Iota(Array(NoLengthAccessor(), x)),
-    lambda x: Array(x, with_get(lambda idx: Array(NoLengthAccessor(), idx))),
+    Iota(Sequence(NoLength(), x)),
+    lambda x: Sequence(x, with_get(lambda idx: Sequence(NoLength(), idx))),
 )
 
 
@@ -521,49 +434,12 @@ abstract_with_dimension = matchpy.Wildcard.symbol(
 )
 
 
-# class DimShapeIndex(matchpy.Operation):
-#     """
-#     DimShapeIndex(dim_accessor, shape_accessor, indexor (Function of arity dim_accessor))
-#     """
-
-#     name = "DimShapeIndex"
-#     arity = matchpy.Arity(3, True)
-
-
-class ForwardGetAccessor(matchpy.Operation):
-    """
-    ForwardGetAccessor(Array(length, content)) defines an accessor
-    that returns the array passed in, except the get operations is passed through to the content.
-
-    Useful when getting values returns the same shape, but a different content.
-    """
-
-    name = "ForwardGetAccessor"
-    arity = matchpy.Arity(1, True)
-
-
-register(
-    Get(x, ForwardGetAccessor(Array(x1, x2))),
-    lambda x, x1, x2: Array(x1, Content(Get(x, x2))),
-)
-
-# simplify unbound accessor that just forward
-register(
-    GetBySubstituting(scalar_accessor, Array(x, Content(Get(unbound_accessor, x1)))),
-    matchpy.CustomConstraint(
-        lambda scalar_accessor, unbound_accessor: scalar_accessor.value
-        == unbound_accessor.variable_name
-    ),
-    lambda scalar_accessor, x, unbound_accessor, x1: ForwardGetAccessor(Array(x, x1)),
-)
-
-
 def _abstract_with_dimension_inner(shape, content, n_dim, i=0):
     if i == n_dim:
-        return Array(NoLengthAccessor(), content)
+        return Sequence(NoLength(), content)
 
-    return Array(
-        Content(Get(ScalarAccessor(i), shape)),
+    return Sequence(
+        Content(Get(Value(i), shape)),
         with_get(
             lambda idx: _abstract_with_dimension_inner(
                 shape=shape, content=Content(Get(idx, content)), n_dim=n_dim, i=i + 1
@@ -597,23 +473,23 @@ def _binary_operation(x, x1, x2, x3, x4):
     l_length, l_content = x, x1
     op = x2
     r_length, r_content = x3, x4
-    l, r = Array(l_length, l_content), Array(r_length, r_content)
+    l, r = Sequence(l_length, l_content), Sequence(r_length, r_content)
 
-    l_is_scalar = isinstance(l_length, NoLengthAccessor)
-    r_is_scalar = isinstance(r_length, NoLengthAccessor)
+    l_is_scalar = isinstance(l_length, NoLength)
+    r_is_scalar = isinstance(r_length, NoLength)
 
     if l_is_scalar and r_is_scalar:
         return Apply(op, l, r)
     if l_is_scalar:
-        return Array(
+        return Sequence(
             r_length, with_get(lambda idx: BinaryOperation(l, op, Get(idx, r_content)))
         )
     if r_is_scalar:
-        return Array(
+        return Sequence(
             l_length, with_get(lambda idx: BinaryOperation(Get(idx, l_content), op, r))
         )
     assert l_length == r_length
-    return Array(
+    return Sequence(
         l_length,
         with_get(
             lambda idx: BinaryOperation(Get(idx, l_content), op, Get(idx, r_content))
@@ -621,7 +497,7 @@ def _binary_operation(x, x1, x2, x3, x4):
     )
 
 
-register(BinaryOperation(Array(x, x1), x2, Array(x3, x4)), _binary_operation)
+register(BinaryOperation(Sequence(x, x1), x2, Sequence(x3, x4)), _binary_operation)
 
 
 class OuterProduct(matchpy.Operation):
@@ -637,17 +513,17 @@ def _outer_product(x, x1, x2, x3, x4):
     l_length, l_content = x, x1
     op = x2
     r_length, r_content = x3, x4
-    l, r = Array(l_length, l_content), Array(r_length, r_content)
+    l, r = Sequence(l_length, l_content), Sequence(r_length, r_content)
 
-    if isinstance(l_length, NoLengthAccessor):
+    if isinstance(l_length, NoLength):
         return BinaryOperation(l, op, r)
 
-    return Array(
+    return Sequence(
         l_length, with_get(lambda idx: OuterProduct(Get(idx, l_content), op, r))
     )
 
 
-register(OuterProduct(Array(x, x1), x2, Array(x3, x4)), _outer_product)
+register(OuterProduct(Sequence(x, x1), x2, Sequence(x3, x4)), _outer_product)
 
 
 class InnerProduct(matchpy.Operation):
@@ -659,30 +535,11 @@ class InnerProduct(matchpy.Operation):
         return f"({l} {op_l}·{op_r} {r})"
 
 
-def scalar_accessor_is(x, prefix=""):
+def value_is(x, prefix=""):
     return matchpy.CustomConstraint(lambda y: y.value == x).with_renamed_vars(
-        {"y": f"scalar_accessor_{prefix}"}
+        {"y": f"value_{prefix}"}
     )
 
-
-# inner product is associative with scalar multiplication
-# TODO: Make this commutative so works for other orders of inner product and binary op.
-register(
-    InnerProduct(
-        x,
-        scalar_accessor,
-        scalar_accessor_1,
-        BinaryOperation(Array(NoLengthAccessor(), x1), scalar_accessor_2, x2),
-    ),
-    scalar_accessor_is(Add),
-    scalar_accessor_is(Multiply, "_1"),
-    scalar_accessor_is(Multiply, "_2"),
-    lambda x, scalar_accessor, scalar_accessor_1, x1, scalar_accessor_2, x2: BinaryOperation(
-        Array(NoLengthAccessor(), x1),
-        scalar_accessor_2,
-        InnerProduct(x, scalar_accessor, scalar_accessor_1, x2),
-    ),
-)
 
 
 class NumpyAccessor(matchpy.Symbol):
@@ -702,14 +559,14 @@ numpy_accessor_1 = matchpy.Wildcard.symbol("numpy_accessor_1", NumpyAccessor)
 
 
 register(
-    Content(Get(scalar_accessor, numpy_accessor)),
-    lambda scalar_accessor, numpy_accessor: NumpyAccessor(
-        numpy_accessor.code, numpy_accessor.index + (scalar_accessor.value,)
+    Content(Get(value, numpy_accessor)),
+    lambda value, numpy_accessor: NumpyAccessor(
+        numpy_accessor.code, numpy_accessor.index + (value.value,)
     ),
 )
 
 register(
-    ForwardGetAccessor(Array(x, numpy_accessor)),
+    ForwardGetAccessor(Sequence(x, numpy_accessor)),
     lambda x, numpy_accessor: NumpyAccessor(
         numpy_accessor.code, numpy_accessor.index + (":",)
     ),
@@ -717,16 +574,12 @@ register(
 
 register(
     InnerProduct(
-        Array(x, numpy_accessor),
-        scalar_accessor,
-        scalar_accessor_1,
-        Array(x1, numpy_accessor_1),
+        Sequence(x, numpy_accessor), value, value_1, Sequence(x1, numpy_accessor_1)
     ),
-    scalar_accessor_is(Add),
-    scalar_accessor_is(Multiply, "_1"),
-    lambda x, numpy_accessor, scalar_accessor, scalar_accessor_1, x1, numpy_accessor_1: Array(
-        NoLengthAccessor(),
-        NumpyAccessor(f"np.inner({numpy_accessor}, {numpy_accessor_1})"),
+    value_is(Add),
+    value_is(Multiply, "_1"),
+    lambda x, numpy_accessor, value, value_1, x1, numpy_accessor_1: Sequence(
+        NoLength(), NumpyAccessor(f"np.inner({numpy_accessor}, {numpy_accessor_1})")
     ),
 )
 
@@ -769,7 +622,7 @@ register(
 #     arity = matchpy.Arity(1, True)
 
 
-# class RavelArray(matchpy.Operation):
+# class RavelSequence(matchpy.Operation):
 #     """
 #     Ravel where dim array > 1
 #     """
@@ -868,9 +721,9 @@ register(
 #     arity = matchpy.Arity(2, True)
 
 
-# class EquivArray(matchpy.Operation):
+# class EquivSequence(matchpy.Operation):
 #     """
-#     EquivArray(dim_l, dim_r, l, r)
+#     EquivSequence(dim_l, dim_r, l, r)
 #     """
 
 #     name = "≡a"
@@ -908,7 +761,7 @@ register(
 #     arity = matchpy.Arity(3, True)
 
 
-# class BinaryOperationArray(matchpy.Operation):
+# class BinaryOperationSequence(matchpy.Operation):
 #     name = "BinaryOperationArray"
 #     arity = matchpy.Arity(3, True)
 
@@ -1026,8 +879,8 @@ register(
 #     lambda x, x1: And(
 #         EquivScalar(Dim(x), Dim(x1)),
 #         And(
-#             EquivArray(Scalar(1), Scalar(1), Shape(x), Shape(x1)),
-#             EquivArray(Dim(x), Dim(x1), x, x1),
+#             EquivSequence(Scalar(1), Scalar(1), Shape(x), Shape(x1)),
+#             EquivSequence(Dim(x), Dim(x1), x, x1),
 #         ),
 #     ),
 # )
@@ -1044,7 +897,7 @@ register(
 
 # # Contents are the same if fully indexing both result in equiv scalars
 # register(
-#     EquivArray(scalar, scalar1, x, x1),
+#     EquivSequence(scalar, scalar1, x, x1),
 #     lambda scalar, scalar1, x, x1: EquivScalar(
 #         FullIndex(_abstract_vector("_equiv", scalar.value), x),
 #         FullIndex(_abstract_vector("_equiv", scalar1.value), x1),
@@ -1102,19 +955,19 @@ register(
 
 
 # register(
-#     Ravel(x), lambda x: If(is_scalar(x), Vector(x), If(is_vector(x), x, RavelArray(x)))
+#     Ravel(x), lambda x: If(is_scalar(x), Vector(x), If(is_vector(x), x, RavelSequence(x)))
 # )
 
 
 # register(
-#     FullIndex(x, RavelArray(x1)),
+#     FullIndex(x, RavelSequence(x1)),
 #     lambda x, x1: FullIndex(GammaInverse(vector_first(x), Shape(x1)), x1),
 # )
 
 
-# register(Shape(BinaryOperationArray(x, scalar, x1)), lambda x, scalar, x1: Shape(x))
+# register(Shape(BinaryOperationSequence(x, scalar, x1)), lambda x, scalar, x1: Shape(x))
 # register(
-#     FullIndex(x, BinaryOperationArray(x1, scalar, x2)),
+#     FullIndex(x, BinaryOperationSequence(x1, scalar, x2)),
 #     lambda x, x1, scalar, x2: BinaryOperation(
 #         FullIndex(x, x1), scalar, FullIndex(x, x2)
 #     ),
