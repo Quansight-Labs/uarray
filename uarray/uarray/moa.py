@@ -41,7 +41,7 @@ register(Index(Sequence(Value.w.idx_length, w.idx_getitem), w.seq), _index)
 
 class ReduceVector(matchpy.Operation):
     """
-    ReduceVector(initial_value, callable, sequence)
+    ReduceVector(callable, initial_value, sequence)
     """
 
     name = "red"
@@ -83,7 +83,7 @@ class Pi(matchpy.Operation):
     arity = matchpy.Arity(1, True)
 
 
-register(Pi(w.x), lambda x: ReduceVector(scalar(1), function(2, Multiply), x))
+register(Pi(w.x), lambda x: ReduceVector(function(2, Multiply), Value(1), x))
 
 
 class Total(matchpy.Operation):

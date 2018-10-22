@@ -20,7 +20,8 @@ __all__ = [
     # "If",
     # "IsZero",
     "Unify",
-    "UnboundWithDimension",
+    "unbound",
+    "gensym",
 ]
 
 
@@ -71,6 +72,10 @@ class Call(matchpy.Operation):
 
     name = "Call"
     arity = matchpy.Arity(1, False)
+
+    def __str__(self):
+        callable, *args = self.operands
+        return f"{callable}({', '.join(map(str, args))})"
 
 
 class Function(matchpy.Operation):
@@ -221,31 +226,13 @@ class Unify(matchpy.Operation):
 register(Unify(w.x, w.y), matchpy.EqualVariablesConstraint("x", "y"), lambda x, y: x)
 
 
-class UnboundWithDimension(matchpy.Symbol):
-    def __init__(self, n, variable_name):
-        self.n = n
-        super().__init__(str(n), variable_name)
+def unbound(variable_name, n_dim):
+    def unbound_inner(x, i):
+        if i == n_dim:
+            return Scalar(Content(x))
+        return Sequence(
+            ExtractLength(x),
+            function(1, lambda idx: unbound_inner(Call(Content(x), idx), i + 1)),
+        )
 
-    def __str__(self):
-        return f"{self.variable_name}^{self.n}"
-
-
-def _abstract_with_dimension_inner(n_dim, x, i):
-
-    if i == n_dim:
-        return Scalar(Content(x))
-    return Sequence(
-        ExtractLength(x),
-        function(
-            1,
-            lambda idx: _abstract_with_dimension_inner(
-                n_dim, Call(Content(x), idx), i + 1
-            ),
-        ),
-    )
-
-
-register(
-    UnboundWithDimension.w.a,
-    lambda a: _abstract_with_dimension_inner(a.n, Unbound(a.variable_name), 0),
-)
+    return unbound_inner(Unbound(variable_name), 0)
