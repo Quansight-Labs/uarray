@@ -3,11 +3,23 @@ import typing
 import pprint
 import itertools
 import logging
+from IPython.display import display
 
 
 import numpy as np
 
 from .moa import *
+
+
+logger = logging.getLogger(__name__)
+
+
+class IPythonHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord):
+        display(record.args)
+
+
+logger.addHandler(IPythonHandler())
 
 
 def _fn_string(fn):
@@ -57,6 +69,7 @@ register(
     ),
 )
 
+
 @functools.singledispatch
 def to_expression(v) -> matchpy.Expression:
     """
@@ -65,13 +78,13 @@ def to_expression(v) -> matchpy.Expression:
     return scalar(v)
 
 
-@to_expression.register
-def to_expression__expr(v: matchpy.Expression):
+@to_expression.register(matchpy.Expression)
+def to_expression__expr(v):
     return v
 
 
-@to_expression.register
-def to_expression__nparray(v: np.ndarray):
+@to_expression.register(np.ndarray)
+def to_expression__nparray(v):
     """
     Turns a NumPy array into nested sequences
     """
@@ -162,14 +175,21 @@ class ArrayLike(np.lib.mixins.NDArrayOperatorsMixin):
     def __str__(self):
         return f"ArrayLike({str(self.expr)})"
 
+    def _repr_pretty_(self, pp, cycle):
+        return pp.text(pprint.pformat(self))
+
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        logger.info("__array_ufunc__(%s, %s, *%s, **%s)", ufunc, method, inputs, kwargs)
+
         if kwargs or len(inputs) not in (1, 2):
             return NotImplemented
-        args = map(to_expression, inputs)
+        args = list(map(to_expression, inputs))
+        logger.info("args = %s", args)
         fn = Ufunc(ufunc)
         if method == "__call__":
             if len(inputs) == 2:
                 args = [Broadcast(*args)]
+                logger.info("args = %s", args)
             expr = Call(fn, *args)
         elif method == "outer":
             expr = OuterProduct(
@@ -177,14 +197,13 @@ class ArrayLike(np.lib.mixins.NDArrayOperatorsMixin):
             )
         else:
             return NotImplemented
+        logger.info("expr = %s", expr)
         return ArrayLike(expr)
 
     def __getitem__(self, i):
-        if isinstance(i, int):
-            i = (i,)
         if not isinstance(i, tuple):
-            raise NotImplementedError("getitem with {i}")
-        expr = Index(vector(*i), self.expr)
+            i = (i,)
+        expr = Index(vector_of(*map(Content, map(to_expression, i))), self.expr)
         return ArrayLike(expr)
 
     @property
@@ -192,8 +211,8 @@ class ArrayLike(np.lib.mixins.NDArrayOperatorsMixin):
         return ArrayLike(replace(self.expr))
 
 
-@to_expression.register
-def to_expression__array_like(v: ArrayLike):
+@to_expression.register(ArrayLike)
+def to_expression__array_like(v):
     return v.expr
 
 
@@ -223,9 +242,17 @@ def from_expression(v):
     raise NotImplementedError(f"Cannot turn {repr(v)} into Python value")
 
 
-@from_expression.register
-def from_expression__value(v: Value):
+@from_expression.register(Value)
+def from_expression__value(v):
     return v.value
+
+
+def to_nested(expr: matchpy.Expression):
+    content = replace(Content(expr))
+    if isinstance(content, Value):
+        return content.value
+    length = from_expression(replace(Length(expr)))
+    return [to_nested(Call(content, Value(i))) for i in range(length)]
 
 
 def to_numpy(expr: matchpy.Expression):
@@ -239,27 +266,24 @@ def to_numpy(expr: matchpy.Expression):
 
     TODO: Switch from executing code to generating AST.
     """
-    expr = replace(expr)
-    logging.info(f"replace(expr) = {expr}")
-    logging.debug(pprint.pformat(expr))
-
-    n_dim = from_expression(replace(Dim(expr)))
-    logging.info(f"n_dim = {n_dim}")
+    n_dim_expr = replace(Dim(expr))
+    logger.info("n_dim_expr %s", n_dim_expr)
+    n_dim = from_expression(replace(n_dim_expr))
+    logger.info("n_dim %s", n_dim)
 
     shape_i = gensym()
     unbound_shape = replace(Content(Index(vector_of(Unbound(shape_i)), Shape(expr))))
-    logging.info(f"shape(expr) = {unbound_shape}")
-    logging.debug(pprint.pformat(unbound_shape))
+    logger.info("shape(expr) %s", unbound_shape)
     shape = [
         from_expression(replace(matchpy.substitute(unbound_shape, {shape_i: Value(i)})))
         for i in range(n_dim)
     ]
-    logging.info(f"shape = {shape}")
+    logger.info("shape %s", shape)
     res = np.empty(shape)
     idx_names = [gensym() for _ in range(n_dim)]
     unbound_indexed = replace(Content(Index(vector_of(*map(Unbound, idx_names)), expr)))
-    logging.info(f"indexed(expr) = {unbound_indexed}")
-    logging.debug(pprint.pformat(unbound_indexed))
+    logger.info("indexed(expr) = %s", unbound_indexed)
+
     for indexes in itertools.product(*map(range, shape)):
         res[tuple(indexes)] = from_expression(
             replace(
@@ -280,16 +304,49 @@ def _index_ndarray(x: NumpyNDArray, idx: Value):
 register(Call(Content(NumpyNDArray.w.x), Value.w.idx), _index_ndarray)
 
 
-def optimize(fn):
-    @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
+class Optimized:
+    def __init__(
+        self,
+        fn: typing.Callable[..., ArrayLike],
+        final_call: typing.Callable[[matchpy.Expression], typing.Any] = to_numpy,
+    ) -> None:
+        self.fn = fn
+        self.final_call = final_call
+        functools.wraps(fn)(self)
+
+    def __call__(self, *args, **kwargs):
         wrapped_args = [ArrayLike(a) for a in args]
         wrapped_kwargs = {k: ArrayLike(v) for k, v in kwargs.items()}
-        logging.info(f"Calling {fn}(*{wrapped_args}, **{wrapped_kwargs})")
-        logging.debug(pprint.pformat((wrapped_args, wrapped_kwargs)))
-        res = fn(*wrapped_args, **wrapped_kwargs).expr
-        logging.info(f"Got {res}")
-        logging.debug(pprint.pformat(res))
-        return to_numpy(res)
 
-    return wrapper
+        logger.info(f"Calling %s(*%s, **%s)", self.fn, wrapped_args, wrapped_kwargs)
+
+        res = self.fn(*wrapped_args, **wrapped_kwargs).expr
+        logger.info(f"Got %s", res)
+
+        replaced_res = replace(res)
+        logger.info(f"Replaced %s", replaced_res)
+
+        return self.final_call(replaced_res)
+
+
+def optimize(*args, **kwargs):
+    """
+    @optimize(final_call=to_numpy)
+    def f()...
+
+    or
+
+    @optimize
+    def f():
+
+    or
+
+    optimize(f, final_call=to_numpy)
+
+    or
+
+    optimize(f, to_numpy)
+    """
+    if args:
+        return Optimized(*args, **kwargs)
+    return functools.partial(Optimized, **kwargs)

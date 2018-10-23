@@ -14,7 +14,7 @@ def _shape(length, getitem):
     inner_shape = Shape(Call(getitem, Unbound()))
 
     return Sequence(
-        Add(Value(1), ExtractLength(inner_shape)),
+        Add(Value(1), Length(inner_shape)),
         PushVectorCallable(length, Content(inner_shape)),
     )
 

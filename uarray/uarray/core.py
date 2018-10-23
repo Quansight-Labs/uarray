@@ -15,7 +15,7 @@ __all__ = [
     "Content",
     "Function",
     "function",
-    "ExtractLength",
+    "Length",
     "PushVectorCallable",
     # "If",
     # "IsZero",
@@ -42,12 +42,12 @@ class Content(matchpy.Operation):
 register(Content(Sequence(w._, w.getitem)), lambda _, getitem: getitem)
 
 
-class ExtractLength(matchpy.Operation):
-    name = "ExtractLength"
+class Length(matchpy.Operation):
+    name = "Length"
     arity = matchpy.Arity(1, True)
 
 
-register(ExtractLength(Sequence(w.length, w._)), lambda _, length: length)
+register(Length(Sequence(w.length, w._)), lambda _, length: length)
 
 
 class Scalar(matchpy.Operation):
@@ -231,7 +231,7 @@ def unbound(variable_name, n_dim):
         if i == n_dim:
             return Scalar(Content(x))
         return Sequence(
-            ExtractLength(x),
+            Length(x),
             function(1, lambda idx: unbound_inner(Call(Content(x), idx), i + 1)),
         )
 
