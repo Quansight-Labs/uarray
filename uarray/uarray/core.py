@@ -1,6 +1,7 @@
 # pylint: disable=E1120,W0108,W0621,E1121,E1101
 import matchpy
-
+import typing
+import functools
 from .machinery import *
 
 __all__ = [
@@ -13,14 +14,18 @@ __all__ = [
     "Unbound",
     "Scalar",
     "Content",
+    "GetItem",
     "Function",
     "function",
-    "ExtractLength",
+    "Length",
+    "to_expression",
     "PushVectorCallable",
-    # "If",
-    # "IsZero",
+    "with_dims",
     "Unify",
-    "UnboundWithDimension",
+    "unbound",
+    "VectorIndexed",
+    "gensym",
+    "with_shape",
 ]
 
 
@@ -33,20 +38,20 @@ class Sequence(matchpy.Operation):
     arity = matchpy.Arity(2, True)
 
 
-class Content(matchpy.Operation):
-    name = "Content"
+class GetItem(matchpy.Operation):
+    name = "GetItem"
     arity = matchpy.Arity(1, True)
 
 
-register(Content(Sequence(w._, w.getitem)), lambda _, getitem: getitem)
+register(GetItem(Sequence(w._, w.getitem)), lambda _, getitem: getitem)
 
 
-class ExtractLength(matchpy.Operation):
-    name = "ExtractLength"
+class Length(matchpy.Operation):
+    name = "Length"
     arity = matchpy.Arity(1, True)
 
 
-register(ExtractLength(Sequence(w.length, w._)), lambda _, length: length)
+register(Length(Sequence(w.length, w._)), lambda _, length: length)
 
 
 class Scalar(matchpy.Operation):
@@ -61,6 +66,11 @@ class Scalar(matchpy.Operation):
         return str(self.operands[0])
 
 
+class Content(matchpy.Operation):
+    name = "Content"
+    arity = matchpy.Arity(1, True)
+
+
 register(Content(Scalar(w.content)), lambda content: content)
 
 
@@ -71,6 +81,10 @@ class Call(matchpy.Operation):
 
     name = "Call"
     arity = matchpy.Arity(1, False)
+
+    def __str__(self):
+        callable, *args = self.operands
+        return f"{callable}({', '.join(map(str, args))})"
 
 
 class Function(matchpy.Operation):
@@ -122,6 +136,19 @@ class Value(matchpy.Symbol):
 
 def scalar(value):
     return Scalar(Value(value))
+
+
+@functools.singledispatch
+def to_expression(v) -> matchpy.Expression:
+    """
+    Convert some value into a matchpy expression
+    """
+    return scalar(v)
+
+
+@to_expression.register(matchpy.Expression)
+def to_expression__expr(v):
+    return v
 
 
 class VectorCallable(matchpy.Operation):
@@ -221,31 +248,25 @@ class Unify(matchpy.Operation):
 register(Unify(w.x, w.y), matchpy.EqualVariablesConstraint("x", "y"), lambda x, y: x)
 
 
-class UnboundWithDimension(matchpy.Symbol):
-    def __init__(self, n, variable_name):
-        self.n = n
-        super().__init__(str(n), variable_name)
-
-    def __str__(self):
-        return f"{self.variable_name}^{self.n}"
-
-
-def _abstract_with_dimension_inner(n_dim, x, i):
-
-    if i == n_dim:
+def with_shape(
+    x: matchpy.Expression, shape: typing.Tuple[matchpy.Expression, ...], i=0
+):
+    if i == len(shape):
         return Scalar(Content(x))
     return Sequence(
-        ExtractLength(x),
-        function(
-            1,
-            lambda idx: _abstract_with_dimension_inner(
-                n_dim, Call(Content(x), idx), i + 1
-            ),
-        ),
+        shape[i],
+        function(1, lambda idx: with_shape(Call(GetItem(x), idx), shape, i + 1)),
     )
 
 
-register(
-    UnboundWithDimension.w.a,
-    lambda a: _abstract_with_dimension_inner(a.n, Unbound(a.variable_name), 0),
-)
+def with_dims(x: matchpy.Expression, n_dim: int, i=0):
+    if i == n_dim:
+        return Scalar(Content(x))
+    return Sequence(
+        Length(x),
+        function(1, lambda idx: with_dims(Call(GetItem(x), idx), n_dim, i + 1)),
+    )
+
+
+def unbound(variable_name, n_dim):
+    return with_dims(Unbound(variable_name), n_dim)

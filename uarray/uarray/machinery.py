@@ -101,10 +101,10 @@ def _pprint_operation(self, object, stream, indent, allowance, context, level):
     stream.write(")")
 
 
-pprint.PrettyPrinter._pprint_operation = _pprint_operation
-pprint.PrettyPrinter._dispatch[
-    matchpy.Operation.__repr__
-] = pprint.PrettyPrinter._pprint_operation
+pprint.PrettyPrinter._dispatch[matchpy.Operation.__repr__] = _pprint_operation
+
+# defer ipython pretty printing to pprint
+matchpy.Operation._repr_pretty_ = lambda self, pp, cycle: pp.text(pprint.pformat(self))
 
 
 def replace_debug(expr, use_pprint=False, n=100):

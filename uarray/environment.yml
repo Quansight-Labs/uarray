@@ -2,9 +2,11 @@ name: uarray
 channels:
   - conda-forge
 dependencies:
-  - python=3.7
+  - python=3.6
   - matchpy
   - python-graphviz
+  - tensorflow
+  - numba
   # for development
   - mypy
   - black
@@ -15,3 +17,7 @@ dependencies:
   - numpy
   - hypothesis
   - pytest
+  - ipdb
+  - pudb
+  - pip:
+      - astunparse

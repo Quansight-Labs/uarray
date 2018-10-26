@@ -1,1 +1,2 @@
-from .numpy import *  # NOQA
+from .optimize import *  # NOQA
+from .ast_higher import *
