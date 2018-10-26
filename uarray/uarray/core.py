@@ -1,7 +1,7 @@
 # pylint: disable=E1120,W0108,W0621,E1121,E1101
 import matchpy
 import typing
-
+import functools
 from .machinery import *
 
 __all__ = [
@@ -14,13 +14,16 @@ __all__ = [
     "Unbound",
     "Scalar",
     "Content",
+    "GetItem",
     "Function",
     "function",
     "Length",
+    "to_expression",
     "PushVectorCallable",
     "with_dims",
     "Unify",
     "unbound",
+    "VectorIndexed",
     "gensym",
     "with_shape",
 ]
@@ -35,12 +38,12 @@ class Sequence(matchpy.Operation):
     arity = matchpy.Arity(2, True)
 
 
-class Content(matchpy.Operation):
-    name = "Content"
+class GetItem(matchpy.Operation):
+    name = "GetItem"
     arity = matchpy.Arity(1, True)
 
 
-register(Content(Sequence(w._, w.getitem)), lambda _, getitem: getitem)
+register(GetItem(Sequence(w._, w.getitem)), lambda _, getitem: getitem)
 
 
 class Length(matchpy.Operation):
@@ -61,6 +64,11 @@ class Scalar(matchpy.Operation):
 
     def __str__(self):
         return str(self.operands[0])
+
+
+class Content(matchpy.Operation):
+    name = "Content"
+    arity = matchpy.Arity(1, True)
 
 
 register(Content(Scalar(w.content)), lambda content: content)
@@ -128,6 +136,19 @@ class Value(matchpy.Symbol):
 
 def scalar(value):
     return Scalar(Value(value))
+
+
+@functools.singledispatch
+def to_expression(v) -> matchpy.Expression:
+    """
+    Convert some value into a matchpy expression
+    """
+    return scalar(v)
+
+
+@to_expression.register(matchpy.Expression)
+def to_expression__expr(v):
+    return v
 
 
 class VectorCallable(matchpy.Operation):
@@ -234,7 +255,7 @@ def with_shape(
         return Scalar(Content(x))
     return Sequence(
         shape[i],
-        function(1, lambda idx: with_shape(Call(Content(x), idx), shape, i + 1)),
+        function(1, lambda idx: with_shape(Call(GetItem(x), idx), shape, i + 1)),
     )
 
 
@@ -243,7 +264,7 @@ def with_dims(x: matchpy.Expression, n_dim: int, i=0):
         return Scalar(Content(x))
     return Sequence(
         Length(x),
-        function(1, lambda idx: with_dims(Call(Content(x), idx), n_dim, i + 1)),
+        function(1, lambda idx: with_dims(Call(GetItem(x), idx), n_dim, i + 1)),
     )
 
 

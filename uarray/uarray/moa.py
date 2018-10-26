@@ -15,7 +15,7 @@ def _shape(length, getitem):
 
     return Sequence(
         Add(Value(1), Length(inner_shape)),
-        PushVectorCallable(length, Content(inner_shape)),
+        PushVectorCallable(length, GetItem(inner_shape)),
     )
 
 
@@ -32,7 +32,7 @@ class Index(matchpy.Operation):
 def _index(idx_length, idx_getitem, seq):
     for i in range(idx_length.value):
         index_value = Call(idx_getitem, Value(i))
-        seq = Call(Content(seq), Content(index_value))
+        seq = Call(GetItem(seq), Content(index_value))
     return seq
 
 

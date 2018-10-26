@@ -17,3 +17,7 @@ dependencies:
   - numpy
   - hypothesis
   - pytest
+  - ipdb
+  - pudb
+  - pip:
+      - astunparse

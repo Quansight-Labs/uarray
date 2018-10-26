@@ -1,59 +1,11 @@
 import ast
 import matchpy
+import typing
+import functools
 
-
-from .numpy import *
-
-
-class AssignAsNPArray(matchpy.Operation):
-    """
-    AssignAsNpArray(expr, id, allocate) -> statements that initialize identifier with NP array
-    """
-
-    arity = matchpy.Arity(3, True)
-
-
-class AssignAsNestedList(matchpy.Operation):
-    """
-    AssignAsNestedList(expr, id) -> statements that initialize identifier with nested lists
-    """
-
-    arity = matchpy.Arity(2, True)
-
-
-class AssignAsValue(matchpy.Operation):
-    """
-    AssignAsValue(expr, id) -> statement that initialize identifier with native python value
-
-    (used on contents of scalar)
-    """
-
-
-_i = 0
-
-
-def gen_id():
-    global _i
-    s = f"id{_i}"
-    _i += 1
-    return s
-
-
-class SubstituteStatements(matchpy.Symbol):
-    """
-    SubstituteStatements(fn)
-    """
-
-    pass
-
-
-register(
-    Call(SubstituteStatements.w.fn, ws.args),
-    matchpy.CustomConstraint(
-        lambda args: all(isinstance(a, SubstituteStatements) for a in args)
-    ),
-    lambda fn, args: fn.name(*(a.name for a in args)),
-)
+from .machinery import *
+from .core import *
+from .moa import Multiply, Shape
 
 
 def to_tuple(fn):
@@ -68,176 +20,510 @@ def to_tuple(fn):
     return inner
 
 
-class Statement(matchpy.Symbol):
-    def __repr__(self):
-        return f"Statement({ast.dump(self.name)})"
+unary = matchpy.Arity.unary
+binary = matchpy.Arity.binary
+
+
+def new_operation(name, arity):
+    return matchpy.Operation.new(name, arity, name)
+
+
+NPArray = new_operation("NPArray", unary)
+
+NestedLists = new_operation("NestedLists", unary)
+PythonContent = new_operation("PythonContent", unary)
+
+Initializer = new_operation("Initializer", unary)
+
+register(Initializer(NPArray(w.init)), lambda init: init)
+register(Initializer(NestedLists(w.init)), lambda init: init)
+register(Initializer(PythonContent(w.init)), lambda init: init)
+
+
+ToNPArray = new_operation("ToNPArray", binary)
+ToNestedLists = new_operation("ToNestedLists", unary)
+ToPythonContent = new_operation("ToPythonContent", unary)
+
+
+class ShouldAllocate(matchpy.Symbol):
+    name: bool
+
+
+register(ToNPArray(NPArray(w.x), ShouldAllocate.w.alloc), lambda x, alloc: NPArray(x))
+register(ToNestedLists(NestedLists(w.x)), lambda x: NestedLists(x))
+register(ToPythonContent(PythonContent(w.x)), lambda x: PythonContent(x))
+
+# Scalar numpy arrays are converted to scalars, not 0d array
+register(
+    ToNPArray(Scalar(w.content), w.init),
+    lambda content, init: NPArray(Initializer(ToPythonContent(content))),
+)
 
 
 class Expression(matchpy.Symbol):
+    """
+    Can use this as an initializer
+    """
+
+    name: ast.Expression
+
     def __repr__(self):
         return f"Expression({ast.dump(self.name)})"
 
 
-@to_tuple
-def assign_sequence_nparray(length, content, id: Value, allocate: Value):
-    if allocate.value:
-        shape_list_id = gen_id()
-        # fill shape
-        yield AssignAsNestedList(Shape(Sequence(length, content)), Value(shape_list_id))
-        # allocate array
-        shape_tuple = ast.Call(
-            ast.Name("tuple", ast.Load()), [ast.Name(shape_list_id, ast.Load())], []
-        )
-        array = ast.Call(
-            ast.Attribute(ast.Name("np", ast.Load()), "array", ast.Load()),
-            [shape_tuple],
-            [],
-        )
-        yield Statement(ast.Assign([ast.Name(id.value, ast.Store())], array))
-    index_id = gen_id()
-    index = ast.Subscript(
-        ast.Name(id.value, ast.Load()),
-        ast.Index(ast.Name(index_id, ast.Load())),
-        ast.Load(),
-    )
-
-    length_id = gen_id()
-    indexed_id = gen_id()
-
-    def inner(*length_assignments):
-        @to_tuple
-        def inner(*index_assignments):
-            yield from length_assignments
-            yield Statement(
-                ast.For(
-                    ast.Name(index_id, ast.Store()),
-                    ast.Call(
-                        ast.Name("range", ast.Load()),
-                        [ast.Name(length_id, ast.Load())],
-                        [],
-                    ),
-                    [
-                        ast.Assign(
-                            [ast.Name(indexed_id, ast.Store())],
-                            ast.Subscript(
-                                ast.Name(id.value, ast.Load()),
-                                Index(ast.Name(index_id, ast.Load())),
-                                ast.Load(),
-                            ),
-                        ),
-                        *index_assignments,
-                    ],
-                )
-            )
-
-        return SubstituteStatements(inner)
-
-    yield Call(
-        Call(SubstituteStatements(inner), AssignAsValue(length, Value(length_id))),
-        AssignAsNPArray(
-            Call(content, Expression(index)), Value(indexed_id), Value(False)
-        ),
-    )
+# TODO: Is this right? Or should this never be hit
+register(ToPythonContent(Expression.w.exp), lambda exp: PythonContent(exp))
 
 
-register(
-    AssignAsNPArray(Sequence(w.length, w.content), Value.w.id, Value.w.allocate),
-    assign_sequence_nparray,
-)
+class Statement(matchpy.Symbol):
+    """
+    Returned by all initializer functions
+    """
 
-# Scalar arrays should be values not 0d arrays to match NP behavior
-register(
-    AssignAsNPArray(Scalar(w.content), Value.w.id, Value.w.allocate),
-    lambda content, id, allocate: AssignAsValue(content, id),
-)
+    name: ast.AST
+
+    def __repr__(self):
+        return f"Statement({ast.dump(self.name)})"
 
 
-def _assign_value(v: Value, id: Value) -> Statement:
-    v = v.value
+class Identifier(matchpy.Symbol):
+    name: str
+    _i = 0
+
+    def __init__(self, name=None, variable_name=None):
+        if not name:
+            name = f"i_{Identifier._i}"
+            Identifier._i += 1
+        super().__init__(name, variable_name)
+
+
+def np_array_from_id(array_id: Identifier):
+    assert isinstance(array_id, Identifier)
+    return NPArray(Expression(ast.Name(array_id.name, ast.Load())))
+
+
+def python_content_from_id(array_id: Identifier):
+    assert isinstance(array_id, Identifier)
+    return PythonContent(Expression(ast.Name(array_id.name, ast.Load())))
+
+
+def _assign_expresion(expr: Expression, id_: Identifier) -> Statement:
+    assert isinstance(id_, Identifier)
+    return Statement(ast.Assign([ast.Name(id_.name, ast.Store())], expr.name))
+
+
+register(Call(Expression.w.expr, Identifier.w.id_), _assign_expresion)
+
+
+def _value_as_python_content(val: Value):
+    v = val.value
     if isinstance(v, (int, float)):
         e = ast.Num(v)
     else:
         raise TypeError(f"Cannot turn {v} into Python AST")
-    return Statement(ast.Assign([ast.Name(id.value, ast.Store())], e))
+    return PythonContent(Expression(e))
 
 
-register(AssignAsValue(Value.w.x, Value.w.id), _assign_value)
+register(ToPythonContent(Value.w.val), _value_as_python_content)
+
+expressions = typing.Union[matchpy.Expression, typing.Tuple[matchpy.Expression, ...]]
 
 
-def _assign_multiply(l, r, id):
-    l_id = gen_id()
-    r_id = gen_id()
+class SubstituteIdentifier(matchpy.Symbol):
+    name: typing.Callable[[Identifier], expressions]
 
-    def inner(l_assignments):
-        @to_tuple
-        def inner(r_assignments):
-            yield from l_assignments
-            yield from r_assignments
-            res = ast.BinOp(
-                ast.Name(l_id, ast.Load()), ast.Mult(), ast.Name(r_id, ast.Load())
+
+register(
+    Call(SubstituteIdentifier.w.fn, Identifier.w.id), lambda fn, id: fn.name(id.name)
+)
+
+
+class SubstituteStatements(matchpy.Symbol):
+    name: typing.Callable[..., expressions]
+
+
+def all_of_type(type_):
+    return lambda args: all(isinstance(a, type_) for a in args)
+
+
+register(
+    Call(SubstituteStatements.w.fn, ws.args),
+    matchpy.CustomConstraint(all_of_type(Statement)),
+    lambda fn, args: fn.name(*(a.name for a in args)),
+)
+
+
+def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
+    @NPArray
+    @SubstituteIdentifier
+    @to_tuple
+    def inner(array_id: str):
+        """
+        for i in range(length):
+            result = getitem(i)
+            array[i] = result
+        """
+        assert isinstance(array_id, str)
+        if alloc.name:
+            shape_list_id = Identifier()
+            # fill shape
+            yield Call(
+                Initializer(ToNestedLists(Shape(Sequence(length, getitem)))),
+                shape_list_id,
             )
-            yield Statement(ast.Assign([ast.Name(id.value, ast.Store())], res))
+            # allocate array
+            shape_tuple = ast.Call(
+                ast.Name("tuple", ast.Load()),
+                [ast.Name(shape_list_id.name, ast.Load())],
+                [],
+            )
+            array = ast.Call(
+                ast.Attribute(ast.Name("np", ast.Load()), "empty", ast.Load()),
+                [shape_tuple],
+                [],
+            )
+            yield Statement(ast.Assign([ast.Name(array_id, ast.Store())], array))
 
-        return inner
+        length_id = Identifier()
+        yield Call(Initializer(ToPythonContent(length)), length_id)
 
-    return Call(
-        Call(SubstituteStatements(inner), AssignAsValue(l, l_id)),
-        AssignAsValue(r, r_id),
-    )
+        index_id = Identifier()
+        result_id = Identifier()
+        # result = getitem(i)
+        initialize_result = Call(
+            Initializer(
+                ToNPArray(
+                    Call(getitem, python_content_from_id(index_id)),
+                    ShouldAllocate(False),
+                )
+            ),
+            result_id,
+        )
+        # array[i] = result
+        update_array = ast.Assign(
+            [
+                ast.Subscript(
+                    ast.Name(array_id, ast.Load()),
+                    ast.Index(ast.Name(index_id.name, ast.Load())),
+                    ast.Store(),
+                )
+            ],
+            ast.Name(result_id.name, ast.Load()),
+        )
+        # range(length)
+        range_expr = ast.Call(
+            ast.Name("range", ast.Load()), [ast.Name(length_id.name, ast.Load())], []
+        )
+
+        @SubstituteStatements
+        def inner(*results_initializer):
+            # for i in range(length):
+            return Statement(
+                ast.For(
+                    ast.Name(index_id.name, ast.Store()),
+                    range_expr,
+                    [*results_initializer, update_array],
+                    [],
+                )
+            )
+
+        yield Call(inner, initialize_result)
+
+    return inner
 
 
-register(AssignAsValue(Multiply(w.l, w.r), Value.w.id), _assign_multiply)
+# Scalar numpy arrays are converted to scalars, not 0d array
+register(
+    ToNPArray(Sequence(w.length, w.getitem), ShouldAllocate.w.alloc),
+    _to_np_array_sequence,
+)
 
 
-class NPArrayExpression(matchpy.Symbol):
-    """
-    Expression that holds a Numpy ND array.
-    """
-
-    pass
+ToSequenceWithDim = new_operation("ToSequenceWithDim", binary)
 
 
-class ToSequenceWithDim(matchpy.Operation):
-    name = "ToSequenceWithDim"
-    arity = matchpy.Arity(2, True)
+def _np_array_to_sequence(arr: Expression, ndim: Value):
+    def inner(e: matchpy.Expression, i: int):
+        if i == ndim.value:
+            return Scalar(Content(e))
+
+        length = Expression(
+            ast.Subscript(
+                ast.Attribute(arr.name, "shape", ast.Load()),
+                ast.Index(ast.Num(i)),
+                ast.Load(),
+            )
+        )
+
+        return Sequence(
+            length, function(1, lambda idx: inner(Call(GetItem(e), idx), i + 1))
+        )
+
+    return inner(NPArray(arr), 0)
 
 
-register(ToSequenceWithDim(Sequence(ws.args), w._), lambda args, _: Sequence(args))
-register(ToSequenceWithDim(Sequence(ws.args), w._), lambda args: Sequence(args))
+register(
+    ToSequenceWithDim(NPArray(Expression.w.arr), Value.w.ndim), _np_array_to_sequence
+)
 
 
-def np_array_with_ndim(a: matchpy.Expression, n_dim: int, i=0) -> Sequence | Scalar:
-    """
-    Takes in an expression can be turned into an ndarray assignment and expands it out
-    as nested sequences, so that it can be reduced and understood.
-    """
-    a_id = gen_id()
-    a_assignments = AssignAsNPArray(e, Value(a_id), Value(True))
+def _nparray_getitem(array_init, idx):
+    @NPArray
+    @SubstituteIdentifier
+    @to_tuple
+    def inner(sub_array_id: str):
+        idx_id = Identifier()
+        yield Call(Initializer(ToPythonContent(idx)), idx_id)
+        array_id = Identifier()
+        yield Call(array_init, array_id)
+        # sub_array = array[idx]
+        yield Statement(
+            ast.Assign(
+                [ast.Name(sub_array_id, ast.Store())],
+                ast.Subscript(
+                    ast.Name(array_id.name, ast.Load()),
+                    ast.Index(ast.Name(idx_id.name, ast.Load())),
+                    ast.Load(),
+                ),
+            )
+        )
 
-    if i == n_dim:
-        return Scalar(a)
-    return Sequence(
-        shape[i],
-        function(1, lambda idx: with_shape(Call(Content(x), idx), shape, i + 1)),
-    )
-    shape_expr = ast.Attribute(ast.e, attr="shape", ctx=Load())
-    with_shape(e)
+    return inner
 
 
-# TODO: Make new class for input Numpy Args with dims that handles shape correctly as well
-# as getting values correctly.
-# class
+register(Call(GetItem(NPArray(w.array_init)), w.idx), _nparray_getitem)
 
-# TODO: Makes decorator take in *args and wrapper arguments that passes them through, wrapping in ArrayLike
 
-# def _index_expression(e, idx):
-#     idx_id = gen_id()
+def _nested_lists_getitem(nested_lists_init, idx):
+    @NestedLists
+    @SubstituteIdentifier
+    @to_tuple
+    def inner(sub_nested_lists_id: str):
+        idx_id = Identifier()
+        yield Call(Initializer(ToPythonContent(idx)), idx_id)
+        nested_lists = Identifier()
+        yield Call(nested_lists_init, nested_lists)
+        # sub_nested_lists = nested_lists[idx]
+        yield Statement(
+            ast.Assign(
+                [ast.Name(sub_nested_lists_id, ast.Store())],
+                ast.Subscript(
+                    ast.Name(nested_lists.name, ast.Load()),
+                    ast.Index(ast.Name(idx_id.name, ast.Load())),
+                    ast.Load(),
+                ),
+            )
+        )
+
+    return inner
+
+
+register(Call(GetItem(NestedLists(w.nested_lists_init)), w.idx), _nested_lists_getitem)
+
+# If we call Content on a nested list, then we are at a Python scalar
+# and we can cast it to that
+register(
+    ToPythonContent(Content(NestedLists(w.nested_list_init))),
+    lambda nested_list_init: PythonContent(nested_list_init),
+)
+
+# and vice versa, we can turn python content into a neste list if is in a scalar
+register(
+    ToNestedLists(Scalar(PythonContent(w.python_content_init))),
+    lambda python_content_init: NestedLists(python_content_init),
+)
+
+
+# for now we just noop
+# def _nparray_content(array_init):
+#     # scalar =np.asscalar(array)
+#     @PythonContent
+#     @SubstituteIdentifier
 #     @to_tuple
-#     def inner(idx_assignments):
-#         yield from idx_assignments
+#     def inner(scalar_id: str):
+#         array_id = Identifier()
+#         yield Call(array_init, array_id)
+#         yield Statement(
+#             ast.Assign(
+#                 [ast.Name(scalar_id, ast.Store())],
+#                 ast.Call(
+#                     ast.Attribute(ast.Name("np", ast.Load()), "asscalar", ast.Load()),
+#                     [ast.Name(array_id.name, ast.Load())],
+#                     [],
+#                 ),
+#             )
+#         )
+
+#     return inner
 
 
-#     return Call(Substitute(inner), AssignAsValue(idx))
+register(Content(NPArray(w.array_init)), lambda array_init: PythonContent(array_init))
 
 
-# register(Call(Content(Expression.w.e), w.idx), _index_expression)
+def _multiply_python_content(l_init, r_init):
+    # res = l * r
+    @PythonContent
+    @SubstituteIdentifier
+    @to_tuple
+    def inner(res_id: str):
+        l_id = Identifier()
+        r_id = Identifier()
+        yield Call(l_init, l_id)
+        yield Call(r_init, r_id)
+        yield Statement(
+            ast.Assign(
+                [ast.Name(res_id, ast.Store())],
+                ast.BinOp(
+                    ast.Name(l_id.name, ast.Load()),
+                    ast.Mult(),
+                    ast.Name(r_id.name, ast.Load()),
+                ),
+            )
+        )
+
+    return inner
+
+
+register(
+    Multiply(PythonContent(w.l_init), PythonContent(w.r_init)), _multiply_python_content
+)
+
+register(Initializer(NPArray(w.init)), lambda init: init)
+
+
+# def compile_function()
+
+
+DefineFunction = new_operation("DefineFunction", matchpy.Arity(1, False))
+
+
+def _define_function(ret, args):
+
+    ret_id = Identifier()
+
+    args_ = ast.arguments(
+        args=[ast.arg(arg=a.name, annotation=None) for a in args],
+        vararg=None,
+        kwonlyargs=[],
+        kw_defaults=[],
+        kwarg=None,
+        defaults=[],
+    )
+
+    @SubstituteStatements
+    def inner(*initialize_ret):
+        return Statement(
+            ast.Module(
+                body=[
+                    ast.FunctionDef(
+                        name="fn",
+                        args=args_,
+                        body=[
+                            *initialize_ret,
+                            ast.Return(value=ast.Name(id=ret_id.name, ctx=ast.Load())),
+                        ],
+                        decorator_list=[],
+                        returns=None,
+                    )
+                ]
+            )
+        )
+
+    return Call(inner, Call(Initializer(ret), ret_id))
+
+
+register(DefineFunction(w.ret, ws.args), _define_function)
+
+
+def _to_nested_lists_sequence(length, getitem):
+    @NestedLists
+    @SubstituteIdentifier
+    @to_tuple
+    def inner(nested_lists_id: str):
+        """
+        nested_lists = [0] * length
+        for i in range(length):
+            result = getitem(i)
+            nested_lists[i] = result
+        """
+
+        length_id = Identifier()
+        yield Call(Initializer(ToPythonContent(length)), length_id)
+        yield Statement(
+            ast.Assign(
+                targets=[ast.Name(nested_lists_id, ast.Store())],
+                value=ast.BinOp(
+                    left=ast.List([ast.Num(n=0)], ast.Load()),
+                    op=ast.Mult(),
+                    right=ast.Name(length_id.name, ast.Load()),
+                ),
+            )
+        )
+        index_id = Identifier()
+        result_id = Identifier()
+        # result = getitem(i)
+        initialize_result = Call(
+            Initializer(ToNestedLists(Call(getitem, python_content_from_id(index_id)))),
+            result_id,
+        )
+        # nest_lists[i] = result
+        update_nest_lists = ast.Assign(
+            [
+                ast.Subscript(
+                    ast.Name(nested_lists_id, ast.Load()),
+                    ast.Index(ast.Name(index_id.name, ast.Load())),
+                    ast.Store(),
+                )
+            ],
+            ast.Name(result_id.name, ast.Load()),
+        )
+        # range(length)
+        range_expr = ast.Call(
+            ast.Name("range", ast.Load()), [ast.Name(length_id.name, ast.Load())], []
+        )
+
+        @SubstituteStatements
+        def inner(*results_initializer):
+            # for i in range(length):
+            return Statement(
+                ast.For(
+                    ast.Name(index_id.name, ast.Store()),
+                    range_expr,
+                    [*results_initializer, update_nest_lists],
+                    [],
+                )
+            )
+
+        yield Call(inner, initialize_result)
+
+    return inner
+
+
+register(ToNestedLists(Sequence(w.length, w.getitem)), _to_nested_lists_sequence)
+
+
+def _vector_indexed_python_content(idx_expr: Expression, args: typing.List[Expression]):
+    return PythonContent(
+        Expression(
+            ast.Subscript(
+                value=ast.Tuple(elts=[a.name for a in args], ctx=ast.Load()),
+                slice=ast.Index(value=idx_expr.name),
+                ctx=ast.Load(),
+            )
+        )
+    )
+
+    # recurses forever
+    # return ToPythonContent(
+    #     Content(
+    #         Call(GetItem(ToNestedLists(vector_of(*items))), PythonContent(idx_init))
+    #     )
+    # )
+
+
+# TODO: Make work with non expressions
+register(
+    VectorIndexed(PythonContent(Expression.w.idx_expr), ws.args),
+    matchpy.CustomConstraint(all_of_type(Expression)),
+    _vector_indexed_python_content,
+)

@@ -1,15 +1,22 @@
-# pylint: disable=W0614,W0401
 from uarray import *
+from uarray.ast import *
 import numpy as np
-import logging
+
 
 # logging.basicConfig(level=logging.DEBUG)
 
 
-def cross_product_index(a, b):
-    return np.multiply.outer(a, b)
+@optimize()
+def some_fn(a, b):
+    return np.multiply.outer(a, b)[10]
 
 
-args = (np.arange(10), np.arange(100))
+first = ToSequenceWithDim(np_array_from_id(Identifier("a")), Value(1))
+second = ToSequenceWithDim(np_array_from_id(Identifier("b")), Value(1))
+e = some_fn(first, second)
+final = replace(
+    DefineFunction(ToNPArray(e, ShouldAllocate(True)), Identifier("a"), Identifier("b"))
+)
 
-assert np.array_equal(cross_product_index(*args), optimize(cross_product_index)(*args))
+
+print(final)
