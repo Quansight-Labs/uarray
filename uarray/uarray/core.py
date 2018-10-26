@@ -1,5 +1,6 @@
 # pylint: disable=E1120,W0108,W0621,E1121,E1101
 import matchpy
+import typing
 
 from .machinery import *
 
@@ -17,11 +18,11 @@ __all__ = [
     "function",
     "Length",
     "PushVectorCallable",
-    # "If",
-    # "IsZero",
+    "with_dims",
     "Unify",
     "unbound",
     "gensym",
+    "with_shape",
 ]
 
 
@@ -226,13 +227,25 @@ class Unify(matchpy.Operation):
 register(Unify(w.x, w.y), matchpy.EqualVariablesConstraint("x", "y"), lambda x, y: x)
 
 
-def unbound(variable_name, n_dim):
-    def unbound_inner(x, i):
-        if i == n_dim:
-            return Scalar(Content(x))
-        return Sequence(
-            Length(x),
-            function(1, lambda idx: unbound_inner(Call(Content(x), idx), i + 1)),
-        )
+def with_shape(
+    x: matchpy.Expression, shape: typing.Tuple[matchpy.Expression, ...], i=0
+):
+    if i == len(shape):
+        return Scalar(Content(x))
+    return Sequence(
+        shape[i],
+        function(1, lambda idx: with_shape(Call(Content(x), idx), shape, i + 1)),
+    )
 
-    return unbound_inner(Unbound(variable_name), 0)
+
+def with_dims(x: matchpy.Expression, n_dim: int, i=0):
+    if i == n_dim:
+        return Scalar(Content(x))
+    return Sequence(
+        Length(x),
+        function(1, lambda idx: with_dims(Call(Content(x), idx), n_dim, i + 1)),
+    )
+
+
+def unbound(variable_name, n_dim):
+    return with_dims(Unbound(variable_name), n_dim)
