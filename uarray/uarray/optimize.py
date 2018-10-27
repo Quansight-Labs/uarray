@@ -1,14 +1,14 @@
 import ast
 import astunparse
 import numpy as np
-
+import inspect
 from .ast import *
 from .lazy_ndarray import LazyNDArray
 import pprint
 
 
 def optimize(initial_fn):
-    arg_names = initial_fn.__code__.co_varnames
+    arg_names = list(inspect.signature(initial_fn).parameters.keys())
     args_ids = list(map(Identifier, arg_names))
     args = list(map(LazyNDArray, map(np_array_from_id, args_ids)))
     resulting_expr = to_expression(LazyNDArray(initial_fn(*args)))
