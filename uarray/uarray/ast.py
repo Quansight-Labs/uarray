@@ -5,7 +5,7 @@ import functools
 
 from .machinery import *
 from .core import *
-from .moa import Multiply, Shape
+from .moa import Multiply
 
 
 def to_tuple(fn):
@@ -30,18 +30,15 @@ def new_operation(name, arity):
 
 NPArray = new_operation("NPArray", unary)
 
-NestedLists = new_operation("NestedLists", unary)
 PythonContent = new_operation("PythonContent", unary)
 
 Initializer = new_operation("Initializer", unary)
 
 register(Initializer(NPArray(w.init)), lambda init: init)
-register(Initializer(NestedLists(w.init)), lambda init: init)
 register(Initializer(PythonContent(w.init)), lambda init: init)
 
 
 ToNPArray = new_operation("ToNPArray", binary)
-ToNestedLists = new_operation("ToNestedLists", unary)
 ToPythonContent = new_operation("ToPythonContent", unary)
 
 
@@ -50,7 +47,6 @@ class ShouldAllocate(matchpy.Symbol):
 
 
 register(ToNPArray(NPArray(w.x), ShouldAllocate.w.alloc), lambda x, alloc: NPArray(x))
-register(ToNestedLists(NestedLists(w.x)), lambda x: NestedLists(x))
 register(ToPythonContent(PythonContent(w.x)), lambda x: PythonContent(x))
 
 # Scalar numpy arrays are converted to scalars, not 0d array
@@ -153,6 +149,62 @@ register(
 )
 
 
+def statements_then_init(fn):
+    """
+    statements_then_init is called to wrap a function
+    that yields a bunch of statements and then returns
+    an initializer 
+    """
+
+    @SubstituteIdentifier
+    @to_tuple
+    def inner(id_: str):
+        generator = fn()
+        while True:
+            try:
+                yield next(generator)
+            except StopIteration as exc:
+                initializer = exc.value
+                yield Call(initializer, Identifier(id_))
+                return
+
+    return inner
+
+
+ShapeAsTuple = new_operation("ShapeAsTuple", unary)
+
+
+def _shape_as_tuple__scalar(_):
+    return Expression(ast.Tuple([], ast.Load()))
+
+
+register(ShapeAsTuple(Scalar(w._)), _shape_as_tuple__scalar)
+
+
+def _shape_as_tuple__sequence(length, getitem):
+
+    inner_seq = Call(getitem, Unbound())
+
+    @statements_then_init
+    def inner():
+        inner_shape_id = Identifier()
+        yield Call(ShapeAsTuple(inner_seq), inner_shape_id)
+        length_id = Identifier()
+        yield Call(Initializer(ToPythonContent(length)), length_id)
+        return Expression(
+            ast.BinOp(
+                ast.Tuple([ast.Name(length_id.name, ast.Load())], ast.Load()),
+                ast.Add(),
+                ast.Name(inner_shape_id.name, ast.Load()),
+            )
+        )
+
+    return inner
+
+
+register(ShapeAsTuple(Sequence(w.length, w.getitem)), _shape_as_tuple__sequence)
+
+
 def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
     @NPArray
     @SubstituteIdentifier
@@ -165,21 +217,14 @@ def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
         """
         assert isinstance(array_id, str)
         if alloc.name:
-            shape_list_id = Identifier()
-            # fill shape
-            yield Call(
-                Initializer(ToNestedLists(Shape(Sequence(length, getitem)))),
-                shape_list_id,
-            )
+
+            # get shape
+            shape_tuple_id = Identifier()
+            yield Call(ShapeAsTuple(Sequence(length, getitem)), shape_tuple_id)
             # allocate array
-            shape_tuple = ast.Call(
-                ast.Name("tuple", ast.Load()),
-                [ast.Name(shape_list_id.name, ast.Load())],
-                [],
-            )
             array = ast.Call(
                 ast.Attribute(ast.Name("np", ast.Load()), "empty", ast.Load()),
-                [shape_tuple],
+                [ast.Name(shape_tuple_id.name, ast.Load())],
                 [],
             )
             yield Statement(ast.Assign([ast.Name(array_id, ast.Store())], array))
@@ -294,46 +339,6 @@ def _nparray_getitem(array_init, idx):
 register(Call(GetItem(NPArray(w.array_init)), w.idx), _nparray_getitem)
 
 
-def _nested_lists_getitem(nested_lists_init, idx):
-    @NestedLists
-    @SubstituteIdentifier
-    @to_tuple
-    def inner(sub_nested_lists_id: str):
-        idx_id = Identifier()
-        yield Call(Initializer(ToPythonContent(idx)), idx_id)
-        nested_lists = Identifier()
-        yield Call(nested_lists_init, nested_lists)
-        # sub_nested_lists = nested_lists[idx]
-        yield Statement(
-            ast.Assign(
-                [ast.Name(sub_nested_lists_id, ast.Store())],
-                ast.Subscript(
-                    ast.Name(nested_lists.name, ast.Load()),
-                    ast.Index(ast.Name(idx_id.name, ast.Load())),
-                    ast.Load(),
-                ),
-            )
-        )
-
-    return inner
-
-
-register(Call(GetItem(NestedLists(w.nested_lists_init)), w.idx), _nested_lists_getitem)
-
-# If we call Content on a nested list, then we are at a Python scalar
-# and we can cast it to that
-register(
-    ToPythonContent(Content(NestedLists(w.nested_list_init))),
-    lambda nested_list_init: PythonContent(nested_list_init),
-)
-
-# and vice versa, we can turn python content into a neste list if is in a scalar
-register(
-    ToNestedLists(Scalar(PythonContent(w.python_content_init))),
-    lambda python_content_init: NestedLists(python_content_init),
-)
-
-
 # for now we just noop
 # def _nparray_content(array_init):
 #     # scalar =np.asscalar(array)
@@ -433,73 +438,6 @@ def _define_function(ret, args):
 
 
 register(DefineFunction(w.ret, ws.args), _define_function)
-
-
-def _to_nested_lists_sequence(length, getitem):
-    @NestedLists
-    @SubstituteIdentifier
-    @to_tuple
-    def inner(nested_lists_id: str):
-        """
-        nested_lists = [0] * length
-        for i in range(length):
-            result = getitem(i)
-            nested_lists[i] = result
-        """
-
-        length_id = Identifier()
-        yield Call(Initializer(ToPythonContent(length)), length_id)
-        yield Statement(
-            ast.Assign(
-                targets=[ast.Name(nested_lists_id, ast.Store())],
-                value=ast.BinOp(
-                    left=ast.List([ast.Num(n=0)], ast.Load()),
-                    op=ast.Mult(),
-                    right=ast.Name(length_id.name, ast.Load()),
-                ),
-            )
-        )
-        index_id = Identifier()
-        result_id = Identifier()
-        # result = getitem(i)
-        initialize_result = Call(
-            Initializer(ToNestedLists(Call(getitem, python_content_from_id(index_id)))),
-            result_id,
-        )
-        # nest_lists[i] = result
-        update_nest_lists = ast.Assign(
-            [
-                ast.Subscript(
-                    ast.Name(nested_lists_id, ast.Load()),
-                    ast.Index(ast.Name(index_id.name, ast.Load())),
-                    ast.Store(),
-                )
-            ],
-            ast.Name(result_id.name, ast.Load()),
-        )
-        # range(length)
-        range_expr = ast.Call(
-            ast.Name("range", ast.Load()), [ast.Name(length_id.name, ast.Load())], []
-        )
-
-        @SubstituteStatements
-        def inner(*results_initializer):
-            # for i in range(length):
-            return Statement(
-                ast.For(
-                    ast.Name(index_id.name, ast.Store()),
-                    range_expr,
-                    [*results_initializer, update_nest_lists],
-                    [],
-                )
-            )
-
-        yield Call(inner, initialize_result)
-
-    return inner
-
-
-register(ToNestedLists(Sequence(w.length, w.getitem)), _to_nested_lists_sequence)
 
 
 def _vector_indexed_python_content(idx_expr: Expression, args: typing.List[Expression]):
