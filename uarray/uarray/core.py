@@ -19,6 +19,7 @@ __all__ = [
     "function",
     "Length",
     "to_expression",
+    "VectorCallable",
     "PushVectorCallable",
     "with_dims",
     "Unify",
@@ -26,6 +27,7 @@ __all__ = [
     "VectorIndexed",
     "gensym",
     "with_shape",
+    "unbound_with_shape",
 ]
 
 
@@ -270,3 +272,10 @@ def with_dims(x: matchpy.Expression, n_dim: int, i=0):
 
 def unbound(variable_name, n_dim):
     return with_dims(Unbound(variable_name), n_dim)
+
+
+def unbound_with_shape(variable_name, n_dim):
+    return with_shape(
+        Unbound(variable_name),
+        tuple(Unbound(f"{variable_name}_shape_{i}") for i in range(n_dim)),
+    )

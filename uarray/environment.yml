@@ -5,7 +5,7 @@ dependencies:
   - python=3.6
   - matchpy
   - python-graphviz
-  - tensorflow
+#   - tensorflow
   - numba
   # for development
   - mypy

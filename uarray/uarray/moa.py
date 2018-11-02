@@ -1,4 +1,5 @@
 import matchpy
+import typing
 
 from .machinery import *
 from .core import *
@@ -214,6 +215,82 @@ register(
             lambda idx: BinaryOperation(op, Call(l_getitem, idx), Call(r_getitem, idx)),
         ),
     ),
+)
+
+
+class OmegaUnary(matchpy.Operation):
+    """
+    OmegaUnary(function, dim, array)
+    """
+
+    name = "OmegaUnary"
+    arity = matchpy.Arity(3, True)
+
+
+def _omega_unary_sequence(fn, dim, array):
+    if dim.value == 0:
+        return Call(fn, array)
+    new_dim = Value(dim.value - 1)
+    return Sequence(
+        Length(array),
+        function(
+            1, lambda idx: _omega_unary_sequence(fn, new_dim, Call(GetItem(array), idx))
+        ),
+    )
+
+
+register(OmegaUnary(w.fn, Value.w.dim, w.array), _omega_unary_sequence)
+
+
+class Transpose(matchpy.Operation):
+    """
+    Transpose(ordering, array)
+    """
+
+    name = "Tranpose"
+    arity = matchpy.Arity(2, True)
+    infix = True
+
+
+def _tranpose_sequence(
+    _: Value, first_order: Value, ordering: typing.List[Value], array
+):
+    """
+    Tranpose([first_order, *ordering], array)[first_idx, *idx]
+    == Transpose(new_ordering, array[(<:,> * first_order), first_idx])[idx]
+
+    Where new_ordering has each value that is above first_order decremented by 1.
+    """
+    first_order_val = first_order.value
+    ordering_val = [o.value for o in ordering]
+    new_ordering_val = [o - 1 if o > first_order_val else o for o in ordering_val]
+
+    first_idx = Unbound(gensym())
+    new_expr = Transpose(
+        vector(*new_ordering_val),
+        OmegaUnary(
+            function(1, lambda array: Call(GetItem(array), first_idx)),
+            first_order,
+            array,
+        ),
+    )
+    new_getitem = Function(new_expr, first_idx)
+    return Sequence(Length(new_expr), new_getitem)
+
+
+# base case, length 0 vector
+register(
+    Transpose(Sequence(Value.w._, VectorCallable()), w.array), lambda _, array: array
+)
+# recursive case
+register(
+    Transpose(
+        Sequence(Value.w._, VectorCallable(Value.w.first_order, ws.ordering)), w.array
+    ),
+    matchpy.CustomConstraint(
+        lambda ordering: all(isinstance(o, Value) for o in ordering)
+    ),
+    _tranpose_sequence,
 )
 
 
