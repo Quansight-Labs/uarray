@@ -5,7 +5,7 @@ import functools
 
 from .machinery import *
 from .core import *
-from .moa import Multiply
+from .moa import Multiply, Add
 
 
 def to_tuple(fn):
@@ -248,6 +248,20 @@ def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
                 ast.Load(),
             ),
         )
+
+        # we have to assign twice, this is for scalar case previous is for sequence
+        # need to look into this more
+        # array[i] = result
+        set_array = ast.Assign(
+            [
+                ast.Subscript(
+                    ast.Name(array_id, ast.Load()),
+                    ast.Index(ast.Name(index_id.name, ast.Load())),
+                    ast.Store(),
+                )
+            ],
+            ast.Name(result_id.name, ast.Load()),
+        )
         # range(length)
         range_expr = ast.Call(
             ast.Name("range", ast.Load()), [ast.Name(length_id.name, ast.Load())], []
@@ -260,7 +274,7 @@ def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
                 ast.For(
                     ast.Name(index_id.name, ast.Store()),
                     range_expr,
-                    [set_result, *results_initializer],
+                    [set_result, *results_initializer, set_array],
                     [],
                 )
             )
@@ -386,8 +400,44 @@ register(
     Multiply(PythonContent(w.l_init), PythonContent(w.r_init)), _multiply_python_content
 )
 
+
+def _add_python_content(l_init, r_init):
+    # res = l + r
+    @PythonContent
+    @SubstituteIdentifier
+    @to_tuple
+    def inner(res_id: str):
+        l_id = Identifier()
+        r_id = Identifier()
+        yield Call(l_init, l_id)
+        yield Call(r_init, r_id)
+        yield Statement(
+            ast.Assign(
+                [ast.Name(res_id, ast.Store())],
+                ast.BinOp(
+                    ast.Name(l_id.name, ast.Load()),
+                    ast.Add(),
+                    ast.Name(r_id.name, ast.Load()),
+                ),
+            )
+        )
+
+    return inner
+
+
+register(Add(PythonContent(w.l_init), PythonContent(w.r_init)), _add_python_content)
+
 register(Initializer(NPArray(w.init)), lambda init: init)
 
+
+register(
+    ToPythonContent(Add(w.x, w.y)),
+    lambda x, y: Add(ToPythonContent(x), ToPythonContent(y)),
+)
+register(
+    ToPythonContent(Multiply(w.x, w.y)),
+    lambda x, y: Multiply(ToPythonContent(x), ToPythonContent(y)),
+)
 
 # def compile_function()
 

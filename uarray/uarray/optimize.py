@@ -17,6 +17,7 @@ def optimize(initial_fn):
     )
     replaced_expr = replace(wrapped_expr)
     if not isinstance(replaced_expr, Statement):
+        pprint.pprint(replaced_expr)
         raise RuntimeError(
             f"Could not replace {repr(replaced_expr)} into AST statement"
         )
