@@ -275,7 +275,10 @@ def _tranpose_sequence(
         ),
     )
     new_getitem = Function(new_expr, first_idx)
-    return Sequence(Length(new_expr), new_getitem)
+    new_length_expr = array
+    for __ in range(first_order_val):
+        new_length_expr = Call(GetItem(new_length_expr), Unbound)
+    return Sequence(Length(new_length_expr), new_getitem)
 
 
 # base case, length 0 vector
