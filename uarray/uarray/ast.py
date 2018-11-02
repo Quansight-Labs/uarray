@@ -210,11 +210,6 @@ def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
     @SubstituteIdentifier
     @to_tuple
     def inner(array_id: str):
-        """
-        for i in range(length):
-            result = getitem(i)
-            array[i] = result
-        """
         assert isinstance(array_id, str)
         if alloc.name:
 
@@ -244,16 +239,14 @@ def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
             ),
             result_id,
         )
-        # array[i] = result
-        update_array = ast.Assign(
-            [
-                ast.Subscript(
-                    ast.Name(array_id, ast.Load()),
-                    ast.Index(ast.Name(index_id.name, ast.Load())),
-                    ast.Store(),
-                )
-            ],
-            ast.Name(result_id.name, ast.Load()),
+        # result = array[i]
+        set_result = ast.Assign(
+            [ast.Name(result_id.name, ast.Store())],
+            ast.Subscript(
+                ast.Name(array_id, ast.Load()),
+                ast.Index(ast.Name(index_id.name, ast.Load())),
+                ast.Load(),
+            ),
         )
         # range(length)
         range_expr = ast.Call(
@@ -267,7 +260,7 @@ def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
                 ast.For(
                     ast.Name(index_id.name, ast.Store()),
                     range_expr,
-                    [*results_initializer, update_array],
+                    [set_result, *results_initializer],
                     [],
                 )
             )
