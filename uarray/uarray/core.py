@@ -247,7 +247,15 @@ class Unify(matchpy.Operation):
     arity = matchpy.Arity(2, True)
 
 
+# TODO: Support unification on unequal but equivelent form
+# similar to question of equivalencies of lambda calculus, i.e. lambda a: a + 1 == lambda b: b + 1
+# even though variables are different name
+# Also need to be able to say some thing *could* be equal at runtime, whereas some others cannot be.
+# i.e. If two `Value`s are unequal, they cannot be unified. However, if two arbitrary expressions are not equal
+# at compile time, they still could end up being equal at runtime.
 register(Unify(w.x, w.y), matchpy.EqualVariablesConstraint("x", "y"), lambda x, y: x)
+
+# TODO: Unify all these definitions:
 
 
 def with_shape(

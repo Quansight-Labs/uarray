@@ -227,6 +227,7 @@ class OmegaUnary(matchpy.Operation):
     arity = matchpy.Arity(3, True)
 
 
+# TODO: Make this invese. if 0 we should keep traversing
 def _omega_unary_sequence(fn, dim, array):
     if dim.value == 0:
         return Call(fn, array)
