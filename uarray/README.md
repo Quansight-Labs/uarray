@@ -139,9 +139,12 @@ v_p = Value(None, variable_name="A")
 assert matchpy.substitute(Cons(v_p, Nil()), {"A": Value(1)}) == Cons(Value(1), Nil())
 ```
 
-### Arrays
+### Arrays (and contents and callables)
 
 _Note: The relevent code for this section is in the `uarray/core.py` file._
+
+TODO: Look at other names for contents and callables. Contents could become Value, if we change Value
+as it is to just be typed versions of itself. aka have Integer and String but not base Value symbol.
 
 There are many ways we could implement the concept of a multi dimensional array in MatchPy.
 We are interested in ways to do this that will let us express take high level descriptions of array operations,
@@ -152,19 +155,48 @@ Here we think about arrays as a `Sequence(length, getitem)`, a `Scalar(content)`
 Let's start with an example, using these expressions, then we can get into the weeds of what this all means.
 
 ```python
+s = uarray.Scalar(uarray.Value(10))
+
+assert uarray.replace(uarray.Contents(s)) == uarray.Value(10)
+```
+
+We see that a `Scalar` just wraps some underlying thing, we call the contents. We can extract
+out it out with the `Contents` operator. Now let's look at a `Sequence`:
+
+```python
 class Always(matchpy.Operation):
     name = "Always"
     arity = matchpy.Arity(1, True)
 
-register(uarray.Call(Always(w.x), w.idx), lambda x, idx: x)
-
-s = uarray.Scalar(uarray.Value(10))
-
 a = uarray.Sequence(
-    uarra.Value(5),
+    uarray.Value(5),
     Always(s)
 )
 
+assert uarray.replace(uarray.Length(s)) == uarray.Value(5)
+assert uarray.replace(uarray.GetItem(a)) == Always(s)
+```
+
+Here we define `a` to be a sequence of length 5 that contains all scalars of value 10.
+We can also understand this as a one dimensional array, like `np.array([10, 10, 10, 10, 10])`.
+
+We see that a sequence has two items we can extract out, the `GetItem`
+and the `Length`. But what is this `Always` operator? Well we just defined it.
+The getitem part of the sequence should be a callable that takes in an index of type
+contents and returns an array. So let's make `Always` a callable that works like this:
+
+```python
+register(uarray.Call(Always(w.x), w.idx), lambda x, idx: x)
+```
+
+A callable is any expression that you can use `uarray.Call` on it as the first argument,
+and it's arguments as the rest of the arguments. It should replace this form into it's result.
+In this case, we have a simple `Callable` that takes one argument and just returns what is inside of it.
+i.e. it doesn't matter what it is called with, it always returns it's first operand.
+
+Now, we can get the callable from the array and call it on an index:
+
+```python
 idx = uarray.Value(2)
 
 indexed_a = uarray.Call(
@@ -175,34 +207,36 @@ indexed_a = uarray.Call(
 assert uarray.replace(indexed_a) == s
 ```
 
-Here we define `a` to be a sequence of length 5 that contains all scalars of value 10.
+This is how we index arrays in uarray. We extract out their callables and call them with the index. The `Index` function in Mathematics of Arrays (or in NumPy) allows you to index an array with a vector, just like how in NumPy you can index an array with a tuple of indices.
 
-We can also understand this as a one dimensional array, like `np.array([10, 10, 10, 10, 10])`.
+How does it work? If you look at it's defintion in `uarray/moa.py` you will see it uses this pattern above once for each index in the vector.
 
-Then we get the 2nd value of a, which is a scalar (aka a 0D array) with value 10.
+A mistake I often make is giving an expression of the wrong type to some expression.
+For example, what if I defined an array like this:
 
-It get's a bit hairy, because to understand arrays, we also have to understand two other types of expressions, callables and contents.
+```python
+uarray.Sequence(uarray.Scalar(uarray.Value(10)), Always(Scalar(10)))
+```
 
-So how do we construct these arrays?
+Can you spot what is wrong? The length of the sequence is an Array not a contents!
+So this should instead be:
 
-What can we do with these arrays? Let's start with the second question. First, we introduce some
-other operations that extract out the various parts of the array expressions, so that we can explain how they operate:
+```python
+uarray.Sequence(uarray.Value(10), Always(Scalar(10)))
+```
 
-1. `Length(Sequence(length, getitem))` turns into `length`
-2. `GetItem(Sequence(length, getitem))` turns into `getitem`
-3. `Content(Scalar(content))` turns into `Content`
+What do I mean "should"? Will this give an error? An exception? Most likely it will not.
+You will just end up with some long expression down the line that cannot be reduced
+because it has the wrong type inside. It's like casting a pointer to another type in C
+and then reading in the values. It won't error when you cast the pointer, but the contents
+of it doesn't have the write structure to be meaningful.
 
-Then we really just have one operation we care about on `Sequences`s, which is getting an item. This should return a new Array:
+The moral is
+**always understand what classes of expressions your expression takes and don't pass those of another class.**
 
-4. `Call(Getitem(some_sequence), some_idx)` turns into another array
+TODO: Enforce this somehow. We could possibly use python types to define these different
+classes and have each expression subclass subclass also from this Python type. This could
+get static type checking (possibly). But it comes at the expense of introducing a Python
+type hierarchy where we don't really need one, just for MyPy.
 
-You probably have a bunch of questions right about now. Hopefully they will all get answered in the remaining part of this section.
-
-Let's start with what does "turns into" mean? It just means it eventually should end up being that after replacement rules are executed.
-
-Before we can go into how you create these array
-
-You might have some questions about why we are using this form for arrays. Why don't we implement them closer to MoA does?
-Like `Array(shape, indexing_fn)`? Two reasons:
-
-1. Often it is simpler to think about indexing
+### Explaining Callables
