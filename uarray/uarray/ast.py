@@ -1,11 +1,12 @@
 import ast
-import matchpy
-import typing
 import functools
+import typing
 
-from .machinery import *
+import matchpy
+
 from .core import *
-from .moa import Multiply, Add
+from .machinery import *
+from .moa import Add, Multiply
 
 
 def to_tuple(fn):

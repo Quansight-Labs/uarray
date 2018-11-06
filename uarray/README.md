@@ -28,9 +28,7 @@ I.e. to be able to support a wide array of paradigms of input and output.
 So in this section, I want to give an overview of internals of uarray in an attempt to make it extendable by others. I will try to **bold**
 any tips that can help avoid subtle errors. Eventually, it would be nice if some these tips were all verified as you develop automatically.
 
-### MatchPy
-
-_Note: The relevent code for this section is in the `uarray/machinery.py` file._
+### MatchPy: `uarray/machinery.py`
 
 Fundamentally, uarray is just a set of patterns on top of the [MatchPy](https://github.com/HPAC/matchpy) pattern matching system in Python.
 
@@ -139,9 +137,7 @@ v_p = Value(None, variable_name="A")
 assert matchpy.substitute(Cons(v_p, Nil()), {"A": Value(1)}) == Cons(Value(1), Nil())
 ```
 
-### Arrays (and contents and callables)
-
-_Note: The relevent code for this section is in the `uarray/core.py` file._
+### Arrays (and contents and callables): `uarray/core.py`
 
 TODO: Look at other names for contents and callables. Contents could become Value, if we change Value
 as it is to just be typed versions of itself. aka have Integer and String but not base Value symbol.
@@ -232,11 +228,137 @@ and then reading in the values. It won't error when you cast the pointer, but th
 of it doesn't have the write structure to be meaningful.
 
 The moral is
-**always understand what classes of expressions your expression takes and don't pass those of another class.**
+**always understand what types of expressions your expression takes and don't pass those of another class.**
 
 TODO: Enforce this somehow. We could possibly use python types to define these different
 classes and have each expression subclass subclass also from this Python type. This could
 get static type checking (possibly). But it comes at the expense of introducing a Python
 type hierarchy where we don't really need one, just for MyPy.
 
-### Explaining Callables
+#### Callables
+
+You might have a lot of questions about callables at this point. Let's show a few
+more examples of built in callables, and then we can get into the nitty gritty of why
+they are implemented like they are.
+
+First, let's look at the `Function(body, *arg_names)` callable. This let's you define the body of the function
+with the arguments as `Unbound` values with their `variable_name` set. To "execute"/"call"
+the `Function` callable, we just replace those values with their arguments:
+
+```python
+arg = uarray.Unbound("some_unique_value")
+squared = uarray.Function(uarray.Multiply(arg, arg), arg)
+v = uarray.Value(5)
+called = Call(squared, v)
+
+assert uarray.replace(called) == uarray.Value(25)
+assert uarray.replace_scan(called) == [
+    called,
+    uarray.Multiply(v, v),
+    uarray.Value(25)
+]
+```
+
+`Function` takes in the argument names as the rest of the args after the body.
+When it is called, each argument is matched to it's name and the `matchpy.substitute` function
+(which we talked about in the first section) is used to replace the args with their values in the body. You can see the full replacement rule for how this executes in `uarray/core.py`.
+
+Another example is the `VectorCallable(*items)` which takes in an index "i" and returns the "i"th arg:
+
+TODO: change vector callable to not wrap in scalar
+
+```python
+c = uarray.VectorCallable(uarray.Value(5), uarray.Value(10))
+assert replace(Call(c, uarray.Value(0))) == uarray.Value(5)
+assert replace(Call(c, uarray.Value(1))) == uarray.Value(10)
+```
+
+In the next section, we will also see how callables are used for compiling to
+the Python AST.
+
+But why have callables? It started with just having a getitem and needing an
+operation to evaluate that getitem with an index to return the sub array. Then
+I also needed a way when applying a reduction or broadcasting binary operators
+to hold onto the underlying operation and then apply it later on. At first,
+these things were all distinct operators. I also was just holding onto
+Python language callables, like lambdas or classes, inside of a Symbol
+and then executing that when I needed to see the result.
+
+However, if we use Python callable, then we can't "see inside" of the body.
+So if we translate this later to some backend, we have to inspect the Python code/class
+to see how we translate it. Seems like extra wasted work when we are already have
+a way to hold these things in an introspectable and reducable form, as matchpy expressions.
+And, if we keep the expressions as MatchPy forms, then they can be reduced, even before they are called.
+
+So why not just have everthing be a `Function` instead of introducing other callables? Well it allows
+us to move some of the application logic into Python land instead of keeping it generic. For example,
+we _could_ define `VectorCallable` to be a `Function`, but it would require basically a big pattern
+matching statement of like "if index == 0, then return this value, elif equal to 1 return this value".
+
+We could implement this all with matchpy operations, but it just requires a lot of extra work, extra forms, and for what gain? Well the gain would be we could then translate this lower level form to a backend without a concept of a VectorCallable, just with a concept of `if, else`.
+
+The other side of this added flexibity is the ability to "overload" any matchpy expression to make it
+callable. How? Well you just define a call replacement for it and then it's callable. We will use
+this to our advantage in the Python AST creation.
+
+Another option would be to express all functions in a fixed point form, with composition and other operators like that. This might be helpful in the end, to move from `Function` to this type of thing.
+See [Compiling to Categories](http://conal.net/papers/compiling-to-categories/) for one explenation
+of this type of transformation.
+
+### Mathematics of Arrays: `array/moa.py`
+
+We are implementing Mathematics of Arrays on top of the abstractions we have defined above. In particular,
+we decide to have every MoA operation take in and return Arrays. Some higher order operators also
+take in callables. The MoA definitions, like those in Lenore's thesis, cannot be translated directly
+to this form, because they are often defined as equivalencies on indexing, where as we are defining
+things as indeixng on each dimension. Some definitions are easier this way (`OuterProduct`), some are
+harder (`Shape`, `Index`). One advantage of doing things this way is we are explicit about all the
+partial forms as something is indexed. For example, `Index(<i>, OuterProduct(A, B))` can be reduced,
+even if the index does not fully index the result. This is why some definitions are harder, because
+we have to think about how the operation is transformed it is partially indexed, instead of thinking
+as the index coming in as a full form. For example, `Transpose` is much more complicated, but at the
+same time we can partially index a transformed value and this get's reduced.
+
+### Building Python AST (`uarray/ast.py`)
+
+So up to this point, we have just been concerned with expressing arrays and transforming array expressions.
+Now we will look at an exmaple of taking some array expression and turning it into a form we can execute
+without matchpy. We build up a Python AST using the [`ast`](https://docs.python.org/3/library/ast.html)
+core module, where we want to take in and emit NumPy arrays. We could extend this later on to also be able to
+emit Python lists, either nested ones, or a flat one in row major form.
+
+First, let's start with the context of this transformation. We
+would like to generate some Python AST that is compiled into a
+python function that takes some number of numpy arrays as arguments
+and returns one.
+
+For our example, let's consider adding two vectors. Our generated code
+should look something like this:
+
+```python
+def fn(a, b):
+    length = a.shape[0]
+    res = np.empty((length,))
+    for i in range(length):
+        res[i] = a[i] + b[i]
+    return res
+```
+
+How would we create this? Let's start with a very manual approach and then
+we can show how this can be abstracted properly.
+
+```python
+length =
+
+a =
+res = uarray.Sequence(
+    length,
+    uarray.Function(
+        uarray.Add()
+        uarray.Unbound("i")
+    )
+)
+```
+
+I like to think about this step of the process proceeding in two ways, top down or bottom up. Let's start
+with bottom up.
