@@ -336,29 +336,106 @@ For our example, let's consider adding two vectors. Our generated code
 should look something like this:
 
 ```python
+import numpy as np
+
 def fn(a, b):
     length = a.shape[0]
     res = np.empty((length,))
     for i in range(length):
         res[i] = a[i] + b[i]
     return res
+
+a = np.arange(10, dtype="float64")
+assert fn(a, a) == 2 * a
 ```
 
 How would we create this? Let's start with a very manual approach and then
 we can show how this can be abstracted properly.
 
-```python
-length =
+I like to think about this step of the process proceeding in two ways, top down or bottom up.
+Starting at the bottom, we can begin with what should be at the leaves of this array expression.
+i.e. in the end, where are we indexing into to compute on? Well, if we are generating a function,
+then we are indexing into two variables `a` and `b`:
 
-a =
+```python
+import ast
+
+a_expr = uarray.Expression(ast.Name("a", ast.Load()))
+b_expr = uarray.Expression(ast.Name("b", ast.Load()))
+
+a = uarray.NPArray(a_expr)
+b = uarray.NPArray(b_expr)
+```
+
+```
+a_vec = ToSequenceWithDim(a, uarray.Value(1))
+b_vec = ToSequenceWithDim(b, uarray.Value(1))
+
+length = uarray.Length(a_vec)
+
+i = uarray.Unbound("i")
 res = uarray.Sequence(
     length,
     uarray.Function(
-        uarray.Add()
-        uarray.Unbound("i")
+        uarray.Add(
+            uarray.Content(uarray.Call(uarray.GetItem(a_vec), i)),
+            uarray.Content(uarray.Call(uarray.GetItem(b_vec), i)),
+        ),
+        i
     )
 )
 ```
 
-I like to think about this step of the process proceeding in two ways, top down or bottom up. Let's start
-with bottom up.
+### Reference
+
+Here we list the categories we are dealing with and then some functors.
+
+We use Python type annotations for the functors, but with catgories as `C/<name>`
+to make it clear they don't exist as Python types.
+
+A functor goes from one or more categories to one or more other categories.
+
+- Categories (these don't exist in the code):
+
+  - C/Array
+    - Some functors only defined on subcategories of Sequence and Scalar
+  - C/Content
+  - C/Callable[arg_cats, ret_cats]
+
+    - generic category where you need to specify categories of arguments and return values, below are a list of sub-categories with those arg types specified
+    - C/Getitem = C/Callable[(C/Content,), (C/Array,)]
+    - C/Initializer = C/Callable[(Identifier), (Statement, ...)]
+      - Note: This callable goes from a python identifier to a number of statemnts to fill in that id
+
+  - C/Statement
+  - C/Initializable
+  - C/NPArray is both C/Initializer and C/Array
+  - C/PythonContent is both C/Initializer and C/Content
+
+- Primary Functors (these define the categories/serve as their axioms):
+
+  - GetItem(a: C/Array) -> C/Getitem
+    - Partially defined, only on sequences
+  - Length(a: C/Array) -> C/Content
+    - Partially defined, only on sequences
+  - Content(a: C/Array) -> C/Content
+    - Partially defined, only on scalars
+  - Call(fn: Callable[arg_cats, ret_cats], *arg_cats) -> *ret_cats
+  - Initializer(init: C/Initializable) -> C/Initializer
+
+- Operation Constructor functors
+
+  - Sequence(length: C/Content, getitem: C/GetItem) -> C/Array
+  - Scalar(content: C/Content) -> C/Array
+  - NPArray(init: C/Initializer) -> C/NPArray
+  - ToNPArray(a: C/Array, should_allocate: ShouldAllocate) -> C/NPArray
+  - ToPythonContent(c: C/Content) -> C/PythonContent
+  - DefineFunction(ret: Initializable, \*args: Identifier) -> C/Initializer
+
+- Symbol contructor functors (these take in Python values as arguments)
+
+  - Expression(name: str) -> C/Initializer
+  - SubstituteStatements(fn: typing.Callable[[ast.AST, ...], C/Initializer, ...])
+    -> C/Callable[(Statement, ...), C/Initializer, ...]
+  - SubstituteIdentifier(fn: typing.Callable[[Identifer], C/Initializer, ...])
+    -> C/Initializer
