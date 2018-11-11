@@ -273,7 +273,7 @@ def unbound_array(variable_name: str, n_dim: int) -> CArray:
     return with_dims(typing.cast(CArray, unbound(variable_name)), n_dim)
 
 
-def unbound_array_with_shape(variable_name: str, n_dim: int) -> CArray:
+def unbound_with_shape(variable_name: str, n_dim: int) -> CArray:
     return with_shape(
         typing.cast(CArray, unbound(variable_name)),
         tuple(unbound(f"{variable_name}_shape_{i}") for i in range(n_dim)),

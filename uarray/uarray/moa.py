@@ -203,7 +203,7 @@ def Transpose(ordering: CArray, array: CArray) -> CArray:
 
 
 def _tranpose_sequence(
-    _: CInt, first_order: CInt, ordering: typing.Sequence[CInt], array: CArray
+    _: CInt, first_order: CInt, ordering: typing.Sequence, array: CArray
 ):
     """
     Tranpose([first_order, *ordering], array)[first_idx, *idx]
@@ -212,7 +212,7 @@ def _tranpose_sequence(
     Where new_ordering has each value that is above first_order decremented by 1.
     """
     first_order_val = first_order.name
-    ordering_val = [o.name for o in ordering]
+    ordering_val = [o.operands[0].name for o in ordering]
     new_ordering_val = [o - 1 if o > first_order_val else o for o in ordering_val]
 
     first_idx = unbound_content()
@@ -239,12 +239,17 @@ register(
 # recursive case
 register(
     Transpose(
-        Sequence(sw("_", Int), VectorCallable(sw("first_order", Int), ws("ordering"))),
+        Sequence(
+            sw("_", Int), VectorCallable(Scalar(sw("first_order", Int)), ws("ordering"))
+        ),
         w("array"),
     ),
     _tranpose_sequence,
     matchpy.CustomConstraint(
-        lambda ordering: all(isinstance(o, Int) for o in ordering)  # type: ignore
+        lambda ordering: all(
+            isinstance(o, Scalar) and isinstance(o.operands[0], Int)  # type: ignore
+            for o in ordering
+        )
     ),
 )
 
