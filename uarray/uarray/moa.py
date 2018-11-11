@@ -30,7 +30,7 @@ def Index(indices: CArray, ar: CArray) -> CArray:
 
 
 def _index(idx_length, idx_getitem, seq):
-    for i in range(idx_length.value):
+    for i in range(idx_length.name):
         index_value = CallUnary(idx_getitem, Int(i))
         seq = CallUnary(GetItem(seq), Content(index_value))
     return seq
@@ -47,13 +47,13 @@ def ReduceVector(
 
 
 def _reduce_vector(fn, value, length, getitem):
-    for i in range(length.value):
+    for i in range(length.name):
         value = CallBinary(fn, value, CallUnary(getitem, Int(i)))
     return value
 
 
 register(
-    ReduceVector(w("fn"), sw(Int, "value"), Sequence(sw(Int, "length"), w("getitem"))),
+    ReduceVector(w("fn"), sw("value", Int), Sequence(sw("length", Int), w("getitem"))),
     _reduce_vector,
 )
 
@@ -63,7 +63,7 @@ def Add(l: CContent, r: CContent) -> CContent:
     ...
 
 
-register(Add(sw(Int, "l"), sw(Int, "r")), lambda l, r: Int(l.name + r.name))
+register(Add(sw("l", Int), sw("r", Int)), lambda l, r: Int(l.name + r.name))
 
 
 @operation(name="*", infix=True)
@@ -71,7 +71,7 @@ def Multiply(l: CContent, r: CContent) -> CContent:
     ...
 
 
-register(Multiply(sw(Int, "l"), sw(Int, "r")), lambda l, r: Int(l.name * r.name))
+register(Multiply(sw("l", Int), sw("r", Int)), lambda l, r: Int(l.name * r.name))
 
 
 def wrap_binary(
@@ -130,7 +130,7 @@ def BinaryOperation(
 
 register(
     BinaryOperation(w("op"), Scalar(w("l")), Scalar(w("r"))),
-    lambda op, l, r: Scalar(CallBinary(op, Scalar(l), Scalar(r))),
+    lambda op, l, r: CallBinary(op, Scalar(l), Scalar(r)),
 )
 
 
@@ -194,7 +194,7 @@ def _omega_unary_sequence(
     )
 
 
-register(OmegaUnary(w("fn"), sw(Int, "dim"), w("array")), _omega_unary_sequence)
+register(OmegaUnary(w("fn"), sw("dim", Int), w("array")), _omega_unary_sequence)
 
 
 @operation(infix=True)
@@ -233,19 +233,19 @@ def _tranpose_sequence(
 
 # base case, length 0 vector
 register(
-    Transpose(Sequence(sw(Int, "_"), VectorCallable()), w("array")),
+    Transpose(Sequence(sw("_", Int), VectorCallable()), w("array")),
     lambda _, array: array,
 )
 # recursive case
 register(
     Transpose(
-        Sequence(sw(Int, "_"), VectorCallable(sw(Int, "first_order"), ws("ordering"))),
+        Sequence(sw("_", Int), VectorCallable(sw("first_order", Int), ws("ordering"))),
         w("array"),
     ),
+    _tranpose_sequence,
     matchpy.CustomConstraint(
         lambda ordering: all(isinstance(o, Int) for o in ordering)  # type: ignore
     ),
-    _tranpose_sequence,
 )
 
 

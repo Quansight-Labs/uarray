@@ -8,8 +8,8 @@ def _outer_nparray(_, l_init, r_init):
     @SubstituteIdentifier
     @to_tuple
     def inner(res_id: str):
-        l_id = Identifier()
-        r_id = Identifier()
+        l_id = identifier()
+        r_id = identifier()
         yield CallUnary(l_init, l_id)
         yield CallUnary(r_init, r_id)
         res = ast.Call(

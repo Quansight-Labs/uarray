@@ -41,7 +41,7 @@ register(
 # On sequences, forward
 register(
     CallBinary(
-        sw(BinaryUfunc, "fn"),
+        sw("fn", BinaryUfunc),
         Sequence(w("l_length"), w("l_content")),
         Sequence(w("r_length"), w("r_content")),
     ),
@@ -88,35 +88,35 @@ register(
 # length of 1
 register(
     Broadcast(
-        Sequence(sw(Int, "l_length"), w("l_content")),
-        Sequence(sw(Int, "r_length"), w("r_content")),
+        Sequence(sw("l_length", Int), w("l_content")),
+        Sequence(sw("r_length", Int), w("r_content")),
     ),
-    matchpy.CustomConstraint(lambda l_length: l_length.name == 1),
     lambda l_length, l_content, r_length, r_content: (
         Sequence(r_length, unary_function(lambda idx: CallUnary(l_content, Int(0)))),
         Sequence(r_length, r_content),
     ),
+    matchpy.CustomConstraint(lambda l_length: l_length.name == 1),
 )
 register(
     Broadcast(
-        Sequence(sw(Int, "l_length"), w("l_content")),
-        Sequence(sw(Int, "r_length"), w("r_content")),
+        Sequence(sw("l_length", Int), w("l_content")),
+        Sequence(sw("r_length", Int), w("r_content")),
     ),
-    matchpy.CustomConstraint(lambda r_length: r_length.name == 1),
     lambda l_length, l_content, r_length, r_content: (
         Sequence(l_length, l_content),
         Sequence(l_length, unary_function(lambda idx: CallUnary(r_content, Int(0)))),
     ),
+    matchpy.CustomConstraint(lambda r_length: r_length.name == 1),
 )
 # same lengths
 register(
     Broadcast(
-        Sequence(sw(Int, "l_length"), w("l_content")),
-        Sequence(sw(Int, "r_length"), w("r_content")),
+        Sequence(sw("l_length", Int), w("l_content")),
+        Sequence(sw("r_length", Int), w("r_content")),
     ),
-    matchpy.CustomConstraint(lambda l_length, r_length: r_length.name == l_length.name),
     lambda l_length, l_content, r_length, r_content: (
         Sequence(l_length, l_content),
         Sequence(l_length, r_content),
     ),
+    matchpy.CustomConstraint(lambda l_length, r_length: r_length.name == l_length.name),
 )

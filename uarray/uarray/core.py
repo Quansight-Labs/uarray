@@ -37,6 +37,11 @@ def CallUnary(fn: CCallableUnary[RET, ARG1], a1: ARG1) -> RET:
     ...
 
 
+@operation
+def CallVariadic(fn: CCallableUnary[RET, ARG1], *a1: ARG1) -> RET:
+    ...
+
+
 @operation(to_str=lambda fn, a1, a2: f"{fn}({a1}, {a2})")
 def CallBinary(fn: CCallableBinary[RET, ARG1, ARG2], a1: ARG1, a2: ARG2) -> RET:
     ...
@@ -189,8 +194,7 @@ def VectorIndexed(idx: CContent, *items: T) -> T:
 
 
 register(
-    VectorIndexed(sw("index", Int), ws("items")),
-    lambda index, items: items[index.value],
+    VectorIndexed(sw("index", Int), ws("items")), lambda index, items: items[index.name]
 )
 
 # TODO: Somehow make vector callable both unique and getitem

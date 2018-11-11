@@ -47,7 +47,7 @@ class ShouldAllocate(matchpy.Symbol):
 
 
 register(
-    ToNPArray(NPArray(w("x")), sw(ShouldAllocate, "alloc")), lambda x, alloc: NPArray(x)
+    ToNPArray(NPArray(w("x")), sw("alloc", ShouldAllocate)), lambda x, alloc: NPArray(x)
 )
 register(ToPythonContent(PythonContent(w("x"))), lambda x: PythonContent(x))
 
@@ -70,7 +70,7 @@ class Expression(matchpy.Symbol):
 
 
 # TODO: Is this right? Or should this never be hit
-register(ToPythonContent(sw(Expression, "exp")), lambda exp: PythonContent(exp))
+register(ToPythonContent(sw("exp", Expression)), lambda exp: PythonContent(exp))
 
 
 class Statement(matchpy.Symbol):
@@ -84,48 +84,61 @@ class Statement(matchpy.Symbol):
         return f"Statement({ast.dump(self.name)})"
 
 
-class Identifier(matchpy.Symbol):
+class CStatement:
+    name: ast.AST
+
+
+class CIdentifier:
     name: str
-    _i = 0
-
-    def __init__(self, name=None, variable_name=None):
-        if not name:
-            name = f"i_{Identifier._i}"
-            Identifier._i += 1
-        super().__init__(name, variable_name)
 
 
-def np_array_from_id(array_id: Identifier):
-    assert isinstance(array_id, Identifier)
+@symbol
+def Identifier(name: str) -> CIdentifier:
+    ...
+
+
+_i = 0
+
+
+def _gen_id():
+    global _i
+    i = f"i_{_i}"
+    _i += 1
+    return i
+
+
+def identifier(name: str = None) -> CIdentifier:
+    return Identifier(name or _gen_id())
+
+
+def np_array_from_id(array_id: CIdentifier):
     return NPArray(Expression(ast.Name(array_id.name, ast.Load())))
 
 
-def python_content_from_id(array_id: Identifier):
-    assert isinstance(array_id, Identifier)
+def python_content_from_id(array_id: CIdentifier):
     return PythonContent(Expression(ast.Name(array_id.name, ast.Load())))
 
 
-def _assign_expresion(expr: Expression, id_: Identifier) -> Statement:
-    assert isinstance(id_, Identifier)
+def _assign_expresion(expr: Expression, id_: CIdentifier) -> Statement:
     return Statement(ast.Assign([ast.Name(id_.name, ast.Store())], expr.name))
 
 
-register(CallUnary(w("expr", Expression), sw(Identifier, "id_")), _assign_expresion)
+register(CallUnary(sw("expr", Expression), sw("id_", Identifier)), _assign_expresion)
 
 
 register(
-    ToPythonContent(sw(Int, "i")), lambda i: PythonContent(Expression(ast.Num(i.name)))
+    ToPythonContent(sw("i", Int)), lambda i: PythonContent(Expression(ast.Num(i.name)))
 )
 
 expressions = typing.Union[matchpy.Expression, typing.Tuple[matchpy.Expression, ...]]
 
 
 class SubstituteIdentifier(matchpy.Symbol):
-    name: typing.Callable[[Identifier], expressions]
+    name: typing.Callable[[CIdentifier], expressions]
 
 
 register(
-    CallUnary(sw(SubstituteIdentifier, "fn"), sw(Identifier, "id")),
+    CallUnary(sw("fn", SubstituteIdentifier), sw("id", Identifier)),
     lambda fn, id: fn.name(id.name),
 )
 
@@ -140,9 +153,9 @@ def all_of_type(type_):
 
 # TODO: make this not be variadic or add variadic call
 register(
-    CallUnary(sw(SubstituteStatements, "fn"), ws("args")),
-    matchpy.CustomConstraint(all_of_type(Statement)),
+    CallVariadic(sw("fn", SubstituteStatements), ws("args")),
     lambda fn, args: fn.name(*(a.name for a in args)),
+    matchpy.CustomConstraint(all_of_type(Statement)),
 )
 
 
@@ -168,10 +181,15 @@ def statements_then_init(fn):
     return inner
 
 
-ShapeAsTuple = new_operation("ShapeAsTuple", unary)
+CInitializer = CCallableUnary[CStatement, CIdentifier]
 
 
-def _shape_as_tuple__scalar(_):
+@operation
+def ShapeAsTuple(shape: CArray) -> CInitializer:
+    ...
+
+
+def _shape_as_tuple__scalar(_: CContent) -> CInitializer:
     return Expression(ast.Tuple([], ast.Load()))
 
 
@@ -184,9 +202,9 @@ def _shape_as_tuple__sequence(length, getitem):
 
     @statements_then_init
     def inner():
-        inner_shape_id = Identifier()
+        inner_shape_id = identifier()
         yield CallUnary(ShapeAsTuple(inner_seq), inner_shape_id)
-        length_id = Identifier()
+        length_id = identifier()
         yield CallUnary(Initializer(ToPythonContent(length)), length_id)
         return Expression(
             ast.BinOp(
@@ -211,7 +229,7 @@ def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
         if alloc.name:
 
             # get shape
-            shape_tuple_id = Identifier()
+            shape_tuple_id = identifier()
             yield CallUnary(ShapeAsTuple(Sequence(length, getitem)), shape_tuple_id)
             # allocate array
             array = ast.Call(
@@ -221,11 +239,11 @@ def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
             )
             yield Statement(ast.Assign([ast.Name(array_id, ast.Store())], array))
 
-        length_id = Identifier()
+        length_id = identifier()
         yield CallUnary(Initializer(ToPythonContent(length)), length_id)
 
-        index_id = Identifier()
-        result_id = Identifier()
+        index_id = identifier()
+        result_id = identifier()
         # result = getitem(i)
         initialize_result = CallUnary(
             Initializer(
@@ -276,14 +294,14 @@ def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
                 )
             )
 
-        yield CallUnary(inner, initialize_result)
+        yield CallVariadic(inner, initialize_result)
 
     return inner
 
 
 # Scalar numpy arrays are converted to scalars, not 0d array
 register(
-    ToNPArray(Sequence(w("length"), w("getitem")), sw(ShouldAllocate, "alloc")),
+    ToNPArray(Sequence(w("length"), w("getitem")), sw("alloc", ShouldAllocate)),
     _to_np_array_sequence,
 )
 
@@ -312,7 +330,7 @@ def _np_array_to_sequence(arr: Expression, ndim: CInt):
 
 
 register(
-    ToSequenceWithDim(NPArray(sw(Expression, "arr")), sw(Int, "ndim")),
+    ToSequenceWithDim(NPArray(sw("arr", Expression)), sw("ndim", Int)),
     _np_array_to_sequence,
 )
 
@@ -322,9 +340,9 @@ def _nparray_getitem(array_init, idx):
     @SubstituteIdentifier
     @to_tuple
     def inner(sub_array_id: str):
-        idx_id = Identifier()
+        idx_id = identifier()
         yield CallUnary(Initializer(ToPythonContent(idx)), idx_id)
-        array_id = Identifier()
+        array_id = identifier()
         yield CallUnary(array_init, array_id)
         # sub_array = array[idx]
         yield Statement(
@@ -351,7 +369,7 @@ register(CallUnary(GetItem(NPArray(w("array_init"))), w("idx")), _nparray_getite
 #     @SubstituteIdentifier
 #     @to_tuple
 #     def inner(scalar_id: str):
-#         array_id = Identifier()
+#         array_id = identifier()
 #         yield Call(array_init, array_id)
 #         yield Statement(
 #             ast.Assign(
@@ -378,8 +396,8 @@ def _multiply_python_content(l_init, r_init):
     @SubstituteIdentifier
     @to_tuple
     def inner(res_id: str):
-        l_id = Identifier()
-        r_id = Identifier()
+        l_id = identifier()
+        r_id = identifier()
         yield CallUnary(l_init, l_id)
         yield CallUnary(r_init, r_id)
         yield Statement(
@@ -408,8 +426,8 @@ def _add_python_content(l_init, r_init):
     @SubstituteIdentifier
     @to_tuple
     def inner(res_id: str):
-        l_id = Identifier()
-        r_id = Identifier()
+        l_id = identifier()
+        r_id = identifier()
         yield CallUnary(l_init, l_id)
         yield CallUnary(r_init, r_id)
         yield Statement(
@@ -450,7 +468,7 @@ DefineFunction = new_operation("DefineFunction", matchpy.Arity(1, False))
 
 def _define_function(ret, args):
 
-    ret_id = Identifier()
+    ret_id = identifier()
 
     args_ = ast.arguments(
         args=[ast.arg(arg=a.name, annotation=None) for a in args],
@@ -480,7 +498,7 @@ def _define_function(ret, args):
             )
         )
 
-    return CallUnary(inner, CallUnary(Initializer(ret), ret_id))
+    return CallVariadic(inner, CallUnary(Initializer(ret), ret_id))
 
 
 register(DefineFunction(w("ret"), ws("args")), _define_function)
@@ -507,7 +525,7 @@ def _vector_indexed_python_content(idx_expr: Expression, args: typing.List[Expre
 
 # TODO: Make work with non expressions
 register(
-    VectorIndexed(PythonContent(sw(Expression, "idx_expr")), ws("args")),
-    matchpy.CustomConstraint(all_of_type(Expression)),
+    VectorIndexed(PythonContent(sw("idx_expr", Expression)), ws("args")),
     _vector_indexed_python_content,
+    matchpy.CustomConstraint(all_of_type(Expression)),
 )

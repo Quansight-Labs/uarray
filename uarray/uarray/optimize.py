@@ -17,9 +17,10 @@ def optimize(initial_fn):
     wrapped_expr = DefineFunction(
         ToNPArray(resulting_expr, ShouldAllocate(True)), *args_ids
     )
-    replaced_expr = replace(wrapped_expr)
+    all_replaced = list(replace_scan(wrapped_expr))
+    replaced_expr = all_replaced[-1]
     if not isinstance(replaced_expr, Statement):
-        pprint.pprint(replaced_expr)
+        pprint.pprint(all_replaced)
         raise RuntimeError(
             f"Could not replace {repr(replaced_expr)} into AST statement"
         )
@@ -34,6 +35,7 @@ def optimize(initial_fn):
     wrapped_fn.__optimize_steps__ = {
         "args": args,
         "resulting_expr": resulting_expr,
+        "all_replaced": all_replaced,
         "wrapped_expr": wrapped_expr,
         "ast": ast_,
         "ast_as_source": astunparse.unparse(ast_),
