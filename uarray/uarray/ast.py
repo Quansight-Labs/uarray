@@ -109,19 +109,10 @@ def _assign_expresion(expr: Expression, id_: Identifier) -> Statement:
     return Statement(ast.Assign([ast.Name(id_.name, ast.Store())], expr.name))
 
 
-register(Call(Expression.w.expr, Identifier.w.id_), _assign_expresion)
+register(Call(w("expr", Expression), Identifier.w.id_), _assign_expresion)
 
 
-def _value_as_python_content(val: Value):
-    v = val.value
-    if isinstance(v, (int, float)):
-        e = ast.Num(v)
-    else:
-        raise TypeError(f"Cannot turn {v} into Python AST")
-    return PythonContent(Expression(e))
-
-
-register(ToPythonContent(Value.w.val), _value_as_python_content)
+register(ToPythonContent(Int.w.i), lambda i: PythonContent(Expression(ast.Num(i.name))))
 
 expressions = typing.Union[matchpy.Expression, typing.Tuple[matchpy.Expression, ...]]
 

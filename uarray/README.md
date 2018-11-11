@@ -115,8 +115,6 @@ Since each replacement happens in a sequence, it is often helpful to look at not
 For that, we provide the `replace_scan`, which returns an iterable of all the replacements. This can also be helpful to use to debug infintely replacing forms,
 because it is lazily evaluted.
 
-TODO: add `replace_scan` and add original value as output
-
 ```python
 assert list(uarray.replace_scan(List())) == [List(), Nil()]
 assert list(uarray.replace_scan(b)) == [List(v), Cons(v, List()), Cons(v, Nil())]
@@ -367,6 +365,9 @@ a = uarray.NPArray(a_expr)
 b = uarray.NPArray(b_expr)
 ```
 
+So what are we doing here? We are creating two `NPArray` objects. There should be understood as a
+type of Array, but one that is represented by
+
 ```
 a_vec = ToSequenceWithDim(a, uarray.Value(1))
 b_vec = ToSequenceWithDim(b, uarray.Value(1))
@@ -434,8 +435,17 @@ A functor goes from one or more categories to one or more other categories.
 
 - Symbol contructor functors (these take in Python values as arguments)
 
+  - Value(value: Any) -> C/Content
   - Expression(name: str) -> C/Initializer
   - SubstituteStatements(fn: typing.Callable[[ast.AST, ...], C/Initializer, ...])
     -> C/Callable[(Statement, ...), C/Initializer, ...]
   - SubstituteIdentifier(fn: typing.Callable[[Identifer], C/Initializer, ...])
     -> C/Initializer
+
+### Conclusions
+
+This is a large system and on the face of it seems rather convulated. Some of this comes out
+of the ambiguity of the answer to "What is an array?"
+
+Sometimes, we know if any array is a scalar of it is not. In that case, we can apply the Mathematics
+of Array definitions of operations to

@@ -1,88 +1,45 @@
 import inspect
 import pprint
-
+import typing
 import matchpy
 
-__all__ = ["replace", "w", "ws", "register", "replace_debug"]
+
 replacer = matchpy.ManyToOneReplacer()
 replace = replacer.replace
 
-
-MAX_COUNT = 1000
-
-
-@property
-def _matchpy_reduce(self):
-    replaced = True
-    replace_count = 0
-    while replaced and replace_count < MAX_COUNT:
-        replaced = False
-        for subexpr, pos in matchpy.expressions.functions.preorder_iter_with_position(
-            self
-        ):
-            try:
-                replacement, subst = next(iter(replacer.matcher.match(subexpr)))
-                try:
-                    result = replacement(**subst)
-                except TypeError as e:
-                    # TODO: set custom traceback with line number
-                    # https://docs.python.org/3/library/traceback.html
-                    # https://docs.python.org/3/library/inspect.html#inspect.getsource
-                    raise TypeError(
-                        f"Couldn't call {inspect.getsourcelines(replacement)} with {repr(subst)} when matching {repr(subexpr)}"
-                    ) from e
-                # TODO: Handle multiple return expressions
-                if not isinstance(result, matchpy.Expression):
-                    raise ValueError(
-                        f"Replacement {replacement}({inspect.getsourcelines(replacement)}) should return an Expression instead of {result}"
-                    )
-                self = matchpy.functions.replace(self, pos, result)
-                yield self
-                replaced = True
-                break
-            except StopIteration:
-                pass
-        replace_count += 1
+w = matchpy.Wildcard.dot
+ws = matchpy.Wildcard.star
+sw = matchpy.Wildcard.symbol
 
 
-matchpy.Operation.r = _matchpy_reduce
+def _matches(expr):
+    for subexpr, pos in matchpy.expressions.functions.preorder_iter_with_position(expr):
+        try:
+            replacement, subst = next(iter(replacer.matcher.match(subexpr)))
+        except StopIteration:
+            continue
+        yield pos, replacement, subst
 
 
-class SymbolWildcardMaker:
-    def __init__(self, symbol):
-        self.symbol = symbol
+def _replace_once(expr):
+    pos, replacement, subst = next(iter(_matches(expr)))
+    try:
+        result = replacement(**subst)
+    except TypeError as e:
+        # TODO: set custom traceback with line number
+        # https://docs.python.org/3/library/traceback.html
+        # https://docs.python.org/3/library/inspect.html#inspect.getsource
+        raise TypeError(
+            f"Couldn't call {inspect.getsourcelines(replacement)} when matching {repr(e)}"
+        ) from e
 
-    def __getattribute__(self, name):
-        return matchpy.Wildcard.symbol(name, super().__getattribute__("symbol"))
-
-
-class classproperty(object):
-    """
-    https://stackoverflow.com/a/5192374/907060
-    """
-
-    def __init__(self, f):
-        self.f = f
-
-    def __get__(self, obj, owner):
-        return self.f(owner)
+    return matchpy.functions.replace(expr, pos, result)
 
 
-matchpy.Symbol.w = classproperty(SymbolWildcardMaker)
-
-
-class DotWildcardMaker:
-    def __getattribute__(self, name):
-        return matchpy.Wildcard.dot(name)
-
-
-class StarWildcardMaker:
-    def __getattribute__(self, name):
-        return matchpy.Wildcard.star(name)
-
-
-w = DotWildcardMaker()
-ws = StarWildcardMaker()
+def replace_scan(expr: matchpy.Expression) -> matchpy.Expression:
+    while True:
+        yield expr
+        expr = _replace_once(expr)
 
 
 def _pprint_operation(self, object, stream, indent, allowance, context, level):
@@ -101,26 +58,120 @@ def _pprint_operation(self, object, stream, indent, allowance, context, level):
     stream.write(")")
 
 
-pprint.PrettyPrinter._dispatch[matchpy.Operation.__repr__] = _pprint_operation
-
+pprint.PrettyPrinter._dispatch[  # type: ignore
+    matchpy.Operation.__repr__
+] = _pprint_operation
 # defer ipython pretty printing to pprint
 matchpy.Operation._repr_pretty_ = lambda self, pp, cycle: pp.text(pprint.pformat(self))
 
-
-def replace_debug(expr, use_pprint=False, n=100):
-    res = expr
-    for _ in range(n):
-        printer = pprint.pprint if use_pprint else print
-        printer(res)
-        new_res = replace(res, 1, print_steps=True)
-        if new_res == res:
-            break
-        res = new_res
-    return res
+T = typing.TypeVar("T")
 
 
-def register(*args):
-    pattern, *constraints, replacement = args
+def register(
+    pattern: T, replacement: typing.Callable[..., T], *constraints: matchpy.Constraint
+) -> None:
     replacer.add(
         matchpy.ReplacementRule(matchpy.Pattern(pattern, *constraints), replacement)
     )
+
+
+# def register_decorator(fn: typing.Callable[..., typing.Tuple[V, V]]) -> None:
+#     """
+#     Turn this
+
+
+#     into this
+
+#         w_length: CContent = w("length")
+#         w_getitem: CGetitem = w("getitem")
+
+
+#         def _getitem_sequence(length: CContent, getitem: CGetitem) -> CGetitem:
+#             return getitem
+
+
+#         register(GetItem(Sequence(w_length, w_getitem)), _getitem_sequence)
+#     """
+#     sig = inspect.signature(fn)
+
+#     pass
+
+
+CALLABLE = typing.TypeVar("CALLABLE", bound=typing.Callable)
+
+
+@typing.overload
+def operation(fn: CALLABLE) -> CALLABLE:
+    ...
+
+
+@typing.overload
+def operation(
+    *, to_str: typing.Callable[..., str]
+) -> typing.Callable[[CALLABLE], CALLABLE]:
+    ...
+
+
+def operation(
+    fn: CALLABLE = None, *, to_str: typing.Callable[..., str] = None
+) -> typing.Union[typing.Callable[[CALLABLE], CALLABLE], CALLABLE]:
+    """
+    Register a matchpy operation for a function.
+
+    The function should have a fixed number of args and one return.
+
+    This can also be done manually, by typing the result of `matchpy.Operation.new`
+    as a callable, but this is more fluent.
+
+    Manual way is like this:
+
+        Sequence: t.Callable[[CContent, CGetitem], CArray] = mp.Operation.new(
+            "Sequence", mp.Arity.binary
+        )
+    """
+
+    def inner(fn: CALLABLE) -> CALLABLE:
+        sig = inspect.signature(fn)
+
+        min_operands = 0
+        fixed = True
+        names: typing.List[str] = []
+        for p in sig.parameters.values():
+            names.append(p.name)
+            # *xs
+            if p.kind == p.VAR_POSITIONAL:
+                fixed = False
+            # x
+            elif p.kind == p.POSITIONAL_OR_KEYWORD:
+                min_operands += 1
+            elif p.kind == p.KEYWORD_ONLY:
+                if p.name is not "variable_name":
+                    raise ValueError(
+                        f"Keyword only arg must be variable_name not {p.name}"
+                    )
+
+            else:
+                raise NotImplementedError(f"Can't infer operation from paramater {p}")
+        op = matchpy.Operation.new(fn.__name__, matchpy.Arity(min_operands, fixed))
+        if to_str is not None:
+            op.__str__ = lambda self, names=names: to_str(
+                **{name: val for name, val in zip(names, self.operands)}
+            )
+        return typing.cast(CALLABLE, op)
+
+    if fn is not None:
+        return inner(fn)
+    return inner
+
+
+def new_symbol(name):
+    symb = type(name, (matchpy.Symbol,), {})
+    symb.__str__ = lambda self: str(self.name)
+    return symb
+
+
+V = typing.TypeVar("V")
+
+
+def symbol(fn: typing.Callable[[T], V]) -> typing.Callable[[T], V]:
+    return new_symbol(fn.__name__)

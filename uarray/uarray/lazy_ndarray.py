@@ -48,7 +48,7 @@ class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
     def __getitem__(self, i):
         if not isinstance(i, tuple):
             i = (i,)
-        expr = Index(vector_of(*map(Content, map(to_expression, i))), self.expr)
+        expr = Index(vector_of(*map(to_expression, i)), self.expr)
         return LazyNDArray(expr)
 
     def has_dim(self, d: int):

@@ -1,15 +1,10 @@
-import functools
-import typing
-import pprint
-import itertools
 import logging
+
+import matchpy
+import numpy as np
 from IPython.display import display
 
-
-import numpy as np
-
 from .moa import *
-
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +42,7 @@ register(
 register(
     Call(Ufunc.w.fn, Sequence(w.length, w.content)),
     lambda fn, length, content: Sequence(
-        length, function(1, lambda idx: Call(fn, Call(content, idx)))
+        length, unary_function(lambda idx: Call(fn, Call(content, idx)))
     ),
 )
 register(

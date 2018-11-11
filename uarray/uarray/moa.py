@@ -1,7 +1,7 @@
-import matchpy
 import typing
 
-from .machinery import *
+import matchpy
+
 from .core import *
 
 
