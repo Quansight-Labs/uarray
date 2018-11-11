@@ -15,6 +15,16 @@ conda activate uarray
 
 This code hasn't been published yet on PyPi or Conda.
 
+### Testing
+
+```bash
+mypy uarray
+jupyter nbconvert --to notebook --inplace --execute NumPy\ Compat.ipynb Transpose\ Test.ipynb
+npm install -g codedown
+cat README.md | codedown python | tail -r | tail -n +2 | tail -r > test_readme.py
+py.test test_readme.py
+```
+
 ## Internals
 
 Unlike other libraries I have worked on in Python, much of the design of uarray has been focused on the
@@ -36,14 +46,14 @@ We start with the `matchpy.Expression` class. Most of uarray is subclasses of ei
 are subclasses of `matchpy.Expression`. Every `Symbol` subclasses contain a `name` which is a Python object. They are the leaves of the expression tree.
 Whereas each `Operation` subclass is initialized with a number of other `Expressions`s. These are stored on the `operands` attribute of the instance.
 
-TODO: Make `uarray.Value` use just `name`
+TODO: Make `uarray.Int` use just `name`
 
 Here is an example of creating a recursive list in matchpy:
 
 ```python
 import matchpy
 
-class Value(matchpy.Symbol):
+class Int(matchpy.Symbol):
     pass
 
 class Nil(matchpy.Operation):
@@ -62,19 +72,19 @@ class List(matchpy.Operation):
     List(*values)
     """
     name = "List"
-    arity = matchpy.arity(0, False)
+    arity = matchpy.Arity(0, False)
 
 nil_list = Nil()
 assert not nil_list.operands
 
-v = Value(1)
+v = Int(1)
 assert v.name == 1
 
 a = Cons(v, Nil())
 assert a.operands == [v, Nil()]
 
 b = List(v)
-assert v.operands == [v]
+assert b.operands == [v]
 ```
 
 Then in uarray we define one global `matchpy.ManyToOneReplacer` that holds a bunch of replacement rules, to take some expression tree and replace it with another.
@@ -92,7 +102,7 @@ import uarray
 
 # base case
 uarray.register(List(), lambda: Nil())
-uarray.register(List(uarray.w.x, uarray.ws.xs), lambda x, xs: Cons(x, List(*xs)))
+uarray.register(List(uarray.w("x"), uarray.ws("xs")), lambda x, xs: Cons(x, List(*xs)))
 ```
 
 To use the global replacer on an expression, we provide the `replace` function. It takes in some expression and keep applying replacement rules
@@ -131,14 +141,14 @@ There is one last note about our use of Matchpy. When you construct any form in 
 Then you can use the `matchpy.substitute` function to replace any values with that `variable_name` with another expression. For example:
 
 ```python
-v_p = Value(None, variable_name="A")
-assert matchpy.substitute(Cons(v_p, Nil()), {"A": Value(1)}) == Cons(Value(1), Nil())
+v_p = Int(None, variable_name="A")
+assert matchpy.substitute(Cons(v_p, Nil()), {"A": Int(1)}) == Cons(Int(1), Nil())
 ```
 
 ### Arrays (and contents and callables): `uarray/core.py`
 
-TODO: Look at other names for contents and callables. Contents could become Value, if we change Value
-as it is to just be typed versions of itself. aka have Integer and String but not base Value symbol.
+TODO: Look at other names for contents and callables. Content could become Int, if we change Int
+as it is to just be typed versions of itself. aka have Integer and String but not base Int symbol.
 
 There are many ways we could implement the concept of a multi dimensional array in MatchPy.
 We are interested in ways to do this that will let us express take high level descriptions of array operations,
@@ -149,13 +159,13 @@ Here we think about arrays as a `Sequence(length, getitem)`, a `Scalar(content)`
 Let's start with an example, using these expressions, then we can get into the weeds of what this all means.
 
 ```python
-s = uarray.Scalar(uarray.Value(10))
+s = uarray.Scalar(uarray.Int(10))
 
-assert uarray.replace(uarray.Contents(s)) == uarray.Value(10)
+assert uarray.replace(uarray.Content(s)) == uarray.Int(10)
 ```
 
 We see that a `Scalar` just wraps some underlying thing, we call the contents. We can extract
-out it out with the `Contents` operator. Now let's look at a `Sequence`:
+out it out with the `Content` operator. Now let's look at a `Sequence`:
 
 ```python
 class Always(matchpy.Operation):
@@ -163,11 +173,11 @@ class Always(matchpy.Operation):
     arity = matchpy.Arity(1, True)
 
 a = uarray.Sequence(
-    uarray.Value(5),
+    uarray.Int(5),
     Always(s)
 )
 
-assert uarray.replace(uarray.Length(s)) == uarray.Value(5)
+assert uarray.replace(uarray.Length(a)) == uarray.Int(5)
 assert uarray.replace(uarray.GetItem(a)) == Always(s)
 ```
 
@@ -180,10 +190,10 @@ The getitem part of the sequence should be a callable that takes in an index of 
 contents and returns an array. So let's make `Always` a callable that works like this:
 
 ```python
-register(uarray.Call(Always(w.x), w.idx), lambda x, idx: x)
+uarray.register(uarray.CallUnary(Always(uarray.w("x")), uarray.w("idx")), lambda x, idx: x)
 ```
 
-A callable is any expression that you can use `uarray.Call` on it as the first argument,
+A callable is any expression that you can use `uarray.CallUnary` on it as the first argument,
 and it's arguments as the rest of the arguments. It should replace this form into it's result.
 In this case, we have a simple `Callable` that takes one argument and just returns what is inside of it.
 i.e. it doesn't matter what it is called with, it always returns it's first operand.
@@ -191,9 +201,9 @@ i.e. it doesn't matter what it is called with, it always returns it's first oper
 Now, we can get the callable from the array and call it on an index:
 
 ```python
-idx = uarray.Value(2)
+idx = uarray.Int(2)
 
-indexed_a = uarray.Call(
+indexed_a = uarray.CallUnary(
     uarray.GetItem(a),
     idx
 )
@@ -209,14 +219,14 @@ A mistake I often make is giving an expression of the wrong type to some express
 For example, what if I defined an array like this:
 
 ```python
-uarray.Sequence(uarray.Scalar(uarray.Value(10)), Always(Scalar(10)))
+uarray.Sequence(uarray.Scalar(uarray.Int(10)), Always(uarray.Scalar(10)))
 ```
 
 Can you spot what is wrong? The length of the sequence is an Array not a contents!
 So this should instead be:
 
 ```python
-uarray.Sequence(uarray.Value(10), Always(Scalar(10)))
+uarray.Sequence(uarray.Int(10), Always(uarray.Scalar(10)))
 ```
 
 What do I mean "should"? Will this give an error? An exception? Most likely it will not.
@@ -244,16 +254,16 @@ with the arguments as `Unbound` values with their `variable_name` set. To "execu
 the `Function` callable, we just replace those values with their arguments:
 
 ```python
-arg = uarray.Unbound("some_unique_value")
-squared = uarray.Function(uarray.Multiply(arg, arg), arg)
-v = uarray.Value(5)
-called = Call(squared, v)
+arg = uarray.unbound("some_unique_value")
+squared = uarray.UnaryFunction(uarray.Multiply(arg, arg), arg)
+v = uarray.Int(5)
+called = uarray.CallUnary(squared, v)
 
-assert uarray.replace(called) == uarray.Value(25)
-assert uarray.replace_scan(called) == [
+assert uarray.replace(called) == uarray.Int(25)
+assert list(uarray.replace_scan(called)) == [
     called,
     uarray.Multiply(v, v),
-    uarray.Value(25)
+    uarray.Int(25)
 ]
 ```
 
@@ -266,9 +276,9 @@ Another example is the `VectorCallable(*items)` which takes in an index "i" and 
 TODO: change vector callable to not wrap in scalar
 
 ```python
-c = uarray.VectorCallable(uarray.Value(5), uarray.Value(10))
-assert replace(Call(c, uarray.Value(0))) == uarray.Value(5)
-assert replace(Call(c, uarray.Value(1))) == uarray.Value(10)
+c = uarray.VectorCallable(uarray.Int(5), uarray.Int(10))
+assert uarray.replace(uarray.CallUnary(c, uarray.Int(0))) == uarray.Int(5)
+assert uarray.replace(uarray.CallUnary(c, uarray.Int(1))) == uarray.Int(10)
 ```
 
 In the next section, we will also see how callables are used for compiling to
@@ -344,7 +354,7 @@ def fn(a, b):
     return res
 
 a = np.arange(10, dtype="float64")
-assert fn(a, a) == 2 * a
+assert np.array_equal(fn(a, a), 2 * a)
 ```
 
 How would we create this? Let's start with a very manual approach and then
@@ -365,12 +375,13 @@ a = uarray.NPArray(a_expr)
 b = uarray.NPArray(b_expr)
 ```
 
+<!--
 So what are we doing here? We are creating two `NPArray` objects. There should be understood as a
 type of Array, but one that is represented by
 
 ```
-a_vec = ToSequenceWithDim(a, uarray.Value(1))
-b_vec = ToSequenceWithDim(b, uarray.Value(1))
+a_vec = ToSequenceWithDim(a, uarray.Int(1))
+b_vec = ToSequenceWithDim(b, uarray.Int(1))
 
 length = uarray.Length(a_vec)
 
@@ -379,13 +390,13 @@ res = uarray.Sequence(
     length,
     uarray.Function(
         uarray.Add(
-            uarray.Content(uarray.Call(uarray.GetItem(a_vec), i)),
-            uarray.Content(uarray.Call(uarray.GetItem(b_vec), i)),
+            uarray.Content(uarray.CallUnary(uarray.GetItem(a_vec), i)),
+            uarray.Content(uarray.CallUnary(uarray.GetItem(b_vec), i)),
         ),
         i
     )
 )
-```
+``` -->
 
 ### Reference
 
@@ -435,7 +446,7 @@ A functor goes from one or more categories to one or more other categories.
 
 - Symbol contructor functors (these take in Python values as arguments)
 
-  - Value(value: Any) -> C/Content
+  - Int(value: Any) -> C/Content
   - Expression(name: str) -> C/Initializer
   - SubstituteStatements(fn: typing.Callable[[ast.AST, ...], C/Initializer, ...])
     -> C/Callable[(Statement, ...), C/Initializer, ...]
