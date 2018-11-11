@@ -1,17 +1,19 @@
 import ast
+import inspect
+import pprint
+
 import astunparse
 import numpy as np
-import inspect
+
 from .ast import *
 from .lazy_ndarray import LazyNDArray
-import pprint
 
 
 def optimize(initial_fn):
     arg_names = list(inspect.signature(initial_fn).parameters.keys())
     args_ids = list(map(Identifier, arg_names))
     args = list(map(LazyNDArray, map(np_array_from_id, args_ids)))
-    resulting_expr = to_expression(LazyNDArray(initial_fn(*args)))
+    resulting_expr = to_array(LazyNDArray(initial_fn(*args)))
     wrapped_expr = DefineFunction(
         ToNPArray(resulting_expr, ShouldAllocate(True)), *args_ids
     )
@@ -22,13 +24,13 @@ def optimize(initial_fn):
             f"Could not replace {repr(replaced_expr)} into AST statement"
         )
     ast_ = replaced_expr.name
-    l = {}
+    locals_ = {}
     exec(
         compile(ast.fix_missing_locations(ast_), filename="<ast>", mode="exec"),
         {"np": np},
-        l,
+        locals_,
     )
-    wrapped_fn = functools.wraps(initial_fn)(l["fn"])
+    wrapped_fn = functools.wraps(initial_fn)(locals_["fn"])
     wrapped_fn.__optimize_steps__ = {
         "args": args,
         "resulting_expr": resulting_expr,

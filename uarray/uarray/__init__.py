@@ -1,3 +1,3 @@
-# from .optimize import *  # NOQA
-# from .ast_higher import *
-# from .moa import *
+from . import ast_higher  # NOQA
+
+from .optimize import *  # type: ignore

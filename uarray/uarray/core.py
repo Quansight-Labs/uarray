@@ -1,24 +1,29 @@
 import functools
-import typing as t
+import typing
 from .machinery import *
 
-
-RET = t.TypeVar("RET")
-ARG1 = t.TypeVar("ARG1")
-ARG2 = t.TypeVar("ARG2")
+RET = typing.TypeVar("RET")
+ARG1 = typing.TypeVar("ARG1")
+ARG2 = typing.TypeVar("ARG2")
 
 # Categories
-
-CArray = t.NewType("CArray", object)
-CContent = t.NewType("CContent", object)
-CUnbound = t.NewType("CUnbound", object)
-
-
-class CCallableUnary(t.Generic[RET, ARG1]):
+class CArray:
     pass
 
 
-class CCallableBinary(t.Generic[RET, ARG1, ARG2]):
+class CContent:
+    pass
+
+
+class CUnbound:
+    pass
+
+
+class CCallableUnary(typing.Generic[RET, ARG1]):
+    pass
+
+
+class CCallableBinary(typing.Generic[RET, ARG1, ARG2]):
     pass
 
 
@@ -130,39 +135,51 @@ def unbound(variable_name: str = None) -> CUnbound:
     return Unbound("", variable_name=variable_name or gensym())
 
 
-def unary_function(fn: t.Callable[[ARG1], RET]) -> CCallableUnary[RET, ARG1]:
+class CUnboundContent(CUnbound, CContent):
+    ...
+
+
+def unbound_content(variable_name: str = None) -> CUnboundContent:
+    return typing.cast(CUnboundContent, unbound())
+
+
+def unary_function(fn: typing.Callable[[ARG1], RET]) -> CCallableUnary[RET, ARG1]:
     a1 = unbound()
-    return UnaryFunction(fn(t.cast(ARG1, a1)), a1)
+    return UnaryFunction(fn(typing.cast(ARG1, a1)), a1)
 
 
 def binary_function(
-    fn: t.Callable[[ARG1, ARG2], RET]
+    fn: typing.Callable[[ARG1, ARG2], RET]
 ) -> CCallableBinary[RET, ARG1, ARG2]:
     a1 = unbound()
     a2 = unbound()
-    return BinaryFunction(fn(t.cast(ARG1, a1), t.cast(ARG2, a2)), a1, a2)
+    return BinaryFunction(fn(typing.cast(ARG1, a1), typing.cast(ARG2, a2)), a1, a2)
+
+
+class CInt(CContent):
+    name: int
 
 
 @symbol
-def Int(name: int) -> CContent:
+def Int(name: int) -> CInt:
     pass
 
 
 @functools.singledispatch
-def to_expression(v) -> matchpy.Expression:
+def to_array(v) -> CArray:
     """
     Convert some value into a matchpy expression
     """
     raise NotImplementedError()
 
 
-@to_expression.register(int)
-def to_expression__int(v):
+@to_array.register(int)
+def to_array__int(v):
     return Scalar(Int(v))
 
 
-@to_expression.register(matchpy.Expression)
-def to_expression__expr(v):
+@to_array.register(matchpy.Expression)
+def to_array__expr(v):
     return v
 
 
@@ -177,11 +194,12 @@ register(
 )
 
 # TODO: Somehow make vector callable both unique and getitem
-CVectorCallable = CGetitem
+class CVectorCallable(CCallableUnary[T, CContent]):
+    pass
 
 
 @operation(to_str=lambda items: f"<{' '.join(str(i) for i in items)}>")
-def VectorCallable(*items: T) -> CVectorCallable:
+def VectorCallable(*items: T) -> CVectorCallable[T]:
     ...
 
 
@@ -193,8 +211,8 @@ register(
 
 @operation
 def PushVectorCallable(
-    new_item: T, vector_callable: CVectorCallable
-) -> CVectorCallable:
+    new_item: T, vector_callable: CVectorCallable[T]
+) -> CVectorCallable[T]:
     ...
 
 
@@ -204,12 +222,12 @@ register(
 )
 
 
-def vector_of(*values) -> CArray:
+def vector_of(*values: CArray) -> CArray:
     return Sequence(Int(len(values)), VectorCallable(*values))
 
 
-def vector(*values) -> CArray:
-    return vector_of(*map(to_expression, values))
+def vector(*values: typing.Any) -> CArray:
+    return vector_of(*map(to_array, values))
 
 
 @operation
@@ -248,11 +266,11 @@ def with_dims(x: CArray, n_dim: int, i=0) -> CArray:
 
 
 def unbound_array(variable_name: str, n_dim: int) -> CArray:
-    return with_dims(t.cast(CArray, unbound(variable_name)), n_dim)
+    return with_dims(typing.cast(CArray, unbound(variable_name)), n_dim)
 
 
 def unbound_array_with_shape(variable_name: str, n_dim: int) -> CArray:
     return with_shape(
-        t.cast(CArray, unbound(variable_name)),
+        typing.cast(CArray, unbound(variable_name)),
         tuple(unbound(f"{variable_name}_shape_{i}") for i in range(n_dim)),
     )

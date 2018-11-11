@@ -67,6 +67,24 @@ matchpy.Operation._repr_pretty_ = lambda self, pp, cycle: pp.text(pprint.pformat
 T = typing.TypeVar("T")
 
 
+# fallback when we haven't defined typing for operation
+@typing.overload
+def register(
+    pattern: matchpy.Operation,
+    replacement: typing.Callable,
+    *constraints: matchpy.Constraint,
+) -> None:
+    ...
+
+
+# we require replacement to return same category type of original expression
+@typing.overload
+def register(
+    pattern: T, replacement: typing.Callable[..., T], *constraints: matchpy.Constraint
+) -> None:
+    ...
+
+
 def register(
     pattern: T, replacement: typing.Callable[..., T], *constraints: matchpy.Constraint
 ) -> None:
@@ -107,13 +125,17 @@ def operation(fn: CALLABLE) -> CALLABLE:
 
 @typing.overload
 def operation(
-    *, to_str: typing.Callable[..., str]
+    *, to_str: typing.Callable[..., str] = None, name: str = None, infix: bool = False
 ) -> typing.Callable[[CALLABLE], CALLABLE]:
     ...
 
 
 def operation(
-    fn: CALLABLE = None, *, to_str: typing.Callable[..., str] = None
+    fn: CALLABLE = None,
+    *,
+    to_str: typing.Callable[..., str] = None,
+    name: str = None,
+    infix: bool = False,
 ) -> typing.Union[typing.Callable[[CALLABLE], CALLABLE], CALLABLE]:
     """
     Register a matchpy operation for a function.
@@ -152,10 +174,15 @@ def operation(
 
             else:
                 raise NotImplementedError(f"Can't infer operation from paramater {p}")
-        op = matchpy.Operation.new(fn.__name__, matchpy.Arity(min_operands, fixed))
+        op = matchpy.Operation.new(
+            name or fn.__name__,
+            matchpy.Arity(min_operands, fixed),
+            class_name=fn.__name__,
+            infix=infix,
+        )
         if to_str is not None:
             op.__str__ = lambda self, names=names: to_str(
-                **{name: val for name, val in zip(names, self.operands)}
+                **{d: val for d, val in zip(names, self.operands)}
             )
         return typing.cast(CALLABLE, op)
 

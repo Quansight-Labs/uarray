@@ -1,18 +1,17 @@
 import ast
 from .ast import *
+from .moa import OuterProduct
 
-from .moa import *
 
-
-def _outer_nparray(_, _1, _2, _3, l_init, r_init):
+def _outer_nparray(_, l_init, r_init):
     @NPArray
     @SubstituteIdentifier
     @to_tuple
     def inner(res_id: str):
         l_id = Identifier()
         r_id = Identifier()
-        yield Call(l_init, l_id)
-        yield Call(r_init, r_id)
+        yield CallUnary(l_init, l_id)
+        yield CallUnary(r_init, r_id)
         res = ast.Call(
             func=ast.Attribute(
                 value=ast.Attribute(
@@ -35,10 +34,5 @@ def _outer_nparray(_, _1, _2, _3, l_init, r_init):
 
 
 register(
-    OuterProduct(
-        Function(Multiply(Unbound.w._, Unbound.w._1), Unbound.w._2, Unbound.w._3),
-        NPArray(w.l_init),
-        NPArray(w.r_init),
-    ),
-    _outer_nparray,
+    OuterProduct(w("_"), NPArray(w("l_init")), NPArray(w("r_init"))), _outer_nparray
 )
