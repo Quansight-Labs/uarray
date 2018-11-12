@@ -10,8 +10,8 @@ steps:
 - task: CondaEnvironment@0
   inputs:
     environmentName: 'myEnvironment'
-    updateConda: true
     createCustomEnvironment: true
+    packageSpecs: ''
     createOptions: -f uarray/environment.yml
 - script: cd uarray; mypy uarray
   displayName: 'Run mypy'
