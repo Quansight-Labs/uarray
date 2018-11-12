@@ -11,7 +11,7 @@ steps:
   inputs:
     versionSpec: '3.6'
     architecture: 'x64'
-- script: python -m pip install matchpy numba mypy nbconvert numpy pytest astunparse
+- script: python -m pip install matchpy numba mypy nbconvert numpy pytest astunparse jupyter_client
   displayName: Install python deps
 - script: cd uarray; mypy uarray
   displayName: 'Run mypy'
