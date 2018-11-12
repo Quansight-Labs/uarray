@@ -1,0 +1,1 @@
+-r ../uarray/requirements.txt

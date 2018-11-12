@@ -1,18 +1,17 @@
-import numpy as np
-import pprint
 import logging
+import pprint
 
-from .moa import *
-from .core import *
-from .numpy import *
+import numpy as np
+
 from .ast import ToSequenceWithDim
+from .numpy import *
 
 logger = logging.getLogger(__name__)
 
 
 class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
     def __init__(self, value) -> None:
-        self.expr = to_expression(value)
+        self.expr = to_array(value)
 
     def __repr__(self):
         return f"LazyNDArray({repr(self.expr)})"
@@ -28,18 +27,18 @@ class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
 
         if kwargs or len(inputs) not in (1, 2):
             return NotImplemented
-        args = list(map(to_expression, inputs))
+        args = list(map(to_array, inputs))
         logger.info("args = %s", args)
-        fn = Ufunc(ufunc)
+        fn = BinaryUfunc(ufunc)
         if method == "__call__":
-            if len(inputs) == 2:
+            if len(args) == 2:
                 args = [Broadcast(*args)]
                 logger.info("args = %s", args)
-            expr = Call(fn, *args)
+            else:
+                raise NotImplementedError("Only binary ufuncs supported")
+            expr = CallBinary(fn, *args)
         elif method == "outer":
-            expr = OuterProduct(
-                function(2, lambda l, r: Content(Call(fn, Scalar(l), Scalar(r)))), *args
-            )
+            expr = OuterProduct(fn, *args)
         else:
             return NotImplemented
         logger.info("expr = %s", expr)
@@ -48,14 +47,14 @@ class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
     def __getitem__(self, i):
         if not isinstance(i, tuple):
             i = (i,)
-        expr = Index(vector_of(*map(Content, map(to_expression, i))), self.expr)
+        expr = Index(vector_of(*map(to_array, i)), self.expr)
         return LazyNDArray(expr)
 
     def has_dim(self, d: int):
-        return LazyNDArray(ToSequenceWithDim(self.expr, Value(d)))
+        return LazyNDArray(ToSequenceWithDim(self.expr, Int(d)))
 
 
-@to_expression.register(LazyNDArray)
+@to_array.register(LazyNDArray)
 def to_expression__array_like(v):
     return v.expr
 
@@ -78,4 +77,6 @@ def _pprint_array_like(self, object_, stream, indent, allowance, context, level)
     stream.write(")")
 
 
-pprint.PrettyPrinter._dispatch[LazyNDArray.__repr__] = _pprint_array_like
+pprint.PrettyPrinter._dispatch[  # type: ignore
+    LazyNDArray.__repr__
+] = _pprint_array_like

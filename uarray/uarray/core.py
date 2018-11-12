@@ -1,281 +1,245 @@
-# pylint: disable=E1120,W0108,W0621,E1121,E1101
-import matchpy
-import typing
 import functools
+import typing
 from .machinery import *
-
-__all__ = [
-    "Sequence",
-    "Call",
-    "Value",
-    "scalar",
-    "vector",
-    "vector_of",
-    "Unbound",
-    "Scalar",
-    "Content",
-    "GetItem",
-    "Function",
-    "function",
-    "Length",
-    "to_expression",
-    "VectorCallable",
-    "PushVectorCallable",
-    "with_dims",
-    "Unify",
-    "unbound",
-    "VectorIndexed",
-    "gensym",
-    "with_shape",
-    "unbound_with_shape",
-]
+from .core_types import *
 
 
-class Sequence(matchpy.Operation):
-    """
-    Sequence(length, getitem)
-    """
-
-    name = "Sequence"
-    arity = matchpy.Arity(2, True)
+@operation
+def CallUnary(fn: CCallableUnary[RET, ARG1], a1: ARG1) -> RET:
+    ...
 
 
-class GetItem(matchpy.Operation):
-    name = "GetItem"
-    arity = matchpy.Arity(1, True)
+@operation
+def CallVariadic(fn: CCallableUnary[RET, ARG1], *a1: ARG1) -> RET:
+    ...
 
 
-register(GetItem(Sequence(w._, w.getitem)), lambda _, getitem: getitem)
+@operation(to_str=lambda fn, a1, a2: f"{fn}({a1}, {a2})")
+def CallBinary(fn: CCallableBinary[RET, ARG1, ARG2], a1: ARG1, a2: ARG2) -> RET:
+    ...
 
 
-class Length(matchpy.Operation):
-    name = "Length"
-    arity = matchpy.Arity(1, True)
+@operation
+def Sequence(length: CContent, getitem: CGetItem) -> CArray:
+    ...
 
 
-register(Length(Sequence(w.length, w._)), lambda _, length: length)
+@operation
+def GetItem(array: CArray) -> CGetItem:
+    ...
 
 
-class Scalar(matchpy.Operation):
-    """
-    Scalar(content)
-    """
+# possible other forms:
 
-    name = "Scalar"
-    arity = matchpy.Arity(1, True)
-
-    def __str__(self):
-        return str(self.operands[0])
+# @register_
+# def _seq_ss(length: CContent, getitem: CGetItem):
+#     return lambda: GetItem(Sequence(length, getitem)), lambda: getitem
 
 
-class Content(matchpy.Operation):
-    name = "Content"
-    arity = matchpy.Arity(1, True)
+# with w[CContent] as length, w[CGetItem] as getitem:
+#     register(Sequence(length, getitem), getitem)
 
 
-register(Content(Scalar(w.content)), lambda content: content)
+# @register
+# def _getitem_sequence(length: CContent, getitem: CGetItem):
+#     return GetItem(Sequence(length, content)), getitem
 
 
-class Call(matchpy.Operation):
-    """
-    Call(callable, *args)
-    """
-
-    name = "Call"
-    arity = matchpy.Arity(1, False)
-
-    def __str__(self):
-        callable, *args = self.operands
-        return f"{callable}({', '.join(map(str, args))})"
+register(GetItem(Sequence(w("length"), w("getitem"))), lambda length, getitem: getitem)
 
 
-class Function(matchpy.Operation):
-    """
-    Function(body, *args)
-    """
+@operation
+def Length(seq: CArray) -> CContent:
+    ...
 
-    name = "Function"
-    arity = matchpy.Arity(1, False)
 
-    def __str__(self):
-        body, *args = self.operands
-        return f"({', '.join(a.variable_name for a in args)} -> {body})"
+register(Length(Sequence(w("length"), w("_"))), lambda _, length: length)
+
+
+@operation
+def Scalar(cont: CContent) -> CArray:
+    ...
+
+
+@operation
+def Content(sca: CArray) -> CContent:
+    ...
+
+
+register(Content(Scalar(w("content"))), lambda content: content)
+
+
+@operation
+def Unbound(name: str, *, variable_name: str) -> CUnbound:
+    ...
+
+
+# def unbound_content(variable_name: str) -> CContent:
+#     return Unbound(name="", variable_name=variable_name)
+
+
+@operation(to_str=lambda body, a1: f"({a1} -> {body})")
+def UnaryFunction(body: RET, a1: CUnbound) -> CCallableUnary[RET, ARG1]:
+    ...
+
+
+@operation(to_str=lambda body, a1, a2: f"({a1}, {a2} -> {body})")
+def BinaryFunction(
+    body: RET, a1: CUnbound, a2: CUnbound
+) -> CCallableBinary[RET, ARG1, ARG2]:
+    ...
 
 
 register(
-    Call(Function(w.body, ws.args), ws.arg_vals),
+    CallUnary(UnaryFunction(w("body"), ws("args")), ws("arg_vals")),  # type: ignore
     lambda body, args, arg_vals: matchpy.substitute(
         body, {arg.variable_name: arg_val for (arg, arg_val) in zip(args, arg_vals)}
     ),
 )
 
+
 _counter = 0
 
 
-def gensym():
+def gensym() -> str:
     global _counter
     variable_name = f"i{_counter}"
     _counter += 1
     return variable_name
 
 
-def function(n, fn):
-    """
-    function(n, lambda arg_1, arg_2, ..., arg_n: body)
-    """
-    args = [Unbound(gensym()) for _ in range(n)]
-    return Function(fn(*args), *args)
+def unbound(variable_name: str = None) -> CUnbound:
+    return Unbound("", variable_name=variable_name or gensym())
 
 
-class Value(matchpy.Symbol):
-    def __init__(self, value):
-        self.value = value
-        super().__init__(repr(value), None)
-
-    def __str__(self):
-        return str(self.value)
+def unbound_content(variable_name: str = None) -> CUnboundContent:
+    return typing.cast(CUnboundContent, unbound())
 
 
-def scalar(value):
-    return Scalar(Value(value))
+def unary_function(fn: typing.Callable[[ARG1], RET]) -> CCallableUnary[RET, ARG1]:
+    a1 = unbound()
+    return UnaryFunction(fn(typing.cast(ARG1, a1)), a1)
+
+
+def binary_function(
+    fn: typing.Callable[[ARG1, ARG2], RET]
+) -> CCallableBinary[RET, ARG1, ARG2]:
+    a1 = unbound()
+    a2 = unbound()
+    return BinaryFunction(fn(typing.cast(ARG1, a1), typing.cast(ARG2, a2)), a1, a2)
+
+
+@symbol
+def Int(name: int) -> CInt:
+    pass
 
 
 @functools.singledispatch
-def to_expression(v) -> matchpy.Expression:
+def to_array(v) -> CArray:
     """
     Convert some value into a matchpy expression
     """
-    return scalar(v)
+    raise NotImplementedError()
 
 
-@to_expression.register(matchpy.Expression)
-def to_expression__expr(v):
+@to_array.register(int)
+def to_array__int(v):
+    return Scalar(Int(v))
+
+
+@to_array.register(matchpy.Expression)
+def to_array__expr(v):
     return v
 
 
-class VectorCallable(matchpy.Operation):
-    """
-    VectorCallable(*items)
-    """
-
-    name = "VectorCallable"
-    arity = matchpy.Arity(0, False)
-
-    def __str__(self):
-        return f"<{' '.join(map(str, self.operands))}>"
+@operation
+def VectorIndexed(idx: CContent, *items: T) -> T:
+    ...
 
 
 register(
-    Call(VectorCallable(ws.items), w.index),
-    lambda items, index: Scalar(VectorIndexed(index, *items)),
+    VectorIndexed(sw("index", Int), ws("items")), lambda index, items: items[index.name]
+)
+
+# TODO: Somehow make vector callable both unique and getitem
+class CVectorCallable(CCallableUnary[T, CContent]):
+    pass
+
+
+@operation(to_str=lambda items: f"<{' '.join(str(i) for i in items)}>")
+def VectorCallable(*items: T) -> CVectorCallable[T]:
+    ...
+
+
+register(
+    CallUnary(VectorCallable(ws("items")), w("index")),
+    lambda items, index: VectorIndexed(index, *items),
 )
 
 
-class PushVectorCallable(matchpy.Operation):
-    """
-    PushVectorCallable(new_item, VectorCallable())
-    """
-
-    name = "PushVectorCallable"
-    arity = matchpy.Arity(2, True)
-
-    def __str__(self):
-        return f"<{self.operands[0]}, *{self.operands[1]}>"
+@operation
+def PushVectorCallable(
+    new_item: T, vector_callable: CVectorCallable[T]
+) -> CVectorCallable[T]:
+    ...
 
 
 register(
-    PushVectorCallable(w.new_item, VectorCallable(ws.items)),
+    PushVectorCallable(w("new_item"), VectorCallable(ws("items"))),
     lambda new_item, items: VectorCallable(new_item, *items),
 )
 
 
-class VectorIndexed(matchpy.Operation):
-    """
-    VectorIndexed(index, *items)
-    """
-
-    name = "VectorIndexed"
-    arity = matchpy.Arity(1, False)
+def vector_of(*values: CArray) -> CArray:
+    return Sequence(Int(len(values)), VectorCallable(*values))
 
 
+def vector(*values: typing.Any) -> CArray:
+    return vector_of(*map(to_array, values))
+
+
+@operation
+def Unify(l: T, r: T) -> T:
+    ...
+
+
+# TODO: Support unification on unequal but equivelent form
+# similar to question of equivalencies of lambda calculus, i.e. lambda a: a + 1 == lambda b: b + 1
+# even though variables are different name
+# Also need to be able to say some thing *could* be equal at runtime, whereas some others cannot be.
+# i.e. If two `Value`s are unequal, they cannot be unified. However, if two arbitrary expressions are not equal
+# at compile time, they still could end up being equal at runtime.
 register(
-    VectorIndexed(Value.w.index, ws.items), lambda index, items: items[index.value]
+    Unify(w("x"), w("y")), lambda x, y: x, matchpy.EqualVariablesConstraint("x", "y")
 )
 
 
-def vector_of(*values):
-    return Sequence(Value(len(values)), VectorCallable(*values))
-
-
-def vector(*values):
-    return vector_of(*(Value(v) for v in values))
-
-
-class Unbound(matchpy.Symbol):
-    def __init__(self, variable_name=None):
-        super().__init__(name="", variable_name=variable_name)
-
-    def __str__(self):
-        return self.variable_name or "_"
-
-
-# class If(matchpy.Operation):
-#     name = "If"
-#     arity = matchpy.Arity(3, True)
-
-
-# register(
-#     If(Value.w.cond, w.true, w.false),
-#     lambda cond, true, false: true if cond.value else false,
-# )
-
-
-# class IsZero(matchpy.Operation):
-#     name = "IsZero"
-#     arity = matchpy.Arity(1, True)
-
-
-# register(IsZero(Value.w.x), lambda x: x.value == 0)
-
-
-class Unify(matchpy.Operation):
-    """
-    Unify(x, y) asserts x and y are equivalen and returns them
-    """
-
-    name = "Unify"
-    arity = matchpy.Arity(2, True)
-
-
-register(Unify(w.x, w.y), matchpy.EqualVariablesConstraint("x", "y"), lambda x, y: x)
-
-
-def with_shape(
-    x: matchpy.Expression, shape: typing.Tuple[matchpy.Expression, ...], i=0
-):
+def with_shape(x: CArray, shape, i=0) -> CArray:
     if i == len(shape):
         return Scalar(Content(x))
     return Sequence(
         shape[i],
-        function(1, lambda idx: with_shape(Call(GetItem(x), idx), shape, i + 1)),
+        unary_function(
+            lambda idx: with_shape(CallUnary(GetItem(x), idx), shape, i + 1)
+        ),
     )
 
 
-def with_dims(x: matchpy.Expression, n_dim: int, i=0):
+def with_dims(x: CArray, n_dim: int, i=0) -> CArray:
     if i == n_dim:
         return Scalar(Content(x))
     return Sequence(
         Length(x),
-        function(1, lambda idx: with_dims(Call(GetItem(x), idx), n_dim, i + 1)),
+        unary_function(lambda idx: with_dims(CallUnary(GetItem(x), idx), n_dim, i + 1)),
     )
 
 
-def unbound(variable_name, n_dim):
-    return with_dims(Unbound(variable_name), n_dim)
+def unbound_array(variable_name: str, n_dim: int) -> CArray:
+    return with_dims(typing.cast(CArray, unbound(variable_name)), n_dim)
 
 
-def unbound_with_shape(variable_name, n_dim):
+def unbound_with_shape(variable_name: str, n_dim: int) -> CArray:
     return with_shape(
-        Unbound(variable_name),
-        tuple(Unbound(f"{variable_name}_shape_{i}") for i in range(n_dim)),
+        typing.cast(CArray, unbound(variable_name)),
+        tuple(unbound(f"{variable_name}_shape_{i}") for i in range(n_dim)),
     )

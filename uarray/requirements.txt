@@ -1,0 +1,10 @@
+matchpy
+numba
+mypy
+pytest-cov
+numpy
+pytest
+astunparse
+typing_extensions
+nbval
+pytest-mypy
