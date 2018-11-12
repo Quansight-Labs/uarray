@@ -11,8 +11,9 @@ interop code and also rely on JupyterLab and the like for development. To get a 
 package of what you need, feel free to use the included `environment.yml`.
 
 ```bash
-conda env create -f environment.yml
+conda create -n uarray python=3.6
 conda activate uarray
+pip install -r requirements.dev.txt
 ```
 
 This code hasn't been published yet on PyPi or Conda.
@@ -21,10 +22,8 @@ This code hasn't been published yet on PyPi or Conda.
 
 ```bash
 mypy uarray
-jupyter nbconvert --to notebook --inplace --execute NumPy\ Compat.ipynb Transpose\ Test.ipynb
-npm install -g codedown
-cat README.md | codedown python | tail -r | tail -n +2 | tail -r > test_readme.py
-py.test test_readme.py
+python extract_readme_tests.py
+py.test
 ```
 
 ## Internals

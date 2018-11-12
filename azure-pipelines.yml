@@ -11,15 +11,27 @@ steps:
   inputs:
     versionSpec: '3.6'
     architecture: 'x64'
-- script: python -m pip install matchpy numba mypy nbconvert numpy pytest astunparse jupyter_client ipykernel
+
+- script: cd uarray; python -m pip install -r requirements.txt
   displayName: Install python deps
-- script: cd uarray; mypy uarray
+
+- script: cd uarray; mypy uarray~
   displayName: 'Run mypy'
-- script: cd uarray; jupyter nbconvert --to notebook --inplace --execute NumPy\ Compat.ipynb Transpose\ Test.ipynb
-  displayName: 'Run notebooks'
-- script: npm install -g codedown
-  displayName: Install codedown
-- script: cd uarray; cat README.md | codedown python | tail -r | tail -n +2 | tail -r > test_readme.py
-  displayName: get code from readme
-- script: py.test test_readme.py
-  displayName: Test readme
+
+- script: python extract_readme_tests.py
+  displayName: 'extract tests from readme'
+
+- script: py.test
+  displayName: Run tests
+
+- task: PublishTestResults@2
+  condition: always()
+  inputs:
+    testResultsFiles: '**/test-*.xml'
+    testRunTitle: 'Publish test results'
+
+- task: PublishCodeCoverageResults@1
+  inputs:
+    codeCoverageTool: Cobertura
+    summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+    reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
