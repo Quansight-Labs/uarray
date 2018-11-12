@@ -1,9 +1,10 @@
 import ast
+from .core_types import Category
 
 
-class CStatement:
+class CStatement(Category):
     name: ast.AST
 
 
-class CIdentifier:
+class CIdentifier(Category):
     name: str

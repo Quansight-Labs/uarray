@@ -5,23 +5,29 @@ ARG1 = typing.TypeVar("ARG1")
 ARG2 = typing.TypeVar("ARG2")
 
 
-class CArray:
+class Category:
+    """
+    Just for compile time checking with mypy
+    """
+    pass
+
+class CArray(Category):
     pass
 
 
-class CContent:
+class CContent(Category):
     pass
 
 
-class CUnbound:
+class CUnbound(Category):
     pass
 
 
-class CCallableUnary(typing.Generic[RET, ARG1]):
+class CCallableUnary(Category, typing.Generic[RET, ARG1]):
     pass
 
 
-class CCallableBinary(typing.Generic[RET, ARG1, ARG2]):
+class CCallableBinary(Category, typing.Generic[RET, ARG1, ARG2]):
     pass
 
 
