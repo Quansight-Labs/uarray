@@ -134,9 +134,9 @@ def gensym() -> str:
     variable_name = f"i{_counter}"
     _counter += 1
     return variable_name
+
+
 def unbound(variable_name: str = None) -> CUnbound:
-
-
     return Unbound("", variable_name=variable_name or gensym())
 
 
@@ -237,6 +237,7 @@ def vector(*values: typing.Any) -> CArray:
 @operation
 def Unify(l: T, r: T) -> T:
     ...
+
 
 # TODO: Support unification on unequal but equivelent form
 # similar to question of equivalencies of lambda calculus, i.e. lambda a: a + 1 == lambda b: b + 1
