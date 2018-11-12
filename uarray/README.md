@@ -4,6 +4,15 @@
 
 [![Build Status](https://dev.azure.com/teoliphant/teoliphant/_apis/build/status/Quansight-Labs.uarray)](https://dev.azure.com/teoliphant/teoliphant/_build/latest?definitionId=1)
 
+
+We currently have some E2E examples of this working (see `Numpy Compat.ipynb`). We are working in a couple of directions simultaniously:
+
+* Adding Mathematics of Array operators (`./uarray/moa.py`) and mapping them to the NumPy frontend (`./uarray/lazy_ndarray`).
+* Adding new backends (including at least one lower level one)
+* improving NumPy AST backend (`./uarray/ast.py`)
+* Investigating changes to the core machinery (`./uarray/machinery.py`, `./uarray/core.py`) to make clear distinctions between the parts of the project and make it more "safe" (verifiability)
+* Start adding examples of stand alone libraries that support NumPy / SciPy functions and dispatch to different backends (creating `uarray.linalg`, `uarray.stats`)
+
 ## Development
 
 The code relies on Python 3.6+ and `matchpy`. Besides that, we use NumPy to define some
