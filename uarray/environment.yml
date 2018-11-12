@@ -21,3 +21,4 @@ dependencies:
   - pudb
   - pip:
       - astunparse
+      - typing_extensions

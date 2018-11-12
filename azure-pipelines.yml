@@ -7,10 +7,19 @@ pool:
   vmImage: 'Ubuntu 16.04'
 
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
-
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+- task: CondaEnvironment@0
+  inputs:
+    environmentName: 'myEnvironment'
+    updateConda: true
+    createCustomEnvironment: true
+    createOptions: -f uarray/environment.yml
+- script: cd uarray; mypy uarray
+  displayName: 'Run mypy'
+- script: cd uarray; jupyter nbconvert --to notebook --inplace --execute NumPy\ Compat.ipynb Transpose\ Test.ipynb
+  displayName: 'Run notebooks'
+- script: npm install -g codedown
+  displayName: Install codedown
+- script: cd uarray; cat README.md | codedown python | tail -r | tail -n +2 | tail -r > test_readme.py
+  displayName: get code from readme
+- script: py.test test_readme.py
+  displayName: Test readme

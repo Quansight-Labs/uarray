@@ -2,6 +2,8 @@
 
 [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/Quansight-Labs/uarray/master?urlpath=lab/tree/uarray/NumPy%20Compat.ipynb)
 
+[![Build Status](https://dev.azure.com/teoliphant/teoliphant/_apis/build/status/Quansight-Labs.uarray)](https://dev.azure.com/teoliphant/teoliphant/_build/latest?definitionId=1)
+
 ## Development
 
 The code relies on Python 3.6+ and `matchpy`. Besides that, we use NumPy to define some

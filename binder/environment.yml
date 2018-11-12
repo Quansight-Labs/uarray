@@ -1,9 +1,11 @@
 channels:
   - conda-forge
 dependencies:
-  - python=3.7
+  - python=3.6
   - matchpy
   - python-graphviz
   - numpy
-  - hypothesis
-  - pytest
+  - numba
+  - pip:
+      - astunparse
+      - typing_extensions
