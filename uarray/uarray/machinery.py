@@ -101,10 +101,10 @@ def register(
 #     into this
 
 #         w_length: CContent = w("length")
-#         w_getitem: CGetitem = w("getitem")
+#         w_getitem: CGetItem = w("getitem")
 
 
-#         def _getitem_sequence(length: CContent, getitem: CGetitem) -> CGetitem:
+#         def _getitem_sequence(length: CContent, getitem: CGetItem) -> CGetItem:
 #             return getitem
 
 
@@ -147,7 +147,7 @@ def operation(
 
     Manual way is like this:
 
-        Sequence: t.Callable[[CContent, CGetitem], CArray] = mp.Operation.new(
+        Sequence: t.Callable[[CContent, CGetItem], CArray] = mp.Operation.new(
             "Sequence", mp.Arity.binary
         )
     """

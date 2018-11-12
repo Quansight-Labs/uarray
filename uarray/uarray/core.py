@@ -27,7 +27,7 @@ class CCallableBinary(typing.Generic[RET, ARG1, ARG2]):
     pass
 
 
-CGetitem = CCallableUnary[CArray, CContent]
+CGetItem = CCallableUnary[CArray, CContent]
 
 # Functors
 
@@ -48,28 +48,28 @@ def CallBinary(fn: CCallableBinary[RET, ARG1, ARG2], a1: ARG1, a2: ARG2) -> RET:
 
 
 @operation
-def Sequence(length: CContent, getitem: CGetitem) -> CArray:
+def Sequence(length: CContent, getitem: CGetItem) -> CArray:
     ...
 
 
 @operation
-def GetItem(array: CArray) -> CGetitem:
+def GetItem(array: CArray) -> CGetItem:
     ...
 
 
 # possible other forms:
 
 # @register_
-# def _seq_ss(length: CContent, getitem: CGetitem):
+# def _seq_ss(length: CContent, getitem: CGetItem):
 #     return lambda: GetItem(Sequence(length, getitem)), lambda: getitem
 
 
-# with w[CContent] as length, w[CGetitem] as getitem:
+# with w[CContent] as length, w[CGetItem] as getitem:
 #     register(Sequence(length, getitem), getitem)
 
 
 # @register
-# def _getitem_sequence(length: CContent, getitem: CGetitem):
+# def _getitem_sequence(length: CContent, getitem: CGetItem):
 #     return GetItem(Sequence(length, content)), getitem
 
 

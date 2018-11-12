@@ -224,7 +224,7 @@ def _tranpose_sequence(
             array,
         ),
     )
-    new_getitem: CGetitem = UnaryFunction(new_expr, first_idx)
+    new_getitem: CGetItem = UnaryFunction(new_expr, first_idx)
     new_length_expr = array
     for _1 in range(first_order_val):
         new_length_expr = CallUnary(GetItem(new_length_expr), unbound_content())
