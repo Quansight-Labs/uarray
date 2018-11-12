@@ -9,10 +9,12 @@ pool:
 steps:
 - task: CondaEnvironment@0
   inputs:
-    environmentName: 'myEnvironment'
-    createCustomEnvironment: true
-    packageSpecs: ''
-    createOptions: -f uarray/environment.yml
+    environmentName: 'uarray'
+    packageSpecs: 'python=3.6 matchpy numba mypy nbconvert numpy pytest'
+    updateConda: false
+    createOptions: '-c conda-forge'
+- script: python -m pip install astunparse
+  displayName: 'install astunparse'
 - script: cd uarray; mypy uarray
   displayName: 'Run mypy'
 - script: cd uarray; jupyter nbconvert --to notebook --inplace --execute NumPy\ Compat.ipynb Transpose\ Test.ipynb
