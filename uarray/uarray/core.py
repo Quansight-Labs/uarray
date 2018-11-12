@@ -1,35 +1,7 @@
 import functools
 import typing
 from .machinery import *
-
-RET = typing.TypeVar("RET")
-ARG1 = typing.TypeVar("ARG1")
-ARG2 = typing.TypeVar("ARG2")
-
-# Categories
-class CArray:
-    pass
-
-
-class CContent:
-    pass
-
-
-class CUnbound:
-    pass
-
-
-class CCallableUnary(typing.Generic[RET, ARG1]):
-    pass
-
-
-class CCallableBinary(typing.Generic[RET, ARG1, ARG2]):
-    pass
-
-
-CGetItem = CCallableUnary[CArray, CContent]
-
-# Functors
+from .core_types import *
 
 
 @operation
@@ -140,10 +112,6 @@ def unbound(variable_name: str = None) -> CUnbound:
     return Unbound("", variable_name=variable_name or gensym())
 
 
-class CUnboundContent(CUnbound, CContent):
-    ...
-
-
 def unbound_content(variable_name: str = None) -> CUnboundContent:
     return typing.cast(CUnboundContent, unbound())
 
@@ -159,10 +127,6 @@ def binary_function(
     a1 = unbound()
     a2 = unbound()
     return BinaryFunction(fn(typing.cast(ARG1, a1), typing.cast(ARG2, a2)), a1, a2)
-
-
-class CInt(CContent):
-    name: int
 
 
 @symbol

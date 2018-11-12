@@ -4,6 +4,7 @@ import typing
 
 import matchpy
 
+from .ast_types import *
 from .core import *
 from .moa import Add, Multiply
 
@@ -82,14 +83,6 @@ class Statement(matchpy.Symbol):
 
     def __repr__(self):
         return f"Statement({ast.dump(self.name)})"
-
-
-class CStatement:
-    name: ast.AST
-
-
-class CIdentifier:
-    name: str
 
 
 @symbol
