@@ -212,7 +212,7 @@ register(
 )
 
 
-def with_shape(x: CArray, shape, i=0) -> CArray:
+def with_shape(x: CArray, shape: typing.Sequence[CContent], i=0) -> CArray:
     if i == len(shape):
         return Scalar(Content(x))
     return Sequence(
@@ -239,5 +239,5 @@ def unbound_array(variable_name: str, n_dim: int) -> CArray:
 def unbound_with_shape(variable_name: str, n_dim: int) -> CArray:
     return with_shape(
         typing.cast(CArray, unbound(variable_name)),
-        tuple(unbound(f"{variable_name}_shape_{i}") for i in range(n_dim)),
+        tuple(unbound_content(f"{variable_name}_shape_{i}") for i in range(n_dim)),
     )
