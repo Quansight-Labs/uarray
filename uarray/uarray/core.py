@@ -161,9 +161,7 @@ register(
     VectorIndexed(sw("index", Int), ws("items")), lambda index, items: items[index.name]
 )
 
-# TODO: Somehow make vector callable both unique and getitem
-class CVectorCallable(CCallableUnary[T, CContent]):
-    pass
+CVectorCallable = CCallableUnary[T, CContent]
 
 
 @operation(to_str=lambda items: f"<{' '.join(str(i) for i in items)}>")
