@@ -10,13 +10,13 @@ def Shape(a: CArray) -> CArray:
     ...
 
 
-def _shape(length, getitem):
+def _shape(length: CContent, getitem: CGetItem):
 
-    inner_shape = Shape(CallUnary(getitem, unbound()))
+    inner_shape = Shape(CallUnary(getitem, unbound_content()))
 
     return Sequence(
         Add(Int(1), Length(inner_shape)),
-        PushVectorCallable(length, GetItem(inner_shape)),
+        PushVectorCallable(Scalar(length), GetItem(inner_shape)),
     )
 
 
@@ -176,6 +176,7 @@ def OmegaUnary(
     function: CCallableUnary[CArray, CArray], dim: CContent, array: CArray
 ) -> CArray:
     ...
+
 
 # TODO: Make this invese. if 0 we should keep traversing
 def _omega_unary_sequence(
