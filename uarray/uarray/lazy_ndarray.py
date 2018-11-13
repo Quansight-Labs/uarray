@@ -1,5 +1,6 @@
 import logging
 import pprint
+import typing
 
 import numpy as np
 
@@ -32,7 +33,10 @@ class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
         fn = BinaryUfunc(ufunc)
         if method == "__call__":
             if len(args) == 2:
-                args = [Broadcast(*args)]
+                args = [
+                    BroadcastToShape(args[0], GetItem(Shape(args[1]))),
+                    BroadcastToShape(args[1], GetItem(Shape(args[0]))),
+                ]
                 logger.info("args = %s", args)
             else:
                 raise NotImplementedError("Only binary ufuncs supported")
@@ -52,6 +56,9 @@ class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
 
     def has_dim(self, d: int):
         return LazyNDArray(ToSequenceWithDim(self.expr, Int(d)))
+
+    def has_shape(self, shape: typing.Iterable[int]):
+        return LazyNDArray(with_shape(self.expr, list(map(Int, shape))))
 
 
 @to_array.register(LazyNDArray)

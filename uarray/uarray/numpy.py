@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class IPythonHandler(logging.Handler):
     def emit(self, record: logging.LogRecord):
-        display(record.args)
+        display({record.msg: record.args})
 
 
 logger.addHandler(IPythonHandler())
@@ -56,67 +56,42 @@ register(
 )
 
 
-class Broadcast(matchpy.Operation):
+@operation
+def BroadcastToShape(arr: CArray, shape: CVectorCallable) -> CArray:
     """
-    Broadcast(arg1, arg2)
-
     Returns broadcasted values of args
     https://docs.scipy.org/doc/numpy-1.15.1/reference/ufuncs.html#broadcasting
     """
-
-    name = "Broadcast"
-    arity = matchpy.Arity(2, False)
+    ...
 
 
-# both scalars
-register(Broadcast(Scalar(w("l")), Scalar(w("r"))), lambda l, r: (Scalar(l), Scalar(r)))
-# one scalar
+register(BroadcastToShape(w("arr"), VectorCallable()), lambda arr: arr)
 register(
-    Broadcast(Sequence(w("l_length"), w("l_content")), Scalar(w("r"))),
-    lambda l_length, l_content, r: (
-        Sequence(l_length, l_content),
-        Sequence(l_length, unary_function(lambda idx: Scalar(r))),
+    BroadcastToShape(
+        Scalar(w("content")), VectorCallable(Scalar(w("outer_dim")), ws("rest_dims"))
+    ),
+    lambda content, outer_dim, rest_dims: Sequence(
+        outer_dim,
+        unary_function(
+            lambda idx: BroadcastToShape(Scalar(content), VectorCallable(*rest_dims))
+        ),
     ),
 )
+
 register(
-    Broadcast(Scalar(w("l")), Sequence(w("r_length"), w("r_content"))),
-    lambda r_length, r_content, l: (
-        Sequence(r_length, unary_function(lambda idx: Scalar(l))),
-        Sequence(r_length, r_content),
+    BroadcastToShape(
+        Sequence(sw("length", Int), w("cont")),
+        VectorCallable(Scalar(sw("outer_dim", Int)), ws("rest_dims")),
     ),
-)
-# length of 1
-register(
-    Broadcast(
-        Sequence(sw("l_length", Int), w("l_content")),
-        Sequence(sw("r_length", Int), w("r_content")),
+    lambda length, cont, outer_dim, rest_dims: Sequence(
+        outer_dim,
+        unary_function(
+            lambda idx: BroadcastToShape(
+                CallUnary(cont, idx), VectorCallable(*rest_dims)
+            )
+        ),
     ),
-    lambda l_length, l_content, r_length, r_content: (
-        Sequence(r_length, unary_function(lambda idx: CallUnary(l_content, Int(0)))),
-        Sequence(r_length, r_content),
+    matchpy.CustomConstraint(
+        lambda outer_dim, length: outer_dim.name == length.name or length.name == 1
     ),
-    matchpy.CustomConstraint(lambda l_length: l_length.name == 1),
-)
-register(
-    Broadcast(
-        Sequence(sw("l_length", Int), w("l_content")),
-        Sequence(sw("r_length", Int), w("r_content")),
-    ),
-    lambda l_length, l_content, r_length, r_content: (
-        Sequence(l_length, l_content),
-        Sequence(l_length, unary_function(lambda idx: CallUnary(r_content, Int(0)))),
-    ),
-    matchpy.CustomConstraint(lambda r_length: r_length.name == 1),
-)
-# same lengths
-register(
-    Broadcast(
-        Sequence(sw("l_length", Int), w("l_content")),
-        Sequence(sw("r_length", Int), w("r_content")),
-    ),
-    lambda l_length, l_content, r_length, r_content: (
-        Sequence(l_length, l_content),
-        Sequence(l_length, r_content),
-    ),
-    matchpy.CustomConstraint(lambda l_length, r_length: r_length.name == l_length.name),
 )
