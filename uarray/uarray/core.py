@@ -70,7 +70,7 @@ register(Content(Scalar(w("content"))), lambda content: content)
 
 
 @operation
-def Unbound(name: str, *, variable_name: str) -> CUnbound:
+def Unbound(*, variable_name: str) -> CUnbound:
     ...
 
 
@@ -109,7 +109,7 @@ def gensym() -> str:
 
 
 def unbound(variable_name: str = None) -> CUnbound:
-    return Unbound("", variable_name=variable_name or gensym())
+    return Unbound(variable_name=variable_name or gensym())
 
 
 def unbound_content(variable_name: str = None) -> CUnboundContent:
