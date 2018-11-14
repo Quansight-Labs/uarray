@@ -24,6 +24,13 @@ register(Shape(Scalar(w("_"))), lambda _: vector())
 register(Shape(Sequence(w("length"), w("getitem"))), _shape)
 
 
+# if the index is unbound we should still be able to get shape
+# TODO: this is probably bad, then we have two ways of getting vector shape
+register(
+    Shape(VectorIndexed(w("idx"), ws("xs"))), lambda idx, xs: Unify(*map(Shape, xs))
+)
+
+
 @operation(name="ψ", infix=True)
 def Index(indices: CArray, ar: CArray) -> CArray:
     ...

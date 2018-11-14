@@ -1,7 +1,8 @@
 import functools
 import typing
-from .machinery import *
+
 from .core_types import *
+from .machinery import *
 
 
 @operation
@@ -22,22 +23,6 @@ def Sequence(length: CContent, getitem: CGetItem) -> CArray:
 @operation
 def GetItem(array: CArray) -> CGetItem:
     ...
-
-
-# possible other forms:
-
-# @register_
-# def _seq_ss(length: CContent, getitem: CGetItem):
-#     return lambda: GetItem(Sequence(length, getitem)), lambda: getitem
-
-
-# with w[CContent] as length, w[CGetItem] as getitem:
-#     register(Sequence(length, getitem), getitem)
-
-
-# @register
-# def _getitem_sequence(length: CContent, getitem: CGetItem):
-#     return GetItem(Sequence(length, content)), getitem
 
 
 register(GetItem(Sequence(w("length"), w("getitem"))), lambda length, getitem: getitem)
@@ -69,19 +54,61 @@ def Unbound(*, variable_name: str) -> CUnbound:
     ...
 
 
+# ## other callables
+
+
+@operation(to_str=lambda a: f"_ -> {a}")
+def Always(a: T) -> CCallableUnary[T, typing.Any]:
+    ...
+
+
+register(CallUnary(Always(w("a")), w("_")), lambda _, a: a)
+
+
+@operation
+def Compose(l: CCallableUnary[T, V], r: CCallableUnary[V, U]) -> CCallableUnary[T, U]:
+    ...
+
+
+def _compose(l: CCallableUnary[T, V], r: CCallableUnary[V, U], v: U) -> T:
+    return CallUnary(l, CallUnary(r, v))
+
+
+register(CallUnary(Compose(w("l"), w("r")), w("v")), _compose)
+
+
+class CUnaryPythonFunction(CCallableUnary[RET, ARG1]):
+    # add any cause not sure how to tell it this isn't method
+    name: typing.Callable[[typing.Any, ARG1], RET]
+
+
+@symbol
+def UnaryPythonFunction(
+    # name should be typing.Callable[[ARG1], RET]
+    name: typing.Callable[[typing.Any], typing.Any]
+) -> CUnaryPythonFunction[RET, ARG1]:
+    ...
+
+
+def _call_unary_py_function(fn: CUnaryPythonFunction[RET, ARG1], arg: ARG1) -> RET:
+    return fn.name(arg)
+
+
+register(CallUnary(sw("fn", UnaryPythonFunction), w("arg")), _call_unary_py_function)
+
 # def unbound_content(variable_name: str) -> CContent:
 #     return Unbound(name="", variable_name=variable_name)
 
 
 @operation(to_str=lambda body, a1: f"({a1} -> {body})")
-def UnaryFunction(body: RET, a1: CUnbound) -> CCallableUnary[RET, ARG1]:
+def UnaryFunction(body: T, a1: CUnbound) -> CCallableUnary[T, ARG1]:
     ...
 
 
 @operation(to_str=lambda body, a1, a2: f"({a1}, {a2} -> {body})")
 def BinaryFunction(
-    body: RET, a1: CUnbound, a2: CUnbound
-) -> CCallableBinary[RET, ARG1, ARG2]:
+    body: T, a1: CUnbound, a2: CUnbound
+) -> CCallableBinary[T, ARG1, ARG2]:
     ...
 
 
@@ -199,12 +226,20 @@ def vector_of(*values: CArray) -> CArray:
     return Sequence(Int(len(values)), VectorCallable(*values))
 
 
-def vector(*values: typing.Any) -> CArray:
-    return vector_of(*map(to_array, values))
+# scalar_fn: CCallableUnary[CArray, CContent] = typing.cast(
+#     CUnaryPythonFunction[CArray, CContent], UnaryPythonFunction(Scalar)
+# )
+
+
+def vector(*values: int) -> CArray:
+    # vc: CCallableUnary[CContent, CContent] = VectorCallable(*map(Int, values))
+    # getitem = Compose(scalar_fn, vc)
+
+    return vector_of(*(Scalar(Int(v)) for v in values))
 
 
 @operation
-def Unify(l: T, r: T) -> T:
+def Unify(*args: T) -> T:
     ...
 
 
@@ -214,8 +249,11 @@ def Unify(l: T, r: T) -> T:
 # Also need to be able to say some thing *could* be equal at runtime, whereas some others cannot be.
 # i.e. If two `Value`s are unequal, they cannot be unified. However, if two arbitrary expressions are not equal
 # at compile time, they still could end up being equal at runtime.
+register(Unify(w("x")), lambda x: x)
 register(
-    Unify(w("x"), w("y")), lambda x, y: x, matchpy.EqualVariablesConstraint("x", "y")
+    Unify(w("x"), w("y"), ws("rest")),
+    lambda x, y, rest: Unify(x, *rest),
+    matchpy.EqualVariablesConstraint("x", "y"),
 )
 
 
@@ -248,14 +286,3 @@ def unbound_with_shape(variable_name: str, n_dim: int) -> CArray:
         typing.cast(CArray, unbound(variable_name)),
         tuple(unbound_content(f"{variable_name}_shape_{i}") for i in range(n_dim)),
     )
-
-
-# ## other callables
-
-
-@operation(to_str=lambda a: f"_ -> {a}")
-def Always(a: T) -> CCallableUnary[T, typing.Any]:
-    ...
-
-
-register(CallUnary(Always(w("a")), w("_")), lambda _, a: a)

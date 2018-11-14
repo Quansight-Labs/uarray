@@ -1,6 +1,8 @@
 import typing
 
 T = typing.TypeVar("T")
+U = typing.TypeVar("U")
+V = typing.TypeVar("V")
 RET = typing.TypeVar("RET")
 ARG1 = typing.TypeVar("ARG1")
 ARG2 = typing.TypeVar("ARG2")

@@ -177,8 +177,8 @@ def new_symbol(name):
     return symb
 
 
-V = typing.TypeVar("V")
+V_ = typing.TypeVar("V_")
 
 
-def symbol(fn: typing.Callable[[_T], V]) -> typing.Callable[[_T], V]:
+def symbol(fn: typing.Callable[[_T], V_]) -> typing.Callable[[_T], V_]:
     return new_symbol(fn.__name__)
