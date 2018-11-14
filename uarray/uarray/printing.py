@@ -27,7 +27,7 @@ def repr_pretty(self, pp, cycle):
 
 
 def repr_(self):
-    return to_repr_black(self)
+    return to_repr(self)
 
 
 matchpy.Operation._repr_pretty_ = repr_pretty
