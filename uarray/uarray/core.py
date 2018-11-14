@@ -85,9 +85,9 @@ def BinaryFunction(
     ...
 
 
-for fn_type in [BinaryFunction, UnaryFunction]:
+for call_type, fn_type in [(CallBinary, BinaryFunction), (CallUnary, UnaryFunction)]:
     register(
-        CallUnary(fn_type(w("body"), ws("args")), ws("arg_vals")),  # type: ignore
+        call_type(fn_type(w("body"), ws("args")), ws("arg_vals")),  # type: ignore
         lambda body, args, arg_vals: matchpy.substitute(
             body, {arg.variable_name: arg_val for (arg, arg_val) in zip(args, arg_vals)}
         ),
@@ -248,3 +248,14 @@ def unbound_with_shape(variable_name: str, n_dim: int) -> CArray:
         typing.cast(CArray, unbound(variable_name)),
         tuple(unbound_content(f"{variable_name}_shape_{i}") for i in range(n_dim)),
     )
+
+
+# ## other callables
+
+
+@operation(to_str=lambda a: f"_ -> {a}")
+def Always(a: T) -> CCallableUnary[T, typing.Any]:
+    ...
+
+
+register(CallUnary(Always(w("a")), w("_")), lambda _, a: a)
