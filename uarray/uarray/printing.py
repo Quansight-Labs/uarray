@@ -42,7 +42,7 @@ def to_repr_dict(d):
 def to_repr_op(op: matchpy.Operation):
     args = list(map(to_repr, op.operands))
     if op.variable_name is not None:
-        args.append("variable_name={op.variable_name}")
+        args.append(f"variable_name={to_repr(op.variable_name)}")
     return f"{type(op).__name__}({', '.join(args)})"
 
 
