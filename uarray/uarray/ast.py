@@ -41,7 +41,6 @@ def PythonContent(init: CInitializer) -> CInitializableContent:
     ...
 
 
-# TODO: make this more exact
 @operation
 def Initializer(initializable: CInitializable) -> CInitializer:
     ...
@@ -85,14 +84,6 @@ def to_repr_func(a):
 @symbol
 def Expression(name: ast.AST) -> CExpression:
     ...
-
-
-# def content_expression(name: ast.Expression) -> CInitializableContent:
-#     return Expression(name)
-
-
-# def array_expression(name: ast.Expression) -> CInitializableArray:
-#     return Expression(name)
 
 
 # TODO: Is this right? Or should this never be hit
@@ -180,26 +171,24 @@ register(
 
 def statements_then_init(
     fn: typing.Callable[[], typing.Generator[CStatements, None, CInitializer]]
-) -> CSubstituteIdentifier:
+) -> CInitializer:
     """
     statements_then_init is called to wrap a function
     that yields a bunch of statements and then returns
     an initializer
     """
 
-    @SubstituteIdentifier
-    @join_statements
-    def inner(id_: str) -> typing.Iterator[CStatements]:
+    def inner(id_: CIdentifier) -> typing.Iterator[CStatements]:
         generator = fn()
         while True:
             try:
                 yield next(generator)
             except StopIteration as exc:
-                initializer = exc.value
-                yield CallUnary(initializer, Identifier(id_))
+                initializer: CInitializer = exc.value
+                yield CallUnary(initializer, id_)
                 return
 
-    return inner
+    return unary_function(join_statements(inner))
 
 
 @operation
@@ -333,6 +322,8 @@ def ToSequenceWithDim(arr: CArray, ndim: CContent) -> CArray:
 
 
 def _np_array_to_sequence(arr: CExpression, ndim: CInt):
+    raise NotImplementedError()
+
     def inner(e: CArray, i: int) -> CArray:
         if i == ndim.name:
             return Scalar(Content(e))
@@ -392,7 +383,6 @@ def _nparray_getitem(array_init: CInitializer, idx: CContent):
             )
         )
 
-    # TODO: Instead of unary function make variadic so it's like VariadicFunction(results..., arg)
     return NPArray(inner)
 
 
