@@ -1,4 +1,3 @@
-import matchpy
 import numpy as np
 
 from .moa import *
@@ -44,41 +43,44 @@ register(
 
 
 @operation
-def BroadcastToShape(arr: CArray, shape: CVectorCallable) -> CArray:
+def BroadcastShapes(
+    l: CVectorCallable[CArray], r: CVectorCallable[CArray]
+) -> CVectorCallable[CArray]:
     """
-    Returns broadcasted values of args
+    Returns unified shape of two input shapes
     https://docs.scipy.org/doc/numpy-1.15.1/reference/ufuncs.html#broadcasting
     """
     ...
 
 
-register(BroadcastToShape(w("arr"), VectorCallable()), lambda arr: arr)
 register(
-    BroadcastToShape(
-        Scalar(w("content")), VectorCallable(Scalar(w("outer_dim")), ws("rest_dims"))
-    ),
-    lambda content, outer_dim, rest_dims: Sequence(
-        outer_dim,
-        unary_function(
-            lambda idx: BroadcastToShape(Scalar(content), VectorCallable(*rest_dims))
-        ),
-    ),
+    BroadcastShapes(VectorCallable(), VectorCallable(ws("rs"))),
+    lambda rs: VectorCallable(*rs),
+)
+register(
+    BroadcastShapes(VectorCallable(ws("ls")), VectorCallable()),
+    lambda ls: VectorCallable(*ls),
 )
 
+
+def _broadcast_shapes(
+    ls: typing.Sequence[CArray], l: CInt, rs: typing.Sequence[CArray], r: CInt
+) -> CVectorCallable[CArray]:
+    l_, r_ = l.name, r.name
+    if l_ == 1 or r_ == 1 or l_ == r_:
+        d_ = max(l_, r_)
+    else:
+        raise ValueError(f"Cannot broadcast dimensions {l_} and {r_}")
+    return ConcatVectorCallable(
+        BroadcastShapes(VectorCallable(*ls), VectorCallable(*rs)),
+        VectorCallable(Scalar(Int(d_))),
+    )
+
+
 register(
-    BroadcastToShape(
-        Sequence(sw("length", Int), w("cont")),
-        VectorCallable(Scalar(sw("outer_dim", Int)), ws("rest_dims")),
+    BroadcastShapes(
+        VectorCallable(ws("ls"), Scalar(sw("l", Int))),
+        VectorCallable(ws("rs"), Scalar(sw("r", Int))),
     ),
-    lambda length, cont, outer_dim, rest_dims: Sequence(
-        outer_dim,
-        unary_function(
-            lambda idx: BroadcastToShape(
-                CallUnary(cont, idx), VectorCallable(*rest_dims)
-            )
-        ),
-    ),
-    matchpy.CustomConstraint(
-        lambda outer_dim, length: outer_dim.name == length.name or length.name == 1
-    ),
+    _broadcast_shapes,
 )
