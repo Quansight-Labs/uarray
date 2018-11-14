@@ -211,59 +211,15 @@ register(
 )
 
 
-@operation(name="ρ")
-def Reshape(new_shape: CArray, array: CArray, array_dim: CArray) -> CArray:
-    """
-    Reshape command that is sufficient for NP broadcasting. Doesn't support full reshape semantics yet.
-
-    input array should be broadcastable into result array
-    """
+@operation(name="ρ", infix=True)
+def Reshape(new_shape: CArray, array: CArray) -> CArray:
     ...
 
 
-# def _reshape(
-#     new_shape_length: CInt,
-#     new_shape_contents: typing.Sequence[CArray],
-#     array_length: CInt,
-#     array_getitem: CGetItem,
-#     array_dim: CInt,
-# ) -> CArray:
-#     if array_dim.name > new_shape_length.name:
-#         raise NotImplementedError("Only support reshaping to dims >= original")
-#     new_length, *rest = new_shape_contents
-#     if array_dim.name < new_shape_length.name:
-#         # if we are reshaping to more dimensions, then we wanna just
-#         # set this length and recurse down
-
-#         def new_getitem(idx: CContent) -> CArray:
-#             return Reshape(
-#                 vector_of(*rest),
-#                 Sequence(Content(new_length), array_getitem),
-#                 Scalar(array_dim),
-#             )
-#         return Sequence(Content(new_length), unary_function(new_getitem))
-#     # otherwise we have equal dimensions
-#     if array_length == new_shape_length
-#     if new_shape_length == array_dim:
-#         new_length, *rest = new_shape_contents
-
-#         def new_getitem(idx: CContent) -> CArray:
-#             GetItem(array)
-
-#         return Sequence(Content(new_length), unary_function(new_getitem))
-#     #     return UpdateWithLength(array, new_shape[0])
-#     #     recurss
-#     # else:
-
-
-# register(
-#     Reshape(
-#         Sequence(sw("new_shape_length", Int), VectorCallable(w(), ws("new_shape_contents"))),
-#         Sequence(sw("array_length", Int), w("array_getitem")),
-#         Scalar(sw("array_dim", Int)),
-#     ),
-#     _reshape,
-# )
+register(
+    Reshape(Sequence(w("length"), w("getitem")), w("array")),
+    lambda length, getitem, array: ReshapeVector(getitem, Ravel(array)),
+)
 
 
 @operation

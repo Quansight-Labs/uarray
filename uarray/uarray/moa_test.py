@@ -1,5 +1,6 @@
 import typing
 import pytest
+import itertools
 
 from .moa import *
 
@@ -19,20 +20,30 @@ def row_major_gamma(idx, shape):
     return idx[-1] + (shape[-1] * row_major_gamma(idx[:-1], shape[:-1]))
 
 
-# def row_major_gamma_inverse(n, shape):
-#     """
-#     As defined in 3.41
-#     """
-#     assert n >= 0
-#     assert n < product(shape)
-#     for x_ in shape:
-#         assert x_ > 0
+def product(xs):
+    p = 1
+    for x in xs:
+        p *= x
+    return p
 
-#     if len(shape) == 1:
-#         return (n,)
 
-#     *next_shape, dim = shape
-#     return (*row_major_gamma_inverse(n // dim, next_shape), n % dim)
+def row_major_gamma_inverse(n, shape):
+    """
+    As defined in 3.41
+    """
+    assert n >= 0
+    assert n < product(shape)
+    for x_ in shape:
+        assert x_ > 0
+
+    if not shape:
+        return ()
+
+    if len(shape) == 1:
+        return (n,)
+
+    *next_shape, dim = shape
+    return (*row_major_gamma_inverse(n // dim, next_shape), n % dim)
 
 
 @pytest.mark.parametrize(
@@ -100,3 +111,42 @@ def test_reshape_vector(vec, new_shape, idx, value):
     i = vector(*idx)
     idxed = Index(i, reshaped)
     assert replace(idxed) == Scalar(Int(value))
+
+
+def all_indices(shape: typing.Tuple[int, ...]) -> typing.Iterable[typing.Iterable[int]]:
+    return itertools.product(*map(range, shape))
+
+
+@pytest.mark.parametrize(
+    "original_shape,new_shape",
+    [
+        # normal
+        ((), ()),
+        ((10,), (2, 5)),
+        ((2, 5), (10,)),
+        ((1, 2, 3), (6, 1)),
+        ((1, 2, 3), (1, 6)),
+        ((1, 2, 3), (6,)),
+        # expanding access
+        ((), (10,)),
+        ((), (1, 2, 3)),
+        ((10, 1), (20,)),
+        ((1, 10), (20, 2)),
+        # dropping access
+        ((10,), (2,)),
+        ((10,), ()),
+    ],
+)
+def test_reshape(original_shape, new_shape):
+    array = create_test_array(*original_shape)
+    new_shape_array = vector(*new_shape)
+    reshaped = replace(Reshape(new_shape_array, array))
+    assert replace(Shape(reshaped)) == new_shape_array
+    for new_idx in all_indices(new_shape):
+        flat_idx = row_major_gamma(new_idx, new_shape)
+        old_idx = row_major_gamma_inverse(
+            flat_idx % product(original_shape), original_shape
+        )
+        assert replace(Index(vector(*old_idx), array)) == replace(
+            Index(vector(*new_idx), reshaped)
+        )
