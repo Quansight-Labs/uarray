@@ -7,6 +7,7 @@ import matchpy
 from .ast_types import *
 from .core import *
 from .moa import Add, Multiply
+from .printing import to_repr
 
 
 def to_tuple(fn):

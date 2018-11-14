@@ -5,7 +5,7 @@ import numpy as np
 
 from .ast import ToSequenceWithDim
 from .numpy import *
-from .printing import repr_pretty
+from .printing import repr_pretty, to_repr
 
 logger = logging.getLogger(__name__)
 

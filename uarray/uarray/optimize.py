@@ -10,7 +10,14 @@ from .lazy_ndarray import LazyNDArray
 from .numpy import logger
 
 
-def optimize(*shapes: typing.Sequence[int]):
+def optimize(initial_fn_or_shape, *shapes: typing.Sequence[int]):
+    if callable(initial_fn_or_shape):
+        initial_fn = initial_fn_or_shape
+        new_shapes = None
+    else:
+        new_shapes = [initial_fn_or_shape, *shapes]
+        initial_fn = None
+
     def inner(initial_fn):
         arg_names = list(inspect.signature(initial_fn).parameters.keys())
         logger.debug("arg_names: %s", arg_names)
@@ -20,8 +27,12 @@ def optimize(*shapes: typing.Sequence[int]):
         args = [LazyNDArray(np_array_from_id(id_)) for id_ in args_ids]
         for a in args:
             logger.debug("arg: %s", a)
-
-        args_with_shape = [arg.has_shape(shape) for arg, shape in zip(args, shapes)]
+        if new_shapes:
+            args_with_shape = [
+                arg.has_shape(shape) for arg, shape in zip(args, new_shapes)
+            ]
+        else:
+            args_with_shape = args
         for a_with_s in args_with_shape:
             logger.debug("arg_with_shape: %s", a_with_s)
 
@@ -59,4 +70,6 @@ def optimize(*shapes: typing.Sequence[int]):
         }
         return wrapped_fn
 
+    if not shapes:
+        return inner(initial_fn)
     return inner
