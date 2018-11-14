@@ -159,6 +159,39 @@ def _ravel_sequence(length: CContent, getitem: CGetItem) -> CArray:
 register(Ravel(Sequence(w("length"), w("getitem"))), _ravel_sequence)
 
 
+@operation(name="ρvec")
+def ReshapeVector(new_shape: CVectorCallable, vec: CArray) -> CArray:
+    ...
+
+
+def _reshape_vector_scalar(length: CContent, getitem: CGetItem) -> CArray:
+    return Scalar(Content(CallUnary(getitem, Int(0))))
+
+
+register(
+    ReshapeVector(VectorCallable(), Sequence(w("length"), w("getitem"))),
+    _reshape_vector_scalar,
+)
+
+
+def _reshape_vector_vector(
+    new_length: CContent, length: CContent, getitem: CGetItem
+) -> CArray:
+    def new_getitem(idx: CContent) -> CArray:
+        original_idx = Remainder(idx, length)
+        return CallUnary(getitem, original_idx)
+
+    return Sequence(new_length, unary_function(new_getitem))
+
+
+register(
+    ReshapeVector(
+        VectorCallable(Scalar(w("new_length"))), Sequence(w("length"), w("getitem"))
+    ),
+    _reshape_vector_vector,
+)
+
+
 @operation(name="ρ")
 def Reshape(new_shape: CArray, array: CArray, array_dim: CArray) -> CArray:
     """

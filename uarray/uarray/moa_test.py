@@ -65,5 +65,25 @@ def test_ravel(shape, idx):
     idxed = Index(vector(*idx), array)
 
     ravel_idxed = Index(vector(row_major_gamma(idx, shape)), Ravel(array))
-    # print(repr(list(replace_scan(ravel_idxed))))
     assert replace(ravel_idxed) == replace(idxed)
+
+
+@pytest.mark.parametrize(
+    "vec,new_shape,idx,value",
+    [
+        # returns scalars
+        ((1,), (), (), 1),
+        ((2, 3), (), (), 2),
+        # returns vectors
+        ((1,), (1,), (0,), 1),
+        ((2, 3), (1,), (0,), 2),
+        ((2, 3), (3,), (2,), 2),
+    ],
+)
+def test_reshape_vector(vec, new_shape, idx, value):
+    v = vector(*vec)
+    s = GetItem(vector(*new_shape))
+    reshaped = ReshapeVector(s, v)
+    i = vector(*idx)
+    idxed = Index(i, reshaped)
+    assert replace(idxed) == Scalar(Int(value))
