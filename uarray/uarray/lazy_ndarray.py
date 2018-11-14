@@ -5,9 +5,9 @@ import numpy as np
 
 from .ast import ToSequenceWithDim
 from .numpy import *
-from .printing import repr_pretty, to_repr
+from .printing import repr_pretty, to_repr, to_repr_black
 
-logger = logging.getLogger(__name__)
+from .logging import logger
 
 
 class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
@@ -27,14 +27,22 @@ class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
 
         if kwargs or len(inputs) not in (1, 2):
             return NotImplemented
-        args = list(map(to_array, inputs))
+        args = list(map(replace, map(to_array, inputs)))
         logger.info("args = %s", args)
         fn = BinaryUfunc(ufunc)
         if method == "__call__":
             if len(args) == 2:
+                broadcasted_shape = replace(
+                    Sequence(
+                        unbound(),
+                        BroadcastShapes(
+                            GetItem(Shape(args[0])), GetItem(Shape(args[1]))
+                        ),
+                    )
+                )
                 args = [
-                    BroadcastToShape(args[0], GetItem(Shape(args[1]))),
-                    BroadcastToShape(args[1], GetItem(Shape(args[0]))),
+                    replace(Reshape(broadcasted_shape, args[0])),
+                    replace(Reshape(broadcasted_shape, args[1])),
                 ]
                 logger.info("args = %s", args)
             else:

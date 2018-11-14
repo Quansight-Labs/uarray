@@ -1,6 +1,7 @@
-import typing
-import pytest
 import itertools
+import typing
+
+import pytest
 
 from .moa import *
 

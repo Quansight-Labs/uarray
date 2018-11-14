@@ -6,7 +6,7 @@ import matchpy
 
 from .ast_types import *
 from .core import *
-from .moa import Add, Multiply
+from .moa import Add, Multiply, Quotient, Remainder
 from .printing import to_repr
 
 
@@ -416,70 +416,39 @@ register(
     Content(NPArray(w("array_init"))), lambda array_init: PythonContent(array_init)
 )
 
+CONTENT_OPERATIONS = [
+    (Multiply, ast.Mult()),
+    (Add, ast.Add()),
+    (Remainder, ast.Mod()),
+    (Quotient, ast.FloorDiv()),
+]
 
-def _multiply_python_content(l_init, r_init):
-    # res = l * r
-    @PythonContent
-    @statements_then_init
-    def inner():
-        l_id = identifier()
-        r_id = identifier()
-        yield CallUnary(l_init, l_id)
-        yield CallUnary(r_init, r_id)
-        return Expression(
-            ast.BinOp(
-                ast.Name(l_id.name, ast.Load()),
-                ast.Mult(),
-                ast.Name(r_id.name, ast.Load()),
+for op, a in CONTENT_OPERATIONS:
+
+    def _op_python_content(l_init, r_init, a_=a):
+        @PythonContent
+        @statements_then_init
+        def inner():
+            l_id = identifier()
+            r_id = identifier()
+            yield CallUnary(l_init, l_id)
+            yield CallUnary(r_init, r_id)
+            return Expression(
+                ast.BinOp(
+                    ast.Name(l_id.name, ast.Load()), a_, ast.Name(r_id.name, ast.Load())
+                )
             )
-        )
 
-    return inner
+        return inner
 
+    register(
+        op(PythonContent(w("l_init")), PythonContent(w("r_init"))), _op_python_content
+    )
 
-register(
-    Multiply(PythonContent(w("l_init")), PythonContent(w("r_init"))),
-    _multiply_python_content,
-)
-
-
-def _add_python_content(l_init, r_init):
-    # res = l + r
-    @PythonContent
-    @statements_then_init
-    def inner():
-        l_id = identifier()
-        r_id = identifier()
-        yield CallUnary(l_init, l_id)
-        yield CallUnary(r_init, r_id)
-        return Expression(
-            ast.BinOp(
-                ast.Name(l_id.name, ast.Load()),
-                ast.Add(),
-                ast.Name(r_id.name, ast.Load()),
-            )
-        )
-
-    return inner
-
-
-register(
-    Add(PythonContent(w("l_init")), PythonContent(w("r_init"))), _add_python_content
-)
-
-register(Initializer(NPArray(w("init"))), lambda init: init)
-
-
-register(
-    ToPythonContent(Add(w("x"), w("y"))),
-    lambda x, y: Add(ToPythonContent(x), ToPythonContent(y)),
-)
-register(
-    ToPythonContent(Multiply(w("x"), w("y"))),
-    lambda x, y: Multiply(ToPythonContent(x), ToPythonContent(y)),
-)
-
-# def compile_function()
+    register(
+        ToPythonContent(op(w("x"), w("y"))),
+        lambda x, y, op_=op: op_(ToPythonContent(x), ToPythonContent(y)),
+    )
 
 
 @operation
