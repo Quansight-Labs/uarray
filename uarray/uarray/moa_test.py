@@ -78,12 +78,25 @@ def test_ravel(shape, idx):
         ((1,), (1,), (0,), 1),
         ((2, 3), (1,), (0,), 2),
         ((2, 3), (3,), (2,), 2),
+        # returns arrays
+        ((0,), (2, 2), (0, 0), 0),
+        ((0,), (2, 2), (0, 1), 0),
+        ((0,), (2, 2), (1, 0), 0),
+        ((0,), (2, 2), (1, 1), 0),
+        ((0, 1, 2, 3, 4, 5), (2, 3), (0, 0), 0),
+        ((0, 1, 2, 3, 4, 5), (2, 3), (0, 1), 1),
+        ((0, 1, 2, 3, 4, 5), (2, 3), (0, 2), 2),
+        ((0, 1, 2, 3, 4, 5), (2, 3), (1, 0), 3),
+        ((0, 1, 2, 3, 4, 5), (2, 3), (1, 1), 4),
+        ((0, 1, 2, 3, 4, 5), (2, 3), (1, 2), 5),
     ],
 )
 def test_reshape_vector(vec, new_shape, idx, value):
     v = vector(*vec)
-    s = GetItem(vector(*new_shape))
+    new_s = vector(*new_shape)
+    s = GetItem(new_s)
     reshaped = ReshapeVector(s, v)
+    assert replace(Shape(reshaped)) == new_s
     i = vector(*idx)
     idxed = Index(i, reshaped)
     assert replace(idxed) == Scalar(Int(value))

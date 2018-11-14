@@ -181,21 +181,33 @@ register(
 )
 
 
-def _reshape_vector_vector(
-    new_length: CContent, length: CContent, getitem: CGetItem
+def _reshape_vector_array(
+    new_length: CContent,
+    rest: typing.Iterable[CArray],
+    length: CContent,
+    getitem: CGetItem,
 ) -> CArray:
+    inner_size = Content(Pi(vector_of(*rest)))
+
     def new_getitem(idx: CContent) -> CArray:
-        original_idx = Remainder(idx, length)
-        return CallUnary(getitem, original_idx)
+        offset = Multiply(inner_size, idx)
+
+        def inner_getitem(inner_idx: CContent) -> CArray:
+            return CallUnary(getitem, Remainder(Add(inner_idx, offset), length))
+
+        return ReshapeVector(
+            VectorCallable(*rest), Sequence(inner_size, unary_function(inner_getitem))
+        )
 
     return Sequence(new_length, unary_function(new_getitem))
 
 
 register(
     ReshapeVector(
-        VectorCallable(Scalar(w("new_length"))), Sequence(w("length"), w("getitem"))
+        VectorCallable(Scalar(w("new_length")), ws("rest")),
+        Sequence(w("length"), w("getitem")),
     ),
-    _reshape_vector_vector,
+    _reshape_vector_array,
 )
 
 
