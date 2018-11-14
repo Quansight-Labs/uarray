@@ -36,7 +36,7 @@ py.test
 
 To re-run notebooks (their outputs are checked in the tests):
 
-```python
+```bash
 jupyter nbconvert --to notebook --inplace --execute NumPy\ Compat.ipynb Transpose\ Test.ipynb
 ```
 
