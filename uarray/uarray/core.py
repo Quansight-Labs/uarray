@@ -9,11 +9,6 @@ def CallUnary(fn: CCallableUnary[RET, ARG1], a1: ARG1) -> RET:
     ...
 
 
-@operation
-def CallVariadic(fn: CCallableUnary[RET, ARG1], *a1: ARG1) -> RET:
-    ...
-
-
 @operation(to_str=lambda fn, a1, a2: f"{fn}({a1}, {a2})")
 def CallBinary(fn: CCallableBinary[RET, ARG1, ARG2], a1: ARG1, a2: ARG2) -> RET:
     ...
@@ -90,12 +85,13 @@ def BinaryFunction(
     ...
 
 
-register(
-    CallUnary(UnaryFunction(w("body"), ws("args")), ws("arg_vals")),  # type: ignore
-    lambda body, args, arg_vals: matchpy.substitute(
-        body, {arg.variable_name: arg_val for (arg, arg_val) in zip(args, arg_vals)}
-    ),
-)
+for fn_type in [BinaryFunction, UnaryFunction]:
+    register(
+        CallUnary(fn_type(w("body"), ws("args")), ws("arg_vals")),  # type: ignore
+        lambda body, args, arg_vals: matchpy.substitute(
+            body, {arg.variable_name: arg_val for (arg, arg_val) in zip(args, arg_vals)}
+        ),
+    )
 
 
 _counter = 0
@@ -161,8 +157,6 @@ register(
     VectorIndexed(sw("index", Int), ws("items")), lambda index, items: items[index.name]
 )
 
-CVectorCallable = CCallableUnary[T, CContent]
-
 
 @operation(to_str=lambda items: f"<{' '.join(str(i) for i in items)}>")
 def VectorCallable(*items: T) -> CVectorCallable[T]:
@@ -185,6 +179,19 @@ def PushVectorCallable(
 register(
     PushVectorCallable(w("new_item"), VectorCallable(ws("items"))),
     lambda new_item, items: VectorCallable(new_item, *items),
+)
+
+
+@operation
+def ConcatVectorCallable(
+    l: CVectorCallable[T], r: CVectorCallable[T]
+) -> CVectorCallable[T]:
+    ...
+
+
+register(
+    ConcatVectorCallable(VectorCallable(ws("l")), VectorCallable(ws("r"))),
+    lambda l, r: VectorCallable(*l, *r),
 )
 
 

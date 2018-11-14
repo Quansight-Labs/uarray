@@ -7,7 +7,7 @@ import numpy as np
 
 from .ast import *
 from .lazy_ndarray import LazyNDArray
-from .numpy import logger
+from .logging import logger
 
 
 def optimize(initial_fn_or_shape, *shapes: typing.Sequence[int]):
@@ -46,11 +46,15 @@ def optimize(initial_fn_or_shape, *shapes: typing.Sequence[int]):
         for i, v in enumerate(all_replaced):
             logger.debug(f"{i} %s", v)
         replaced_expr = all_replaced[-1]
-        if not isinstance(replaced_expr, Statement):
+        if (
+            not isinstance(replaced_expr, VectorCallable)
+            or not replaced_expr.operands
+            or not isinstance(replaced_expr.operands[0], Statement)
+        ):
             raise RuntimeError(
                 f"Could not replace {repr(replaced_expr)} into AST statement"
             )
-        ast_ = replaced_expr.name
+        ast_ = replaced_expr[0].name
         source = astunparse.unparse(ast_)
         logger.debug("source: %s", IPython.display.Code(source))
         locals_ = {}

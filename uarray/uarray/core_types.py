@@ -1,5 +1,6 @@
 import typing
 
+T = typing.TypeVar("T")
 RET = typing.TypeVar("RET")
 ARG1 = typing.TypeVar("ARG1")
 ARG2 = typing.TypeVar("ARG2")
@@ -9,7 +10,9 @@ class Category:
     """
     Just for compile time checking with mypy
     """
+
     pass
+
 
 class CArray(Category):
     pass
@@ -35,8 +38,11 @@ CGetItem = CCallableUnary[CArray, CContent]
 
 
 class CUnboundContent(CUnbound, CContent):
-    ...
+    pass
 
 
 class CInt(CContent):
     name: int
+
+
+CVectorCallable = CCallableUnary[T, CContent]

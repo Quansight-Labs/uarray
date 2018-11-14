@@ -31,8 +31,12 @@ def _replace_once(expr):
         raise TypeError(
             f"Couldn't call {inspect.getsourcelines(replacement)} when matching {repr(e)}"
         ) from e
-
-    return matchpy.functions.replace(expr, pos, result)
+    try:
+        return matchpy.functions.replace(expr, pos, result)
+    except ValueError as e:
+        raise ValueError(
+            f"Failed to replace using {repr(replacement)} giving {repr(result)}"
+        ) from e
 
 
 def replace_scan(expr: matchpy.Expression) -> matchpy.Expression:
@@ -41,7 +45,7 @@ def replace_scan(expr: matchpy.Expression) -> matchpy.Expression:
         expr = _replace_once(expr)
 
 
-T = typing.TypeVar("T")
+_T = typing.TypeVar("_T")
 
 # fallback when we haven't defined typing for operation
 @typing.overload
@@ -56,13 +60,13 @@ def register(
 # we require replacement to return same category type of original expression
 @typing.overload
 def register(
-    pattern: T, replacement: typing.Callable[..., T], *constraints: matchpy.Constraint
+    pattern: _T, replacement: typing.Callable[..., _T], *constraints: matchpy.Constraint
 ) -> None:
     ...
 
 
 def register(
-    pattern: T, replacement: typing.Callable[..., T], *constraints: matchpy.Constraint
+    pattern: _T, replacement: typing.Callable[..., _T], *constraints: matchpy.Constraint
 ) -> None:
     replacer.add(
         matchpy.ReplacementRule(matchpy.Pattern(pattern, *constraints), replacement)
@@ -176,5 +180,5 @@ def new_symbol(name):
 V = typing.TypeVar("V")
 
 
-def symbol(fn: typing.Callable[[T], V]) -> typing.Callable[[T], V]:
+def symbol(fn: typing.Callable[[_T], V]) -> typing.Callable[[_T], V]:
     return new_symbol(fn.__name__)

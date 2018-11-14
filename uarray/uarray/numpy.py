@@ -1,20 +1,7 @@
-import logging
-
 import matchpy
 import numpy as np
-from IPython.display import display, HTML
 
 from .moa import *
-
-logger = logging.getLogger(__name__)
-
-
-class IPythonHandler(logging.Handler):
-    def emit(self, record: logging.LogRecord):
-        display(HTML(f"<h3>{record.msg}</h3>"), *record.args)
-
-
-logger.addHandler(IPythonHandler())
 
 
 def _fn_string(fn):

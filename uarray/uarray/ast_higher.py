@@ -5,9 +5,8 @@ from .moa import OuterProduct
 
 def _outer_nparray(_, l_init, r_init):
     @NPArray
-    @SubstituteIdentifier
-    @to_tuple
-    def inner(res_id: str):
+    @statements_then_init
+    def inner():
         l_id = identifier()
         r_id = identifier()
         yield CallUnary(l_init, l_id)
@@ -28,7 +27,7 @@ def _outer_nparray(_, l_init, r_init):
             ],
             keywords=[],
         )
-        yield Statement(ast.Assign([ast.Name(res_id, ast.Store())], res))
+        return Expression(res)
 
     return inner
 
