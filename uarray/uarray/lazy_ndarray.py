@@ -1,11 +1,11 @@
 import logging
-import pprint
 import typing
 
 import numpy as np
 
 from .ast import ToSequenceWithDim
 from .numpy import *
+from .printing import repr_pretty
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +20,7 @@ class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
     def __str__(self):
         return f"LazyNDArray({str(self.expr)})"
 
-    def _repr_pretty_(self, pp, cycle):
-        return pp.text(pprint.pformat(self))
+    _repr_pretty_ = repr_pretty
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         logger.info("__array_ufunc__(%s, %s, *%s, **%s)", ufunc, method, inputs, kwargs)
@@ -66,24 +65,6 @@ def to_expression__array_like(v):
     return v.expr
 
 
-def _pprint_array_like(self, object_, stream, indent, allowance, context, level):
-    """
-    Modified from pprint dict https://github.com/python/cpython/blob/3.7/Lib/pprint.py#L194
-    """
-
-    cls = object_.__class__
-    stream.write(cls.__name__ + "(")
-    self._format(
-        object_.expr,
-        stream,
-        indent + len(cls.__name__) + 1,
-        allowance + 1,
-        context,
-        level,
-    )
-    stream.write(")")
-
-
-pprint.PrettyPrinter._dispatch[  # type: ignore
-    LazyNDArray.__repr__
-] = _pprint_array_like
+@to_repr.register(LazyNDArray)
+def to_repr_lazyndarray(l):
+    return f"{type(l).__name__}({to_repr(l.expr)})"

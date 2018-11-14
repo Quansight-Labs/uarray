@@ -1,5 +1,4 @@
 import inspect
-import pprint
 import typing
 import matchpy
 
@@ -42,30 +41,7 @@ def replace_scan(expr: matchpy.Expression) -> matchpy.Expression:
         expr = _replace_once(expr)
 
 
-def _pprint_operation(self, object, stream, indent, allowance, context, level):
-    """
-    Modified from pprint dict https://github.com/python/cpython/blob/3.7/Lib/pprint.py#L194
-    """
-    operands = object.operands
-    if not operands:
-        stream.write(repr(object))
-        return
-    cls = object.__class__
-    stream.write(cls.__name__ + "(")
-    self._format_items(
-        operands, stream, indent + len(cls.__name__), allowance + 1, context, level
-    )
-    stream.write(")")
-
-
-pprint.PrettyPrinter._dispatch[  # type: ignore
-    matchpy.Operation.__repr__
-] = _pprint_operation
-# defer ipython pretty printing to pprint
-matchpy.Operation._repr_pretty_ = lambda self, pp, cycle: pp.text(pprint.pformat(self))
-
 T = typing.TypeVar("T")
-
 
 # fallback when we haven't defined typing for operation
 @typing.overload

@@ -59,15 +59,17 @@ register(
 )
 
 
+@to_repr.register(ast.AST)
+def to_repr_func(a):
+    return f"{type(a).__name__}({ast.dump(a, annotate_fields=False)})"
+
+
 class Expression(matchpy.Symbol):
     """
     Can use this as an initializer
     """
 
     name: ast.Expression
-
-    def __repr__(self):
-        return f"Expression({ast.dump(self.name)})"
 
 
 # TODO: Is this right? Or should this never be hit
@@ -80,9 +82,6 @@ class Statement(matchpy.Symbol):
     """
 
     name: ast.AST
-
-    def __repr__(self):
-        return f"Statement({ast.dump(self.name)})"
 
 
 @symbol
