@@ -18,12 +18,23 @@ def to_repr(v):
 MAX_LINE_LENGTH = 120
 
 
+def to_repr_black(o):
+    return black.format_str(to_repr(o), line_length=MAX_LINE_LENGTH)
+
+
 def repr_pretty(self, pp, cycle):
-    return pp.text(black.format_str(to_repr(self), line_length=MAX_LINE_LENGTH))
+    return pp.text(to_repr_black(self))
+
+
+def repr_(self):
+    return to_repr_black(self)
 
 
 matchpy.Operation._repr_pretty_ = repr_pretty
 matchpy.Symbol._repr_pretty_ = repr_pretty
+
+matchpy.Operation.__repr__ = repr_
+matchpy.Symbol.__repr__ = repr_
 
 
 @to_repr.register(list)
