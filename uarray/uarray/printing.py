@@ -15,7 +15,7 @@ def to_repr(v):
     return repr(v)
 
 
-MAX_LINE_LENGTH = 200
+MAX_LINE_LENGTH = 120
 
 
 def to_repr_black(o):

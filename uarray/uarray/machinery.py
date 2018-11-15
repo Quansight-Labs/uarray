@@ -162,7 +162,10 @@ def operation(
         )
         if to_str is not None:
             op.__str__ = lambda self, names=names: to_str(
-                **{d: val for d, val in zip(names, self.operands)}
+                **{
+                    d: val
+                    for d, val in zip(names, self.operands + [self.variable_name])
+                }
             )
         return typing.cast(CALLABLE, op)
 

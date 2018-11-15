@@ -423,9 +423,9 @@ CONTENT_OPERATIONS = [
     (Quotient, ast.FloorDiv()),
 ]
 
-for op, a in CONTENT_OPERATIONS:
+for _op, _a in CONTENT_OPERATIONS:
 
-    def _op_python_content(l_init, r_init, a_=a):
+    def _op_python_content(l_init, r_init, a_=_a):
         @PythonContent
         @statements_then_init
         def inner():
@@ -442,12 +442,12 @@ for op, a in CONTENT_OPERATIONS:
         return inner
 
     register(
-        op(PythonContent(w("l_init")), PythonContent(w("r_init"))), _op_python_content
+        _op(PythonContent(w("l_init")), PythonContent(w("r_init"))), _op_python_content
     )
 
     register(
-        ToPythonContent(op(w("x"), w("y"))),
-        lambda x, y, op_=op: op_(ToPythonContent(x), ToPythonContent(y)),
+        ToPythonContent(_op(w("x"), w("y"))),
+        lambda x, y, op_=_op: op_(ToPythonContent(x), ToPythonContent(y)),
     )
 
 

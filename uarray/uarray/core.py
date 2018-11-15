@@ -49,7 +49,7 @@ def Content(sca: CArray) -> CContent:
 register(Content(Scalar(w("content"))), lambda content: content)
 
 
-@operation
+@operation(to_str=lambda variable_name: variable_name or "_")
 def Unbound(*, variable_name: str) -> CUnbound:
     ...
 
@@ -136,7 +136,7 @@ def unbound(variable_name: str = None) -> CUnbound:
 
 
 def unbound_content(variable_name: str = None) -> CUnboundContent:
-    return typing.cast(CUnboundContent, unbound())
+    return typing.cast(CUnboundContent, unbound(variable_name))
 
 
 def unary_function(fn: typing.Callable[[ARG1], RET]) -> CCallableUnary[RET, ARG1]:

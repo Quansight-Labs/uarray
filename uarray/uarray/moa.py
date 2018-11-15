@@ -92,6 +92,9 @@ def Pi(ar: CArray) -> CArray:
     ...
 
 
+multiply = binary_function(wrap_binary(Multiply))
+
+
 def _pi(ar: CArray) -> CArray:
     return ReduceVector(binary_function(wrap_binary(Multiply)), Scalar(Int(1)), ar)
 
