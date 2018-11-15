@@ -78,7 +78,7 @@ register(
 
 @to_repr.register(ast.AST)
 def to_repr_func(a):
-    return f"{type(a).__name__}({ast.dump(a, annotate_fields=False)})"
+    return ast.dump(a, annotate_fields=False)
 
 
 @symbol

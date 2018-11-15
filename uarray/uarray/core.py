@@ -175,6 +175,11 @@ def to_array__expr(v):
     return v
 
 
+@to_array.register(tuple)
+def to_array__tuple(t):
+    return vector_of(*(to_array(t_) for t_ in t))
+
+
 @operation
 def VectorIndexed(idx: CContent, *items: T) -> T:
     ...

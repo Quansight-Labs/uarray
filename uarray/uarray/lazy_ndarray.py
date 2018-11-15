@@ -1,13 +1,11 @@
-import logging
 import typing
 
 import numpy as np
 
 from .ast import ToSequenceWithDim
-from .numpy import *
-from .printing import repr_pretty, to_repr, to_repr_black
-
 from .logging import logger
+from .numpy import *
+from .printing import repr_pretty, to_repr
 
 
 class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
@@ -27,22 +25,17 @@ class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
 
         if kwargs or len(inputs) not in (1, 2):
             return NotImplemented
-        args = list(map(replace, map(to_array, inputs)))
+        args = list(map(to_array, inputs))
         logger.info("args = %s", args)
         fn = BinaryUfunc(ufunc)
         if method == "__call__":
             if len(args) == 2:
-                broadcasted_shape = replace(
-                    Sequence(
-                        unbound(),
-                        BroadcastShapes(
-                            GetItem(Shape(args[0])), GetItem(Shape(args[1]))
-                        ),
-                    )
+                broadcasted_shape = BroadcastShapes(
+                    GetItem(Shape(args[0])), GetItem(Shape(args[1]))
                 )
                 args = [
-                    replace(Reshape(broadcasted_shape, args[0])),
-                    replace(Reshape(broadcasted_shape, args[1])),
+                    BroadcastTo(args[0], Content(Dim(args[0])), broadcasted_shape),
+                    BroadcastTo(args[1], Content(Dim(args[1])), broadcasted_shape),
                 ]
                 logger.info("args = %s", args)
             else:
@@ -60,6 +53,11 @@ class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
             i = (i,)
         expr = Index(vector_of(*map(to_array, i)), self.expr)
         return LazyNDArray(expr)
+
+    def reshape(self, new_shape, order="C"):
+        if order != "C":
+            raise NotImplementedError(f"cannot reshape to other order {order}")
+        return LazyNDArray(Reshape(to_array(new_shape), self.expr))
 
     def has_dim(self, d: int):
         return LazyNDArray(ToSequenceWithDim(self.expr, Int(d)))

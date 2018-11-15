@@ -133,6 +133,8 @@ def all_indices(shape: typing.Tuple[int, ...]) -> typing.Iterable[typing.Iterabl
         ((), (1, 2, 3)),
         ((10, 1), (20,)),
         ((1, 10), (20, 2)),
+        ((4, 1), (4, 5)),
+        ((5,), (4, 5)),
         # dropping access
         ((10,), (2,)),
         ((10,), ()),

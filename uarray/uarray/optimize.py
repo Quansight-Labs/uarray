@@ -74,6 +74,6 @@ def optimize(initial_fn_or_shape, *shapes: typing.Sequence[int]):
         }
         return wrapped_fn
 
-    if not shapes:
+    if not new_shapes:
         return inner(initial_fn)
     return inner

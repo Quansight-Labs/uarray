@@ -84,3 +84,70 @@ register(
     ),
     _broadcast_shapes,
 )
+
+
+@operation
+def BroadcastTo(array: CArray, arr_dim: CContent, new_shape: CVectorCallable) -> CArray:
+    ...
+
+
+# when new shape is empty, we are done
+register(
+    BroadcastTo(w("array"), w("arr_dim"), VectorCallable()),
+    lambda array, arr_dim: array,
+)
+
+# when new shape has > dims then current array, add that dimension and recurse
+register(
+    BroadcastTo(
+        w("array"),
+        sw("arr_dim", Int),
+        VectorCallable(Scalar(sw("first_d", Int)), ws("rest")),
+    ),
+    lambda array, arr_dim, first_d, rest: Sequence(
+        first_d, Always(BroadcastTo(array, arr_dim, VectorCallable(*rest)))
+    ),
+    matchpy.CustomConstraint(lambda arr_dim, rest: len(rest) + 1 > arr_dim.name),
+)
+
+# otherwise, if it's a one then use broadcasted length
+register(
+    BroadcastTo(
+        Sequence(sw("array_length", Int), w("getitem")),
+        sw("arr_dim", Int),
+        VectorCallable(Scalar(sw("first_d", Int)), ws("rest")),
+    ),
+    lambda array_length, getitem, arr_dim, first_d, rest: Sequence(
+        first_d,
+        Always(
+            BroadcastTo(
+                CallUnary(getitem, Int(0)), Int(arr_dim.name - 1), VectorCallable(*rest)
+            )
+        ),
+    ),
+    matchpy.CustomConstraint(
+        lambda arr_dim, rest, array_length: len(rest) + 1 == arr_dim.name
+        and array_length.name == 1
+    ),
+)
+
+# otherwise, if should be equal
+register(
+    BroadcastTo(
+        Sequence(sw("array_length", Int), w("getitem")),
+        sw("arr_dim", Int),
+        VectorCallable(Scalar(sw("first_d", Int)), ws("rest")),
+    ),
+    lambda array_length, getitem, arr_dim, first_d, rest: Sequence(
+        first_d,
+        unary_function(
+            lambda idx: BroadcastTo(
+                CallUnary(getitem, idx), Int(arr_dim.name - 1), VectorCallable(*rest)
+            )
+        ),
+    ),
+    matchpy.CustomConstraint(
+        lambda arr_dim, rest, array_length, first_d: len(rest) + 1 == arr_dim.name
+        and array_length.name == first_d.name
+    ),
+)
