@@ -6,5 +6,4 @@ from .moa import *  # type: ignore
 from .logging import enable_logging
 
 
-__version__ = "0.1"
-
+__version__ = "0.2"
