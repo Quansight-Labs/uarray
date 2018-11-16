@@ -10,18 +10,25 @@ def Shape(a: CArray) -> CArray:
     ...
 
 
-def _shape(length, getitem):
+def _shape(length: CContent, getitem: CGetItem):
 
-    inner_shape = Shape(CallUnary(getitem, unbound()))
+    inner_shape = Shape(CallUnary(getitem, unbound_content()))
 
     return Sequence(
         Add(Int(1), Length(inner_shape)),
-        PushVectorCallable(length, GetItem(inner_shape)),
+        PushVectorCallable(Scalar(length), GetItem(inner_shape)),
     )
 
 
 register(Shape(Scalar(w("_"))), lambda _: vector())
 register(Shape(Sequence(w("length"), w("getitem"))), _shape)
+
+
+# if the index is unbound we should still be able to get shape
+# TODO: this is probably bad, then we have two ways of getting vector shape
+register(
+    Shape(VectorIndexed(w("idx"), ws("xs"))), lambda idx, xs: Unify(*map(Shape, xs))
+)
 
 
 @operation(name="ψ", infix=True)
@@ -53,7 +60,7 @@ def _reduce_vector(fn, value, length, getitem):
 
 
 register(
-    ReduceVector(w("fn"), sw("value", Int), Sequence(sw("length", Int), w("getitem"))),
+    ReduceVector(w("fn"), w("value"), Sequence(sw("length", Int), w("getitem"))),
     _reduce_vector,
 )
 
@@ -85,6 +92,9 @@ def Pi(ar: CArray) -> CArray:
     ...
 
 
+multiply = binary_function(wrap_binary(Multiply))
+
+
 def _pi(ar: CArray) -> CArray:
     return ReduceVector(binary_function(wrap_binary(Multiply)), Scalar(Int(1)), ar)
 
@@ -97,7 +107,7 @@ def Total(ar: CArray) -> CArray:
     ...
 
 
-register(Total(w("x")), lambda x: Pi(Shape(w("x"))))
+register(Total(w("x")), lambda x: Pi(Shape(x)))
 
 
 @operation(name="ι")
@@ -117,6 +127,102 @@ def Dim(n: CArray) -> CArray:
 
 
 register(Dim(w("x")), lambda x: Pi(Shape(Shape(x))))
+
+
+@operation(name="%")
+def Remainder(l: CContent, r: CContent) -> CContent:
+    ...
+
+
+register(Remainder(sw("l", Int), sw("r", Int)), lambda l, r: Int(l.name % r.name))
+
+
+@operation(name="//")
+def Quotient(l: CContent, r: CContent) -> CContent:
+    ...
+
+
+register(Quotient(sw("l", Int), sw("r", Int)), lambda l, r: Int(l.name // r.name))
+
+
+@operation(name="rav")
+def Ravel(n: CArray) -> CArray:
+    ...
+
+
+register(Ravel(Scalar(w("c"))), lambda c: Sequence(Int(1), Always(Scalar(c))))
+
+
+def _ravel_sequence(length: CContent, getitem: CGetItem) -> CArray:
+    a = Sequence(length, getitem)
+
+    inner_size = Content(Total(CallUnary(getitem, unbound_content())))
+
+    def new_getitem(idx: CContent) -> CArray:
+        this_idx = Quotient(idx, inner_size)
+        next_idx = Remainder(idx, inner_size)
+        return CallUnary(GetItem(Ravel(CallUnary(getitem, this_idx))), next_idx)
+
+    return Sequence(Content(Total(a)), unary_function(new_getitem))
+
+
+register(Ravel(Sequence(w("length"), w("getitem"))), _ravel_sequence)
+
+
+@operation(name="ρvec")
+def ReshapeVector(new_shape: CVectorCallable, vec: CArray) -> CArray:
+    ...
+
+
+def _reshape_vector_scalar(length: CContent, getitem: CGetItem) -> CArray:
+    return Scalar(Content(CallUnary(getitem, Int(0))))
+
+
+register(
+    ReshapeVector(VectorCallable(), Sequence(w("length"), w("getitem"))),
+    _reshape_vector_scalar,
+)
+
+
+def _reshape_vector_array(
+    new_length: CContent,
+    rest: typing.Iterable[CArray],
+    length: CContent,
+    getitem: CGetItem,
+) -> CArray:
+    inner_size = Content(Pi(vector_of(*rest)))
+
+    def new_getitem(idx: CContent) -> CArray:
+        offset = Multiply(inner_size, idx)
+
+        def inner_getitem(inner_idx: CContent) -> CArray:
+            return CallUnary(getitem, Remainder(Add(inner_idx, offset), length))
+
+        return ReshapeVector(
+            VectorCallable(*rest), Sequence(inner_size, unary_function(inner_getitem))
+        )
+
+    return Sequence(new_length, unary_function(new_getitem))
+
+
+register(
+    ReshapeVector(
+        VectorCallable(Scalar(w("new_length")), ws("rest")),
+        Sequence(w("length"), w("getitem")),
+    ),
+    _reshape_vector_array,
+)
+
+
+@operation(name="ρ", infix=True)
+def Reshape(new_shape: CArray, array: CArray) -> CArray:
+    ...
+
+
+register(
+    Reshape(Sequence(w("length"), w("getitem")), w("array")),
+    lambda length, getitem, array: ReshapeVector(getitem, Ravel(array)),
+)
 
 
 @operation
@@ -176,6 +282,7 @@ def OmegaUnary(
     function: CCallableUnary[CArray, CArray], dim: CContent, array: CArray
 ) -> CArray:
     ...
+
 
 # TODO: Make this invese. if 0 we should keep traversing
 def _omega_unary_sequence(

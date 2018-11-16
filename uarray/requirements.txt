@@ -8,3 +8,4 @@ astunparse
 typing_extensions
 nbval
 pytest-mypy
+black

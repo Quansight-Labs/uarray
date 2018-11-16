@@ -4,14 +4,13 @@
 
 [![Build Status](https://dev.azure.com/teoliphant/teoliphant/_apis/build/status/Quansight-Labs.uarray)](https://dev.azure.com/teoliphant/teoliphant/_build/latest?definitionId=1)
 
-
 We currently have some E2E examples of this working (see `Numpy Compat.ipynb`). We are working in a couple of directions simultaneously:
 
-* Adding Mathematics of Array operators (`./uarray/moa.py`) and mapping them to the NumPy frontend (`./uarray/lazy_ndarray`).
-* Adding new backends (including at least one lower level one)
-* improving NumPy AST backend (`./uarray/ast.py`)
-* Investigating changes to the core machinery (`./uarray/machinery.py`, `./uarray/core.py`) to make clear distinctions between the parts of the project and make it more "safe" (verifiability)
-* Start adding examples of stand alone libraries that support NumPy / SciPy functions and dispatch to different backends (creating `uarray.linalg`, `uarray.stats`)
+- Adding Mathematics of Array operators (`./uarray/moa.py`) and mapping them to the NumPy frontend (`./uarray/lazy_ndarray`).
+- Adding new backends (including at least one lower level one)
+- improving NumPy AST backend (`./uarray/ast.py`)
+- Investigating changes to the core machinery (`./uarray/machinery.py`, `./uarray/core.py`) to make clear distinctions between the parts of the project and make it more "safe" (verifiability)
+- Start adding examples of stand alone libraries that support NumPy / SciPy functions and dispatch to different backends (creating `uarray.linalg`, `uarray.stats`)
 
 ## Development
 
@@ -33,6 +32,12 @@ This code hasn't been published yet on PyPi or Conda.
 mypy uarray
 python extract_readme_tests.py
 py.test
+```
+
+To re-run notebooks (their outputs are checked in the tests):
+
+```bash
+jupyter nbconvert --to notebook --inplace --execute NumPy\ Compat.ipynb Transpose\ Test.ipynb NumPy\ Broadcasting.ipynb
 ```
 
 ## Internals

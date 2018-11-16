@@ -1,5 +1,4 @@
 import inspect
-import pprint
 import typing
 import matchpy
 
@@ -32,8 +31,12 @@ def _replace_once(expr):
         raise TypeError(
             f"Couldn't call {inspect.getsourcelines(replacement)} when matching {repr(e)}"
         ) from e
-
-    return matchpy.functions.replace(expr, pos, result)
+    try:
+        return matchpy.functions.replace(expr, pos, result)
+    except ValueError as e:
+        raise ValueError(
+            f"Failed to replace using {repr(replacement)} giving {repr(result)}"
+        ) from e
 
 
 def replace_scan(expr: matchpy.Expression) -> matchpy.Expression:
@@ -42,30 +45,7 @@ def replace_scan(expr: matchpy.Expression) -> matchpy.Expression:
         expr = _replace_once(expr)
 
 
-def _pprint_operation(self, object, stream, indent, allowance, context, level):
-    """
-    Modified from pprint dict https://github.com/python/cpython/blob/3.7/Lib/pprint.py#L194
-    """
-    operands = object.operands
-    if not operands:
-        stream.write(repr(object))
-        return
-    cls = object.__class__
-    stream.write(cls.__name__ + "(")
-    self._format_items(
-        operands, stream, indent + len(cls.__name__), allowance + 1, context, level
-    )
-    stream.write(")")
-
-
-pprint.PrettyPrinter._dispatch[  # type: ignore
-    matchpy.Operation.__repr__
-] = _pprint_operation
-# defer ipython pretty printing to pprint
-matchpy.Operation._repr_pretty_ = lambda self, pp, cycle: pp.text(pprint.pformat(self))
-
-T = typing.TypeVar("T")
-
+_T = typing.TypeVar("_T")
 
 # fallback when we haven't defined typing for operation
 @typing.overload
@@ -80,13 +60,13 @@ def register(
 # we require replacement to return same category type of original expression
 @typing.overload
 def register(
-    pattern: T, replacement: typing.Callable[..., T], *constraints: matchpy.Constraint
+    pattern: _T, replacement: typing.Callable[..., _T], *constraints: matchpy.Constraint
 ) -> None:
     ...
 
 
 def register(
-    pattern: T, replacement: typing.Callable[..., T], *constraints: matchpy.Constraint
+    pattern: _T, replacement: typing.Callable[..., _T], *constraints: matchpy.Constraint
 ) -> None:
     replacer.add(
         matchpy.ReplacementRule(matchpy.Pattern(pattern, *constraints), replacement)
@@ -182,7 +162,10 @@ def operation(
         )
         if to_str is not None:
             op.__str__ = lambda self, names=names: to_str(
-                **{d: val for d, val in zip(names, self.operands)}
+                **{
+                    d: val
+                    for d, val in zip(names, self.operands + [self.variable_name])
+                }
             )
         return typing.cast(CALLABLE, op)
 
@@ -197,8 +180,8 @@ def new_symbol(name):
     return symb
 
 
-V = typing.TypeVar("V")
+V_ = typing.TypeVar("V_")
 
 
-def symbol(fn: typing.Callable[[T], V]) -> typing.Callable[[T], V]:
+def symbol(fn: typing.Callable[[_T], V_]) -> typing.Callable[[_T], V_]:
     return new_symbol(fn.__name__)

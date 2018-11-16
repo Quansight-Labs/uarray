@@ -1,12 +1,11 @@
-import logging
-import pprint
+import typing
 
 import numpy as np
 
 from .ast import ToSequenceWithDim
+from .logging import logger
 from .numpy import *
-
-logger = logging.getLogger(__name__)
+from .printing import repr_pretty, to_repr
 
 
 class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
@@ -19,8 +18,7 @@ class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
     def __str__(self):
         return f"LazyNDArray({str(self.expr)})"
 
-    def _repr_pretty_(self, pp, cycle):
-        return pp.text(pprint.pformat(self))
+    _repr_pretty_ = repr_pretty
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         logger.info("__array_ufunc__(%s, %s, *%s, **%s)", ufunc, method, inputs, kwargs)
@@ -32,7 +30,13 @@ class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
         fn = BinaryUfunc(ufunc)
         if method == "__call__":
             if len(args) == 2:
-                args = [Broadcast(*args)]
+                broadcasted_shape = BroadcastShapes(
+                    GetItem(Shape(args[0])), GetItem(Shape(args[1]))
+                )
+                args = [
+                    BroadcastTo(args[0], Content(Dim(args[0])), broadcasted_shape),
+                    BroadcastTo(args[1], Content(Dim(args[1])), broadcasted_shape),
+                ]
                 logger.info("args = %s", args)
             else:
                 raise NotImplementedError("Only binary ufuncs supported")
@@ -50,8 +54,16 @@ class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
         expr = Index(vector_of(*map(to_array, i)), self.expr)
         return LazyNDArray(expr)
 
+    def reshape(self, new_shape, order="C"):
+        if order != "C":
+            raise NotImplementedError(f"cannot reshape to other order {order}")
+        return LazyNDArray(Reshape(to_array(new_shape), self.expr))
+
     def has_dim(self, d: int):
         return LazyNDArray(ToSequenceWithDim(self.expr, Int(d)))
+
+    def has_shape(self, shape: typing.Iterable[int]):
+        return LazyNDArray(with_shape(self.expr, list(map(Int, shape))))
 
 
 @to_array.register(LazyNDArray)
@@ -59,24 +71,6 @@ def to_expression__array_like(v):
     return v.expr
 
 
-def _pprint_array_like(self, object_, stream, indent, allowance, context, level):
-    """
-    Modified from pprint dict https://github.com/python/cpython/blob/3.7/Lib/pprint.py#L194
-    """
-
-    cls = object_.__class__
-    stream.write(cls.__name__ + "(")
-    self._format(
-        object_.expr,
-        stream,
-        indent + len(cls.__name__) + 1,
-        allowance + 1,
-        context,
-        level,
-    )
-    stream.write(")")
-
-
-pprint.PrettyPrinter._dispatch[  # type: ignore
-    LazyNDArray.__repr__
-] = _pprint_array_like
+@to_repr.register(LazyNDArray)
+def to_repr_lazyndarray(l):
+    return f"{type(l).__name__}({to_repr(l.expr)})"

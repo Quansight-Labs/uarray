@@ -1,20 +1,6 @@
-import logging
-
-import matchpy
 import numpy as np
-from IPython.display import display
 
 from .moa import *
-
-logger = logging.getLogger(__name__)
-
-
-class IPythonHandler(logging.Handler):
-    def emit(self, record: logging.LogRecord):
-        display(record.args)
-
-
-logger.addHandler(IPythonHandler())
 
 
 def _fn_string(fn):
@@ -56,67 +42,112 @@ register(
 )
 
 
-class Broadcast(matchpy.Operation):
+@operation
+def BroadcastShapes(
+    l: CVectorCallable[CArray], r: CVectorCallable[CArray]
+) -> CVectorCallable[CArray]:
     """
-    Broadcast(arg1, arg2)
-
-    Returns broadcasted values of args
+    Returns unified shape of two input shapes
     https://docs.scipy.org/doc/numpy-1.15.1/reference/ufuncs.html#broadcasting
     """
-
-    name = "Broadcast"
-    arity = matchpy.Arity(2, False)
+    ...
 
 
-# both scalars
-register(Broadcast(Scalar(w("l")), Scalar(w("r"))), lambda l, r: (Scalar(l), Scalar(r)))
-# one scalar
 register(
-    Broadcast(Sequence(w("l_length"), w("l_content")), Scalar(w("r"))),
-    lambda l_length, l_content, r: (
-        Sequence(l_length, l_content),
-        Sequence(l_length, unary_function(lambda idx: Scalar(r))),
-    ),
+    BroadcastShapes(VectorCallable(), VectorCallable(ws("rs"))),
+    lambda rs: VectorCallable(*rs),
 )
 register(
-    Broadcast(Scalar(w("l")), Sequence(w("r_length"), w("r_content"))),
-    lambda r_length, r_content, l: (
-        Sequence(r_length, unary_function(lambda idx: Scalar(l))),
-        Sequence(r_length, r_content),
+    BroadcastShapes(VectorCallable(ws("ls")), VectorCallable()),
+    lambda ls: VectorCallable(*ls),
+)
+
+
+def _broadcast_shapes(
+    ls: typing.Sequence[CArray], l: CInt, rs: typing.Sequence[CArray], r: CInt
+) -> CVectorCallable[CArray]:
+    l_, r_ = l.name, r.name
+    if l_ == 1 or r_ == 1 or l_ == r_:
+        d_ = max(l_, r_)
+    else:
+        raise ValueError(f"Cannot broadcast dimensions {l_} and {r_}")
+    return ConcatVectorCallable(
+        BroadcastShapes(VectorCallable(*ls), VectorCallable(*rs)),
+        VectorCallable(Scalar(Int(d_))),
+    )
+
+
+register(
+    BroadcastShapes(
+        VectorCallable(ws("ls"), Scalar(sw("l", Int))),
+        VectorCallable(ws("rs"), Scalar(sw("r", Int))),
+    ),
+    _broadcast_shapes,
+)
+
+
+@operation
+def BroadcastTo(array: CArray, arr_dim: CContent, new_shape: CVectorCallable) -> CArray:
+    ...
+
+
+# when new shape is empty, we are done
+register(
+    BroadcastTo(w("array"), w("arr_dim"), VectorCallable()),
+    lambda array, arr_dim: array,
+)
+
+# when new shape has > dims then current array, add that dimension and recurse
+register(
+    BroadcastTo(
+        w("array"),
+        sw("arr_dim", Int),
+        VectorCallable(Scalar(sw("first_d", Int)), ws("rest")),
+    ),
+    lambda array, arr_dim, first_d, rest: Sequence(
+        first_d, Always(BroadcastTo(array, arr_dim, VectorCallable(*rest)))
+    ),
+    matchpy.CustomConstraint(lambda arr_dim, rest: len(rest) + 1 > arr_dim.name),
+)
+
+# otherwise, if it's a one then use broadcasted length
+register(
+    BroadcastTo(
+        Sequence(sw("array_length", Int), w("getitem")),
+        sw("arr_dim", Int),
+        VectorCallable(Scalar(sw("first_d", Int)), ws("rest")),
+    ),
+    lambda array_length, getitem, arr_dim, first_d, rest: Sequence(
+        first_d,
+        Always(
+            BroadcastTo(
+                CallUnary(getitem, Int(0)), Int(arr_dim.name - 1), VectorCallable(*rest)
+            )
+        ),
+    ),
+    matchpy.CustomConstraint(
+        lambda arr_dim, rest, array_length: len(rest) + 1 == arr_dim.name
+        and array_length.name == 1
     ),
 )
-# length of 1
+
+# otherwise, if should be equal
 register(
-    Broadcast(
-        Sequence(sw("l_length", Int), w("l_content")),
-        Sequence(sw("r_length", Int), w("r_content")),
+    BroadcastTo(
+        Sequence(sw("array_length", Int), w("getitem")),
+        sw("arr_dim", Int),
+        VectorCallable(Scalar(sw("first_d", Int)), ws("rest")),
     ),
-    lambda l_length, l_content, r_length, r_content: (
-        Sequence(r_length, unary_function(lambda idx: CallUnary(l_content, Int(0)))),
-        Sequence(r_length, r_content),
+    lambda array_length, getitem, arr_dim, first_d, rest: Sequence(
+        first_d,
+        unary_function(
+            lambda idx: BroadcastTo(
+                CallUnary(getitem, idx), Int(arr_dim.name - 1), VectorCallable(*rest)
+            )
+        ),
     ),
-    matchpy.CustomConstraint(lambda l_length: l_length.name == 1),
-)
-register(
-    Broadcast(
-        Sequence(sw("l_length", Int), w("l_content")),
-        Sequence(sw("r_length", Int), w("r_content")),
+    matchpy.CustomConstraint(
+        lambda arr_dim, rest, array_length, first_d: len(rest) + 1 == arr_dim.name
+        and array_length.name == first_d.name
     ),
-    lambda l_length, l_content, r_length, r_content: (
-        Sequence(l_length, l_content),
-        Sequence(l_length, unary_function(lambda idx: CallUnary(r_content, Int(0)))),
-    ),
-    matchpy.CustomConstraint(lambda r_length: r_length.name == 1),
-)
-# same lengths
-register(
-    Broadcast(
-        Sequence(sw("l_length", Int), w("l_content")),
-        Sequence(sw("r_length", Int), w("r_content")),
-    ),
-    lambda l_length, l_content, r_length, r_content: (
-        Sequence(l_length, l_content),
-        Sequence(l_length, r_content),
-    ),
-    matchpy.CustomConstraint(lambda l_length, r_length: r_length.name == l_length.name),
 )

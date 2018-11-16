@@ -6,17 +6,23 @@ import matchpy
 
 from .ast_types import *
 from .core import *
-from .moa import Add, Multiply
+from .moa import Add, Multiply, Quotient, Remainder
+from .printing import to_repr
 
 
-def to_tuple(fn):
+def join_statements(
+    fn: typing.Callable[[V], typing.Iterator[CStatements]]
+) -> typing.Callable[[V], CStatements]:
     """
     Makes a generator return a tuple
     """
 
     @functools.wraps(fn)
-    def inner(*args, **kwargs):
-        return tuple(fn(*args, **kwargs))
+    def inner(a: V) -> CStatements:
+        s: CStatements = VectorCallable()
+        for s_ in fn(a):
+            s = ConcatVectorCallable(s, s_)
+        return s
 
     return inner
 
@@ -25,26 +31,37 @@ unary = matchpy.Arity.unary
 binary = matchpy.Arity.binary
 
 
-def new_operation(name, arity):
-    return matchpy.Operation.new(name, arity, name)
+@operation
+def NPArray(init: CInitializer) -> CInitializableArray:
+    ...
 
 
-NPArray = new_operation("NPArray", unary)
+@operation
+def PythonContent(init: CInitializer) -> CInitializableContent:
+    ...
 
-PythonContent = new_operation("PythonContent", unary)
 
-Initializer = new_operation("Initializer", unary)
+@operation
+def Initializer(initializable: CInitializable) -> CInitializer:
+    ...
+
 
 register(Initializer(NPArray(w("init"))), lambda init: init)
 register(Initializer(PythonContent(w("init"))), lambda init: init)
 
 
-ToNPArray = new_operation("ToNPArray", binary)
-ToPythonContent = new_operation("ToPythonContent", unary)
+@operation
+def ToPythonContent(content: CContent) -> CInitializableContent:
+    ...
 
 
 class ShouldAllocate(matchpy.Symbol):
     name: bool
+
+
+@operation
+def ToNPArray(arr: CArray, alloc: ShouldAllocate) -> CInitializableArray:
+    ...
 
 
 register(
@@ -59,30 +76,23 @@ register(
 )
 
 
-class Expression(matchpy.Symbol):
-    """
-    Can use this as an initializer
-    """
+@to_repr.register(ast.AST)
+def to_repr_func(a):
+    return ast.dump(a, annotate_fields=False)
 
-    name: ast.Expression
 
-    def __repr__(self):
-        return f"Expression({ast.dump(self.name)})"
+@symbol
+def Expression(name: ast.AST) -> CExpression:
+    ...
 
 
 # TODO: Is this right? Or should this never be hit
 register(ToPythonContent(sw("exp", Expression)), lambda exp: PythonContent(exp))
 
 
-class Statement(matchpy.Symbol):
-    """
-    Returned by all initializer functions
-    """
-
-    name: ast.AST
-
-    def __repr__(self):
-        return f"Statement({ast.dump(self.name)})"
+@symbol
+def Statement(name: ast.AST) -> CStatement:
+    ...
 
 
 @symbol
@@ -104,16 +114,18 @@ def identifier(name: str = None) -> CIdentifier:
     return Identifier(name or _gen_id())
 
 
-def np_array_from_id(array_id: CIdentifier):
+def np_array_from_id(array_id: CIdentifier) -> CInitializableArray:
     return NPArray(Expression(ast.Name(array_id.name, ast.Load())))
 
 
-def python_content_from_id(array_id: CIdentifier):
+def python_content_from_id(array_id: CIdentifier) -> CInitializableContent:
     return PythonContent(Expression(ast.Name(array_id.name, ast.Load())))
 
 
-def _assign_expresion(expr: Expression, id_: CIdentifier) -> Statement:
-    return Statement(ast.Assign([ast.Name(id_.name, ast.Store())], expr.name))
+def _assign_expresion(expr: CExpression, id_: CIdentifier) -> CStatements:
+    return VectorCallable(
+        Statement(ast.Assign([ast.Name(id_.name, ast.Store())], expr.name))
+    )
 
 
 register(CallUnary(sw("expr", Expression), sw("id_", Identifier)), _assign_expresion)
@@ -126,8 +138,11 @@ register(
 expressions = typing.Union[matchpy.Expression, typing.Tuple[matchpy.Expression, ...]]
 
 
-class SubstituteIdentifier(matchpy.Symbol):
-    name: typing.Callable[[CIdentifier], expressions]
+@symbol
+def SubstituteIdentifier(
+    name: typing.Callable[[str], CStatements]
+) -> CSubstituteIdentifier:
+    ...
 
 
 register(
@@ -136,45 +151,44 @@ register(
 )
 
 
-class SubstituteStatements(matchpy.Symbol):
-    name: typing.Callable[..., expressions]
+@symbol
+def SubstituteStatements(
+    name: typing.Callable[..., CStatements]
+) -> CSubstituteStatements:
+    ...
 
 
 def all_of_type(type_):
     return lambda args: all(isinstance(a, type_) for a in args)
 
 
-# TODO: make this not be variadic or add variadic call
 register(
-    CallVariadic(sw("fn", SubstituteStatements), ws("args")),
+    CallUnary(sw("fn", SubstituteStatements), VectorCallable(ws("args"))),
     lambda fn, args: fn.name(*(a.name for a in args)),
     matchpy.CustomConstraint(all_of_type(Statement)),
 )
 
 
-def statements_then_init(fn):
+def statements_then_init(
+    fn: typing.Callable[[], typing.Generator[CStatements, None, CInitializer]]
+) -> CInitializer:
     """
     statements_then_init is called to wrap a function
     that yields a bunch of statements and then returns
-    an initializer 
+    an initializer
     """
 
-    @SubstituteIdentifier
-    @to_tuple
-    def inner(id_: str):
+    def inner(id_: CIdentifier) -> typing.Iterator[CStatements]:
         generator = fn()
         while True:
             try:
                 yield next(generator)
             except StopIteration as exc:
-                initializer = exc.value
-                yield CallUnary(initializer, Identifier(id_))
+                initializer: CInitializer = exc.value
+                yield CallUnary(initializer, id_)
                 return
 
-    return inner
-
-
-CInitializer = CCallableUnary[CStatement, CIdentifier]
+    return unary_function(join_statements(inner))
 
 
 @operation
@@ -216,9 +230,8 @@ register(ShapeAsTuple(Sequence(w("length"), w("getitem"))), _shape_as_tuple__seq
 def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
     @NPArray
     @SubstituteIdentifier
-    @to_tuple
-    def inner(array_id: str):
-        assert isinstance(array_id, str)
+    @join_statements
+    def inner(array_id: str) -> typing.Iterator[CStatements]:
         if alloc.name:
 
             # get shape
@@ -230,7 +243,9 @@ def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
                 [ast.Name(shape_tuple_id.name, ast.Load())],
                 [],
             )
-            yield Statement(ast.Assign([ast.Name(array_id, ast.Store())], array))
+            yield VectorCallable(
+                Statement(ast.Assign([ast.Name(array_id, ast.Store())], array))
+            )
 
         length_id = identifier()
         yield CallUnary(Initializer(ToPythonContent(length)), length_id)
@@ -276,18 +291,20 @@ def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
         )
 
         @SubstituteStatements
-        def inner(*results_initializer):
+        def inner(*results_initializer: ast.AST) -> CStatements:
             # for i in range(length):
-            return Statement(
-                ast.For(
-                    ast.Name(index_id.name, ast.Store()),
-                    range_expr,
-                    [set_result, *results_initializer, set_array],
-                    [],
+            return VectorCallable(
+                Statement(
+                    ast.For(
+                        ast.Name(index_id.name, ast.Store()),
+                        range_expr,
+                        [set_result, *results_initializer, set_array],
+                        [],
+                    )
                 )
             )
 
-        yield CallVariadic(inner, initialize_result)
+        yield CallUnary(inner, initialize_result)
 
     return inner
 
@@ -299,11 +316,15 @@ register(
 )
 
 
-ToSequenceWithDim = new_operation("ToSequenceWithDim", binary)
+@operation
+def ToSequenceWithDim(arr: CArray, ndim: CContent) -> CArray:
+    ...
 
 
-def _np_array_to_sequence(arr: Expression, ndim: CInt):
-    def inner(e: matchpy.Expression, i: int):
+def _np_array_to_sequence(arr: CExpression, ndim: CInt):
+    raise NotImplementedError()
+
+    def inner(e: CArray, i: int) -> CArray:
         if i == ndim.name:
             return Scalar(Content(e))
 
@@ -316,7 +337,8 @@ def _np_array_to_sequence(arr: Expression, ndim: CInt):
         )
 
         return Sequence(
-            length, unary_function(lambda idx: inner(CallUnary(GetItem(e), idx), i + 1))
+            PythonContent(length),
+            unary_function(lambda idx: inner(CallUnary(GetItem(e), idx), i + 1)),
         )
 
     return inner(NPArray(arr), 0)
@@ -328,28 +350,40 @@ register(
 )
 
 
-def _nparray_getitem(array_init, idx):
-    @NPArray
-    @SubstituteIdentifier
-    @to_tuple
-    def inner(sub_array_id: str):
+# @operation
+# def FunctionReturnsStatements(
+#     body: CStatements, var: CUnbound
+# ) -> CFunctionReturnsStatements:
+#     ...
+
+
+# # def function_returns_statements(fn: typing.Callable[[CIdentifier], CStatements]):
+
+
+def _nparray_getitem(array_init: CInitializer, idx: CContent):
+    @statements_then_init
+    def inner():
         idx_id = identifier()
         yield CallUnary(Initializer(ToPythonContent(idx)), idx_id)
         array_id = identifier()
         yield CallUnary(array_init, array_id)
         # sub_array = array[idx]
-        yield Statement(
-            ast.Assign(
-                [ast.Name(sub_array_id, ast.Store())],
-                ast.Subscript(
-                    ast.Name(array_id.name, ast.Load()),
-                    ast.Index(ast.Name(idx_id.name, ast.Load())),
-                    ast.Load(),
-                ),
+        return SubstituteIdentifier(
+            lambda id_: VectorCallable(
+                Statement(
+                    ast.Assign(
+                        [ast.Name(id_, ast.Store())],
+                        ast.Subscript(
+                            ast.Name(array_id.name, ast.Load()),
+                            ast.Index(ast.Name(idx_id.name, ast.Load())),
+                            ast.Load(),
+                        ),
+                    )
+                )
             )
         )
 
-    return inner
+    return NPArray(inner)
 
 
 register(CallUnary(GetItem(NPArray(w("array_init"))), w("idx")), _nparray_getitem)
@@ -382,84 +416,47 @@ register(
     Content(NPArray(w("array_init"))), lambda array_init: PythonContent(array_init)
 )
 
+CONTENT_OPERATIONS = [
+    (Multiply, ast.Mult()),
+    (Add, ast.Add()),
+    (Remainder, ast.Mod()),
+    (Quotient, ast.FloorDiv()),
+]
 
-def _multiply_python_content(l_init, r_init):
-    # res = l * r
-    @PythonContent
-    @SubstituteIdentifier
-    @to_tuple
-    def inner(res_id: str):
-        l_id = identifier()
-        r_id = identifier()
-        yield CallUnary(l_init, l_id)
-        yield CallUnary(r_init, r_id)
-        yield Statement(
-            ast.Assign(
-                [ast.Name(res_id, ast.Store())],
+for _op, _a in CONTENT_OPERATIONS:
+
+    def _op_python_content(l_init, r_init, a_=_a):
+        @PythonContent
+        @statements_then_init
+        def inner():
+            l_id = identifier()
+            r_id = identifier()
+            yield CallUnary(l_init, l_id)
+            yield CallUnary(r_init, r_id)
+            return Expression(
                 ast.BinOp(
-                    ast.Name(l_id.name, ast.Load()),
-                    ast.Mult(),
-                    ast.Name(r_id.name, ast.Load()),
-                ),
+                    ast.Name(l_id.name, ast.Load()), a_, ast.Name(r_id.name, ast.Load())
+                )
             )
-        )
 
-    return inner
+        return inner
 
+    register(
+        _op(PythonContent(w("l_init")), PythonContent(w("r_init"))), _op_python_content
+    )
 
-register(
-    Multiply(PythonContent(w("l_init")), PythonContent(w("r_init"))),
-    _multiply_python_content,
-)
-
-
-def _add_python_content(l_init, r_init):
-    # res = l + r
-    @PythonContent
-    @SubstituteIdentifier
-    @to_tuple
-    def inner(res_id: str):
-        l_id = identifier()
-        r_id = identifier()
-        yield CallUnary(l_init, l_id)
-        yield CallUnary(r_init, r_id)
-        yield Statement(
-            ast.Assign(
-                [ast.Name(res_id, ast.Store())],
-                ast.BinOp(
-                    ast.Name(l_id.name, ast.Load()),
-                    ast.Add(),
-                    ast.Name(r_id.name, ast.Load()),
-                ),
-            )
-        )
-
-    return inner
+    register(
+        ToPythonContent(_op(w("x"), w("y"))),
+        lambda x, y, op_=_op: op_(ToPythonContent(x), ToPythonContent(y)),
+    )
 
 
-register(
-    Add(PythonContent(w("l_init")), PythonContent(w("r_init"))), _add_python_content
-)
-
-register(Initializer(NPArray(w("init"))), lambda init: init)
+@operation
+def DefineFunction(ret: CInitializable, *args: CStatement) -> CStatements:
+    ...
 
 
-register(
-    ToPythonContent(Add(w("x"), w("y"))),
-    lambda x, y: Add(ToPythonContent(x), ToPythonContent(y)),
-)
-register(
-    ToPythonContent(Multiply(w("x"), w("y"))),
-    lambda x, y: Multiply(ToPythonContent(x), ToPythonContent(y)),
-)
-
-# def compile_function()
-
-
-DefineFunction = new_operation("DefineFunction", matchpy.Arity(1, False))
-
-
-def _define_function(ret, args):
+def _define_function(ret: CInitializable, args: typing.Iterable[CStatement]):
 
     ret_id = identifier()
 
@@ -472,32 +469,38 @@ def _define_function(ret, args):
         defaults=[],
     )
 
-    @SubstituteStatements
-    def inner(*initialize_ret):
-        return Statement(
-            ast.Module(
-                body=[
-                    ast.FunctionDef(
-                        name="fn",
-                        args=args_,
-                        body=[
-                            *initialize_ret,
-                            ast.Return(value=ast.Name(id=ret_id.name, ctx=ast.Load())),
-                        ],
-                        decorator_list=[],
-                        returns=None,
-                    )
-                ]
+    def inner(*initialize_ret: ast.AST) -> CStatements:
+        return VectorCallable(
+            Statement(
+                ast.Module(
+                    body=[
+                        ast.FunctionDef(
+                            name="fn",
+                            args=args_,
+                            body=[
+                                *initialize_ret,
+                                ast.Return(
+                                    value=ast.Name(id=ret_id.name, ctx=ast.Load())
+                                ),
+                            ],
+                            decorator_list=[],
+                            returns=None,
+                        )
+                    ]
+                )
             )
         )
 
-    return CallVariadic(inner, CallUnary(Initializer(ret), ret_id))
+    initialize_array: CStatements = CallUnary(Initializer(ret), ret_id)
+    return CallUnary(SubstituteStatements(inner), initialize_array)
 
 
 register(DefineFunction(w("ret"), ws("args")), _define_function)
 
 
-def _vector_indexed_python_content(idx_expr: Expression, args: typing.List[Expression]):
+def _vector_indexed_python_content(
+    idx_expr: CExpression, args: typing.List[CExpression]
+):
     return PythonContent(
         Expression(
             ast.Subscript(
