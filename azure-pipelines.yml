@@ -7,16 +7,16 @@ steps:
     versionSpec: '3.6'
     architecture: 'x64'
 
-- script: cd uarray; python -m pip install -r requirements.txt
+- script: python -m pip install -r requirements.txt; flit install
   displayName: Install python deps
 
-- script: cd uarray; mypy uarray
+- script: mypy uarray
   displayName: 'Run mypy'
 
-- script: cd uarray; python extract_readme_tests.py
+- script: python extract_readme_tests.py
   displayName: 'extract tests from readme'
 
-- script: cd uarray; py.test
+- script: py.test
   displayName: Run tests
 
 - task: PublishTestResults@2
