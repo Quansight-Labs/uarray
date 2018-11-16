@@ -29,7 +29,8 @@ def optimize(initial_fn_or_shape, *shapes: typing.Sequence[int]):
             logger.debug("arg: %s", a)
         if new_shapes:
             args_with_shape = [
-                arg.has_shape(shape) for arg, shape in zip(args, new_shapes)
+                arg.has_shape(shape) if isinstance(shape, tuple) else arg.has_dim(shape)
+                for arg, shape in zip(args, new_shapes)
             ]
         else:
             args_with_shape = args
