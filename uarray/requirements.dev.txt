@@ -4,3 +4,4 @@ pylint
 jupyterlab
 pudb
 flake8
+flit

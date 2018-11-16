@@ -2,3 +2,4 @@ test_readme.py
 junit
 coverage.xml
 **/.coverage
+dist
