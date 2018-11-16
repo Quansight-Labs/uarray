@@ -4,6 +4,12 @@
 
 [![Build Status](https://dev.azure.com/teoliphant/teoliphant/_apis/build/status/Quansight-Labs.uarray)](https://dev.azure.com/teoliphant/teoliphant/_build/latest?definitionId=1)
 
+[![PyPI](https://img.shields.io/pypi/v/uarray.svg?style=flat-square)](https://pypi.org/project/uarray/)
+
+```bash
+pip install uarray
+```
+
 We currently have some E2E examples of this working (see `Numpy Compat.ipynb`). We are working in a couple of directions simultaneously:
 
 - Adding Mathematics of Array operators (`./uarray/moa.py`) and mapping them to the NumPy frontend (`./uarray/lazy_ndarray`).
