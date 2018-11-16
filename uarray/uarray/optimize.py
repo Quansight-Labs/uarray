@@ -1,7 +1,6 @@
 import ast
 import inspect
 
-import IPython.display
 import astunparse
 import numpy as np
 
@@ -57,7 +56,7 @@ def optimize(initial_fn_or_shape, *shapes: typing.Sequence[int]):
             )
         ast_ = replaced_expr[0].name
         source = astunparse.unparse(ast_)
-        logger.debug("source: %s", IPython.display.Code(source))
+        logger.debug("source: %s", source)
         locals_ = {}
         exec(
             compile(ast.fix_missing_locations(ast_), filename="<ast>", mode="exec"),
