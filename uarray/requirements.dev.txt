@@ -8,3 +8,5 @@ flit
 perf
 altair
 pandas
+pypandoc
+pandoc
