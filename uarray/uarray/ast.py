@@ -322,7 +322,6 @@ def ToSequenceWithDim(arr: CArray, ndim: CContent) -> CArray:
 
 
 def _np_array_to_sequence(arr: CExpression, ndim: CInt):
-    raise NotImplementedError()
 
     def inner(e: CArray, i: int) -> CArray:
         if i == ndim.name:
