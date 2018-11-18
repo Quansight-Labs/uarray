@@ -1,18 +1,14 @@
 # uarray - Universal Array Interface
 
-[![Join the chat at https://gitter.im/Plures/uarray](https://badges.gitter.im/Plures/uarray.svg)](https://gitter.im/Plures/uarray?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Join the chat at https://gitter.im/Plures/uarray](https://badges.gitter.im/Plures/uarray.svg)](https://gitter.im/Plures/uarray?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/Quansight-Labs/uarray/master?urlpath=lab/tree/notebooks/NumPy%20Compat.ipynb) [![Build Status](https://dev.azure.com/teoliphant/teoliphant/_apis/build/status/Quansight-Labs.uarray)](https://dev.azure.com/teoliphant/teoliphant/_build/latest?definitionId=1) [![PyPI](https://img.shields.io/pypi/v/uarray.svg?style=flat-square)](https://pypi.org/project/uarray/)
 
+
+- [Road Map](https://github.com/Quansight-Labs/uarray/projects/2)
 - [Future Meetings](https://calendar.google.com/calendar/embed?src=quansight.com_cg7sf4usbcn18gdhdb3l2c6v1g%40group.calendar.google.com&ctz=America%2FNew_York)
 - [Meeting Notes](https://github.com/Quansight-Labs/uarray/wiki/Meeting-Notes)
 - [Use Cases](https://github.com/Quansight-Labs/uarray/wiki/Use-Cases)
 - [References](https://github.com/Quansight-Labs/uarray/wiki/References)
 
-
-[![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/Quansight-Labs/uarray/master?urlpath=lab/tree/notebooks/NumPy%20Compat.ipynb)
-
-[![Build Status](https://dev.azure.com/teoliphant/teoliphant/_apis/build/status/Quansight-Labs.uarray)](https://dev.azure.com/teoliphant/teoliphant/_build/latest?definitionId=1)
-
-[![PyPI](https://img.shields.io/pypi/v/uarray.svg?style=flat-square)](https://pypi.org/project/uarray/)
 
 
 ## Background
@@ -67,14 +63,6 @@ This project is in active development and not ready for production use. However,
 ```bash
 pip install uarray
 ```
-
-We currently have some examples of this working (see `Numpy Compat.ipynb`). We are working in a couple of directions simultaneously:
-
-- Adding Mathematics of Array operators (`./uarray/moa.py`) and mapping them to the NumPy frontend (`./uarray/lazy_ndarray`).
-- Adding new backends (including at least one lower level one)
-- improving NumPy AST backend (`./uarray/ast.py`)
-- Investigating changes to the core machinery (`./uarray/machinery.py`, `./uarray/core.py`) to make clear distinctions between the parts of the project and make it more "safe" (verifiability)
-- Start adding examples of stand alone libraries that support NumPy / SciPy functions and dispatch to different backends (creating `uarray.linalg`, `uarray.stats`)
 
 
 ## Development
