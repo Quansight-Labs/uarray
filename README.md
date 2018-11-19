@@ -6,7 +6,6 @@
 - [Road Map](https://github.com/Quansight-Labs/uarray/projects/2)
 - [Future Meetings](https://calendar.google.com/calendar/embed?src=quansight.com_cg7sf4usbcn18gdhdb3l2c6v1g%40group.calendar.google.com&ctz=America%2FNew_York)
 - [Meeting Notes](https://github.com/Quansight-Labs/uarray/wiki/Meeting-Notes)
-- [Use Cases](https://github.com/Quansight-Labs/uarray/wiki/Use-Cases)
 - [References](https://github.com/Quansight-Labs/uarray/wiki/References)
 
 
