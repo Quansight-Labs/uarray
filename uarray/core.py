@@ -181,44 +181,37 @@ def to_array__tuple(t):
 
 
 @operation(to_str=lambda items: f"<{' '.join(str(i) for i in items)}>")
-def VectorCallable(*items: T) -> CVectorCallable[T]:
+def Vector(*items: T) -> CVector[T]:
     ...
 
 
 register(
-    CallUnary(VectorCallable(ws("items")), sw("index", Int)),
+    CallUnary(Vector(ws("items")), sw("index", Int)),
     lambda index, items: items[index.name],
 )
 
 
 @operation
-def PushVectorCallable(
-    new_item: T, vector_callable: CVectorCallable[T]
-) -> CVectorCallable[T]:
+def PushVector(new_item: T, vector_callable: CVector[T]) -> CVector[T]:
     ...
 
 
 register(
-    PushVectorCallable(w("new_item"), VectorCallable(ws("items"))),
-    lambda new_item, items: VectorCallable(new_item, *items),
+    PushVector(w("new_item"), Vector(ws("items"))),
+    lambda new_item, items: Vector(new_item, *items),
 )
 
 
 @operation
-def ConcatVectorCallable(
-    l: CVectorCallable[T], r: CVectorCallable[T]
-) -> CVectorCallable[T]:
+def ConcatVector(l: CVector[T], r: CVector[T]) -> CVector[T]:
     ...
 
 
-register(
-    ConcatVectorCallable(VectorCallable(ws("l")), VectorCallable(ws("r"))),
-    lambda l, r: VectorCallable(*l, *r),
-)
+register(ConcatVector(Vector(ws("l")), Vector(ws("r"))), lambda l, r: Vector(*l, *r))
 
 
 def vector_of(*values: CNestedSequence) -> CNestedSequence:
-    return Sequence(Int(len(values)), VectorCallable(*values))
+    return Sequence(Int(len(values)), Vector(*values))
 
 
 # scalar_fn: CCallableUnary[CArray, CContent] = typing.cast(
@@ -227,7 +220,7 @@ def vector_of(*values: CNestedSequence) -> CNestedSequence:
 
 
 def vector(*values: int) -> CNestedSequence:
-    # vc: CCallableUnary[CContent, CContent] = VectorCallable(*map(Int, values))
+    # vc: CCallableUnary[CContent, CContent] = Vector(*map(Int, values))
     # getitem = Compose(scalar_fn, vc)
 
     return vector_of(*(Scalar(Int(v)) for v in values))

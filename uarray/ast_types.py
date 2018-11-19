@@ -6,7 +6,7 @@ from .core_types import (
     Category,
     CUnbound,
     CCallableUnary,
-    CVectorCallable,
+    CVector,
 )
 
 
@@ -34,7 +34,7 @@ class CInitializableArray(CInitializable, CNestedSequence):
     pass
 
 
-CStatements = CVectorCallable[CStatement]
+CStatements = CVector[CStatement]
 CInitializer = CCallableUnary[CStatements, CIdentifier]
 
 

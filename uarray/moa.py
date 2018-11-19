@@ -16,7 +16,7 @@ def _shape(length: CContent, getitem: CGetItem):
 
     return Sequence(
         Add(Int(1), Length(inner_shape)),
-        PushVectorCallable(Scalar(length), GetItem(inner_shape)),
+        PushVector(Scalar(length), GetItem(inner_shape)),
     )
 
 
@@ -27,7 +27,7 @@ register(Shape(Sequence(w("length"), w("getitem"))), _shape)
 # if the index is unbound we should still be able to get shape
 # TODO: this is probably bad, then we have two ways of getting vector shape
 register(
-    Shape(CallUnary(VectorCallable(ws("items")), w("index"))),
+    Shape(CallUnary(Vector(ws("items")), w("index"))),
     lambda index, items: Unify(*map(Shape, items)),
 )
 
@@ -173,7 +173,7 @@ register(Ravel(Sequence(w("length"), w("getitem"))), _ravel_sequence)
 
 
 @operation(name="ρvec")
-def ReshapeVector(new_shape: CVectorCallable, vec: CNestedSequence) -> CNestedSequence:
+def ReshapeVector(new_shape: CVector, vec: CNestedSequence) -> CNestedSequence:
     ...
 
 
@@ -182,8 +182,7 @@ def _reshape_vector_scalar(length: CContent, getitem: CGetItem) -> CNestedSequen
 
 
 register(
-    ReshapeVector(VectorCallable(), Sequence(w("length"), w("getitem"))),
-    _reshape_vector_scalar,
+    ReshapeVector(Vector(), Sequence(w("length"), w("getitem"))), _reshape_vector_scalar
 )
 
 
@@ -202,7 +201,7 @@ def _reshape_vector_array(
             return CallUnary(getitem, Remainder(Add(inner_idx, offset), length))
 
         return ReshapeVector(
-            VectorCallable(*rest), Sequence(inner_size, unary_function(inner_getitem))
+            Vector(*rest), Sequence(inner_size, unary_function(inner_getitem))
         )
 
     return Sequence(new_length, unary_function(new_getitem))
@@ -210,8 +209,7 @@ def _reshape_vector_array(
 
 register(
     ReshapeVector(
-        VectorCallable(Scalar(w("new_length")), ws("rest")),
-        Sequence(w("length"), w("getitem")),
+        Vector(Scalar(w("new_length")), ws("rest")), Sequence(w("length"), w("getitem"))
     ),
     _reshape_vector_array,
 )
@@ -349,15 +347,12 @@ def _tranpose_sequence(
 
 # base case, length 0 vector
 register(
-    Transpose(Sequence(sw("_", Int), VectorCallable()), w("array")),
-    lambda _, array: array,
+    Transpose(Sequence(sw("_", Int), Vector()), w("array")), lambda _, array: array
 )
 # recursive case
 register(
     Transpose(
-        Sequence(
-            sw("_", Int), VectorCallable(Scalar(sw("first_order", Int)), ws("ordering"))
-        ),
+        Sequence(sw("_", Int), Vector(Scalar(sw("first_order", Int)), ws("ordering"))),
         w("array"),
     ),
     _tranpose_sequence,

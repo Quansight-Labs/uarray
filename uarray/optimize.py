@@ -47,7 +47,7 @@ def optimize(initial_fn_or_shape, *shapes: typing.Sequence[int]):
             logger.debug(f"{i} %s", v)
         replaced_expr = all_replaced[-1]
         if (
-            not isinstance(replaced_expr, VectorCallable)
+            not isinstance(replaced_expr, Vector)
             or not replaced_expr.operands
             or not isinstance(replaced_expr.operands[0], Statement)
         ):

@@ -19,9 +19,9 @@ def join_statements(
 
     @functools.wraps(fn)
     def inner(a: V) -> CStatements:
-        s: CStatements = VectorCallable()
+        s: CStatements = Vector()
         for s_ in fn(a):
-            s = ConcatVectorCallable(s, s_)
+            s = ConcatVector(s, s_)
         return s
 
     return inner
@@ -123,9 +123,7 @@ def python_content_from_id(array_id: CIdentifier) -> CInitializableContent:
 
 
 def _assign_expresion(expr: CExpression, id_: CIdentifier) -> CStatements:
-    return VectorCallable(
-        Statement(ast.Assign([ast.Name(id_.name, ast.Store())], expr.name))
-    )
+    return Vector(Statement(ast.Assign([ast.Name(id_.name, ast.Store())], expr.name)))
 
 
 register(CallUnary(sw("expr", Expression), sw("id_", Identifier)), _assign_expresion)
@@ -163,7 +161,7 @@ def all_of_type(type_):
 
 
 register(
-    CallUnary(sw("fn", SubstituteStatements), VectorCallable(ws("args"))),
+    CallUnary(sw("fn", SubstituteStatements), Vector(ws("args"))),
     lambda fn, args: fn.name(*(a.name for a in args)),
     matchpy.CustomConstraint(all_of_type(Statement)),
 )
@@ -243,7 +241,7 @@ def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
                 [ast.Name(shape_tuple_id.name, ast.Load())],
                 [],
             )
-            yield VectorCallable(
+            yield Vector(
                 Statement(ast.Assign([ast.Name(array_id, ast.Store())], array))
             )
 
@@ -293,7 +291,7 @@ def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
         @SubstituteStatements
         def inner(*results_initializer: ast.AST) -> CStatements:
             # for i in range(length):
-            return VectorCallable(
+            return Vector(
                 Statement(
                     ast.For(
                         ast.Name(index_id.name, ast.Store()),
@@ -367,7 +365,7 @@ def _nparray_getitem(array_init: CInitializer, idx: CContent):
         yield CallUnary(array_init, array_id)
         # sub_array = array[idx]
         return SubstituteIdentifier(
-            lambda id_: VectorCallable(
+            lambda id_: Vector(
                 Statement(
                     ast.Assign(
                         [ast.Name(id_, ast.Store())],
@@ -468,7 +466,7 @@ def _define_function(ret: CInitializable, args: typing.Iterable[CStatement]):
     )
 
     def inner(*initialize_ret: ast.AST) -> CStatements:
-        return VectorCallable(
+        return Vector(
             Statement(
                 ast.Module(
                     body=[
@@ -519,7 +517,7 @@ def _vector_indexed_python_content(
 
 # TODO: Make work with non expressions
 register(
-    CallUnary(VectorCallable(ws("args")), PythonContent(sw("idx_expr", Expression))),
+    CallUnary(Vector(ws("args")), PythonContent(sw("idx_expr", Expression))),
     _vector_indexed_python_content,
     matchpy.CustomConstraint(all_of_type(Expression)),
 )

@@ -51,4 +51,4 @@ class CInt(CContent):
     name: int
 
 
-CVectorCallable = CCallableUnary[T, CContent]
+CVector = CCallableUnary[T, CContent]
