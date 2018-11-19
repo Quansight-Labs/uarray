@@ -60,7 +60,7 @@ class ShouldAllocate(matchpy.Symbol):
 
 
 @operation
-def ToNPArray(arr: CArray, alloc: ShouldAllocate) -> CInitializableArray:
+def ToNPArray(arr: CNestedSequence, alloc: ShouldAllocate) -> CInitializableArray:
     ...
 
 
@@ -192,7 +192,7 @@ def statements_then_init(
 
 
 @operation
-def ShapeAsTuple(shape: CArray) -> CInitializer:
+def ShapeAsTuple(shape: CNestedSequence) -> CInitializer:
     ...
 
 
@@ -317,13 +317,13 @@ register(
 
 
 @operation
-def ToSequenceWithDim(arr: CArray, ndim: CContent) -> CArray:
+def ToSequenceWithDim(arr: CNestedSequence, ndim: CContent) -> CNestedSequence:
     ...
 
 
 def _np_array_to_sequence(arr: CExpression, ndim: CInt):
 
-    def inner(e: CArray, i: int) -> CArray:
+    def inner(e: CNestedSequence, i: int) -> CNestedSequence:
         if i == ndim.name:
             return Scalar(Content(e))
 

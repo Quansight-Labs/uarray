@@ -16,7 +16,7 @@ class Category:
     pass
 
 
-class CArray(Category):
+class CNestedSequence(Category):
     pass
 
 
@@ -36,7 +36,7 @@ class CCallableBinary(Category, typing.Generic[RET, ARG1, ARG2]):
     pass
 
 
-CGetItem = CCallableUnary[CArray, CContent]
+CGetItem = CCallableUnary[CNestedSequence, CContent]
 
 
 class CUnboundContent(CUnbound, CContent):

@@ -1,7 +1,7 @@
 import typing
 import ast
 from .core_types import (
-    CArray,
+    CNestedSequence,
     CContent,
     Category,
     CUnbound,
@@ -30,7 +30,7 @@ class CInitializableContent(CInitializable, CContent):
     pass
 
 
-class CInitializableArray(CInitializable, CArray):
+class CInitializableArray(CInitializable, CNestedSequence):
     pass
 
 

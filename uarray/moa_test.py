@@ -6,8 +6,8 @@ import pytest
 from .moa import *
 
 
-def create_test_array(*shape: int) -> CArray:
-    return with_shape(typing.cast(CArray, unbound()), [Int(s) for s in shape])
+def create_test_array(*shape: int) -> CNestedSequence:
+    return with_shape(typing.cast(CNestedSequence, unbound()), [Int(s) for s in shape])
 
 
 def row_major_gamma(idx, shape):

@@ -6,7 +6,7 @@ from .core import *
 
 
 @operation(name="ρ")
-def Shape(a: CArray) -> CArray:
+def Shape(a: CNestedSequence) -> CNestedSequence:
     ...
 
 
@@ -32,7 +32,7 @@ register(
 
 
 @operation(name="ψ", infix=True)
-def Index(indices: CArray, ar: CArray) -> CArray:
+def Index(indices: CNestedSequence, ar: CNestedSequence) -> CNestedSequence:
     ...
 
 
@@ -48,8 +48,8 @@ register(Index(Sequence(sw("idx_length", Int), w("idx_getitem")), w("seq")), _in
 
 @operation(name="red")
 def ReduceVector(
-    fn: CCallableBinary[CArray, CArray, CArray], initial_value: CArray, vec: CArray
-) -> CArray:
+    fn: CCallableBinary[CNestedSequence, CNestedSequence, CNestedSequence], initial_value: CNestedSequence, vec: CNestedSequence
+) -> CNestedSequence:
     ...
 
 
@@ -83,19 +83,19 @@ register(Multiply(sw("l", Int), sw("r", Int)), lambda l, r: Int(l.name * r.name)
 
 def wrap_binary(
     fn: typing.Callable[[CContent, CContent], CContent]
-) -> typing.Callable[[CArray, CArray], CArray]:
+) -> typing.Callable[[CNestedSequence, CNestedSequence], CNestedSequence]:
     return lambda a, b: Scalar(fn(Content(a), Content(b)))
 
 
 @operation(name="π")
-def Pi(ar: CArray) -> CArray:
+def Pi(ar: CNestedSequence) -> CNestedSequence:
     ...
 
 
 multiply = binary_function(wrap_binary(Multiply))
 
 
-def _pi(ar: CArray) -> CArray:
+def _pi(ar: CNestedSequence) -> CNestedSequence:
     return ReduceVector(binary_function(wrap_binary(Multiply)), Scalar(Int(1)), ar)
 
 
@@ -103,7 +103,7 @@ register(Pi(w("ar")), _pi)
 
 
 @operation(name="τ")
-def Total(ar: CArray) -> CArray:
+def Total(ar: CNestedSequence) -> CNestedSequence:
     ...
 
 
@@ -111,7 +111,7 @@ register(Total(w("x")), lambda x: Pi(Shape(x)))
 
 
 @operation(name="ι")
-def Iota(n: CArray) -> CArray:
+def Iota(n: CNestedSequence) -> CNestedSequence:
     """
     Iota(n) returns a vector of 0 to n-1.
     """
@@ -122,7 +122,7 @@ register(Iota(Scalar(w("n"))), lambda n: Sequence(n, unary_function(Scalar)))
 
 
 @operation(name="δ")
-def Dim(n: CArray) -> CArray:
+def Dim(n: CNestedSequence) -> CNestedSequence:
     ...
 
 
@@ -146,19 +146,19 @@ register(Quotient(sw("l", Int), sw("r", Int)), lambda l, r: Int(l.name // r.name
 
 
 @operation(name="rav")
-def Ravel(n: CArray) -> CArray:
+def Ravel(n: CNestedSequence) -> CNestedSequence:
     ...
 
 
 register(Ravel(Scalar(w("c"))), lambda c: Sequence(Int(1), Always(Scalar(c))))
 
 
-def _ravel_sequence(length: CContent, getitem: CGetItem) -> CArray:
+def _ravel_sequence(length: CContent, getitem: CGetItem) -> CNestedSequence:
     a = Sequence(length, getitem)
 
     inner_size = Content(Total(CallUnary(getitem, unbound_content())))
 
-    def new_getitem(idx: CContent) -> CArray:
+    def new_getitem(idx: CContent) -> CNestedSequence:
         this_idx = Quotient(idx, inner_size)
         next_idx = Remainder(idx, inner_size)
         return CallUnary(GetItem(Ravel(CallUnary(getitem, this_idx))), next_idx)
@@ -170,11 +170,11 @@ register(Ravel(Sequence(w("length"), w("getitem"))), _ravel_sequence)
 
 
 @operation(name="ρvec")
-def ReshapeVector(new_shape: CVectorCallable, vec: CArray) -> CArray:
+def ReshapeVector(new_shape: CVectorCallable, vec: CNestedSequence) -> CNestedSequence:
     ...
 
 
-def _reshape_vector_scalar(length: CContent, getitem: CGetItem) -> CArray:
+def _reshape_vector_scalar(length: CContent, getitem: CGetItem) -> CNestedSequence:
     return Scalar(Content(CallUnary(getitem, Int(0))))
 
 
@@ -186,16 +186,16 @@ register(
 
 def _reshape_vector_array(
     new_length: CContent,
-    rest: typing.Iterable[CArray],
+    rest: typing.Iterable[CNestedSequence],
     length: CContent,
     getitem: CGetItem,
-) -> CArray:
+) -> CNestedSequence:
     inner_size = Content(Pi(vector_of(*rest)))
 
-    def new_getitem(idx: CContent) -> CArray:
+    def new_getitem(idx: CContent) -> CNestedSequence:
         offset = Multiply(inner_size, idx)
 
-        def inner_getitem(inner_idx: CContent) -> CArray:
+        def inner_getitem(inner_idx: CContent) -> CNestedSequence:
             return CallUnary(getitem, Remainder(Add(inner_idx, offset), length))
 
         return ReshapeVector(
@@ -215,7 +215,7 @@ register(
 
 
 @operation(name="ρ", infix=True)
-def Reshape(new_shape: CArray, array: CArray) -> CArray:
+def Reshape(new_shape: CNestedSequence, array: CNestedSequence) -> CNestedSequence:
     ...
 
 
@@ -227,8 +227,8 @@ register(
 
 @operation
 def BinaryOperation(
-    op: CCallableBinary[CArray, CArray, CArray], l: CArray, r: CArray
-) -> CArray:
+    op: CCallableBinary[CNestedSequence, CNestedSequence, CNestedSequence], l: CNestedSequence, r: CNestedSequence
+) -> CNestedSequence:
     ...
 
 
@@ -279,15 +279,15 @@ register(
 
 @operation
 def OmegaUnary(
-    function: CCallableUnary[CArray, CArray], dim: CContent, array: CArray
-) -> CArray:
+    function: CCallableUnary[CNestedSequence, CNestedSequence], dim: CContent, array: CNestedSequence
+) -> CNestedSequence:
     ...
 
 
 # TODO: Make this invese. if 0 we should keep traversing
 def _omega_unary_sequence(
-    fn: CCallableUnary[CArray, CArray], dim: CInt, array: CArray
-) -> CArray:
+    fn: CCallableUnary[CNestedSequence, CNestedSequence], dim: CInt, array: CNestedSequence
+) -> CNestedSequence:
     if dim.name == 0:
         return CallUnary(fn, array)
     new_dim = Int(dim.name - 1)
@@ -305,12 +305,12 @@ register(OmegaUnary(w("fn"), sw("dim", Int), w("array")), _omega_unary_sequence)
 
 
 @operation(infix=True)
-def Transpose(ordering: CArray, array: CArray) -> CArray:
+def Transpose(ordering: CNestedSequence, array: CNestedSequence) -> CNestedSequence:
     ...
 
 
 def _tranpose_sequence(
-    _: CInt, first_order: CInt, ordering: typing.Sequence, array: CArray
+    _: CInt, first_order: CInt, ordering: typing.Sequence, array: CNestedSequence
 ):
     """
     Tranpose([first_order, *ordering], array)[first_idx, *idx]
@@ -363,8 +363,8 @@ register(
 
 @operation(name="·", to_str=lambda op, l, r: f"({l} ·{op} {r})")
 def OuterProduct(
-    op: CCallableBinary[CArray, CArray, CArray], l: CArray, r: CArray
-) -> CArray:
+    op: CCallableBinary[CNestedSequence, CNestedSequence, CNestedSequence], l: CNestedSequence, r: CNestedSequence
+) -> CNestedSequence:
     ...
 
 
@@ -381,7 +381,7 @@ register(
 
 
 @operation(name="·", to_str=lambda l_op, r_op, l, r: f"({l} {l_op}·{r_op} {r})")
-def InnerProduct(l_op, r_op, l: CArray, r: CArray) -> CArray:
+def InnerProduct(l_op, r_op, l: CNestedSequence, r: CNestedSequence) -> CNestedSequence:
     ...
 
 

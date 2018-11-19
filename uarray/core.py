@@ -16,12 +16,12 @@ def CallBinary(fn: CCallableBinary[RET, ARG1, ARG2], a1: ARG1, a2: ARG2) -> RET:
 
 
 @operation
-def Sequence(length: CContent, getitem: CGetItem) -> CArray:
+def Sequence(length: CContent, getitem: CGetItem) -> CNestedSequence:
     ...
 
 
 @operation
-def GetItem(array: CArray) -> CGetItem:
+def GetItem(array: CNestedSequence) -> CGetItem:
     ...
 
 
@@ -29,7 +29,7 @@ register(GetItem(Sequence(w("length"), w("getitem"))), lambda length, getitem: g
 
 
 @operation
-def Length(seq: CArray) -> CContent:
+def Length(seq: CNestedSequence) -> CContent:
     ...
 
 
@@ -37,12 +37,12 @@ register(Length(Sequence(w("length"), w("_"))), lambda _, length: length)
 
 
 @operation
-def Scalar(cont: CContent) -> CArray:
+def Scalar(cont: CContent) -> CNestedSequence:
     ...
 
 
 @operation
-def Content(sca: CArray) -> CContent:
+def Content(sca: CNestedSequence) -> CContent:
     ...
 
 
@@ -158,7 +158,7 @@ def Int(name: int) -> CInt:
 
 
 @functools.singledispatch
-def to_array(v) -> CArray:
+def to_array(v) -> CNestedSequence:
     """
     Convert some value into a matchpy expression
     """
@@ -227,7 +227,7 @@ register(
 )
 
 
-def vector_of(*values: CArray) -> CArray:
+def vector_of(*values: CNestedSequence) -> CNestedSequence:
     return Sequence(Int(len(values)), VectorCallable(*values))
 
 
@@ -236,7 +236,7 @@ def vector_of(*values: CArray) -> CArray:
 # )
 
 
-def vector(*values: int) -> CArray:
+def vector(*values: int) -> CNestedSequence:
     # vc: CCallableUnary[CContent, CContent] = VectorCallable(*map(Int, values))
     # getitem = Compose(scalar_fn, vc)
 
@@ -262,7 +262,7 @@ register(
 )
 
 
-def with_shape(x: CArray, shape: typing.Sequence[CContent], i=0) -> CArray:
+def with_shape(x: CNestedSequence, shape: typing.Sequence[CContent], i=0) -> CNestedSequence:
     if i == len(shape):
         return Scalar(Content(x))
     return Sequence(
@@ -273,7 +273,7 @@ def with_shape(x: CArray, shape: typing.Sequence[CContent], i=0) -> CArray:
     )
 
 
-def with_dims(x: CArray, n_dim: int, i=0) -> CArray:
+def with_dims(x: CNestedSequence, n_dim: int, i=0) -> CNestedSequence:
     if i == n_dim:
         return Scalar(Content(x))
     return Sequence(
@@ -282,12 +282,12 @@ def with_dims(x: CArray, n_dim: int, i=0) -> CArray:
     )
 
 
-def unbound_array(variable_name: str, n_dim: int) -> CArray:
-    return with_dims(typing.cast(CArray, unbound(variable_name)), n_dim)
+def unbound_array(variable_name: str, n_dim: int) -> CNestedSequence:
+    return with_dims(typing.cast(CNestedSequence, unbound(variable_name)), n_dim)
 
 
-def unbound_with_shape(variable_name: str, n_dim: int) -> CArray:
+def unbound_with_shape(variable_name: str, n_dim: int) -> CNestedSequence:
     return with_shape(
-        typing.cast(CArray, unbound(variable_name)),
+        typing.cast(CNestedSequence, unbound(variable_name)),
         tuple(unbound_content(f"{variable_name}_shape_{i}") for i in range(n_dim)),
     )

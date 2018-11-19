@@ -10,7 +10,9 @@ def _fn_string(fn):
 
 
 @symbol
-def BinaryUfunc(ufunc: np.ufunc) -> CCallableBinary[CArray, CArray, CArray]:
+def BinaryUfunc(
+    ufunc: np.ufunc
+) -> CCallableBinary[CNestedSequence, CNestedSequence, CNestedSequence]:
     ...
 
 
@@ -44,8 +46,8 @@ register(
 
 @operation
 def BroadcastShapes(
-    l: CVectorCallable[CArray], r: CVectorCallable[CArray]
-) -> CVectorCallable[CArray]:
+    l: CVectorCallable[CNestedSequence], r: CVectorCallable[CNestedSequence]
+) -> CVectorCallable[CNestedSequence]:
     """
     Returns unified shape of two input shapes
     https://docs.scipy.org/doc/numpy-1.15.1/reference/ufuncs.html#broadcasting
@@ -64,8 +66,11 @@ register(
 
 
 def _broadcast_shapes(
-    ls: typing.Sequence[CArray], l: CInt, rs: typing.Sequence[CArray], r: CInt
-) -> CVectorCallable[CArray]:
+    ls: typing.Sequence[CNestedSequence],
+    l: CInt,
+    rs: typing.Sequence[CNestedSequence],
+    r: CInt,
+) -> CVectorCallable[CNestedSequence]:
     l_, r_ = l.name, r.name
     if l_ == 1 or r_ == 1 or l_ == r_:
         d_ = max(l_, r_)
@@ -87,7 +92,9 @@ register(
 
 
 @operation
-def BroadcastTo(array: CArray, arr_dim: CContent, new_shape: CVectorCallable) -> CArray:
+def BroadcastTo(
+    array: CNestedSequence, arr_dim: CContent, new_shape: CVectorCallable
+) -> CNestedSequence:
     ...
 
 
