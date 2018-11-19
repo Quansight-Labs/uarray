@@ -11,17 +11,22 @@ ws = matchpy.Wildcard.star
 sw = matchpy.Wildcard.symbol
 
 
-def _matches(expr):
+class NoMatchesException(RuntimeError):
+    pass
+
+
+def _first_match(expr):
     for subexpr, pos in matchpy.expressions.functions.preorder_iter_with_position(expr):
         try:
             replacement, subst = next(iter(replacer.matcher.match(subexpr)))
         except StopIteration:
             continue
-        yield pos, replacement, subst
+        return pos, replacement, subst
+    raise NoMatchesException()
 
 
 def _replace_once(expr):
-    pos, replacement, subst = next(iter(_matches(expr)))
+    pos, replacement, subst = _first_match(expr)
     try:
         result = replacement(**subst)
     except TypeError as e:
@@ -42,7 +47,10 @@ def _replace_once(expr):
 def replace_scan(expr: matchpy.Expression) -> matchpy.Expression:
     while True:
         yield expr
-        expr = _replace_once(expr)
+        try:
+            expr = _replace_once(expr)
+        except NoMatchesException:
+            return
 
 
 _T = typing.TypeVar("_T")
