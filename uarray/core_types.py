@@ -20,6 +20,10 @@ class CNestedSequence(Category):
     pass
 
 
+class CNDArray(Category):
+    pass
+
+
 class CContent(Category):
     pass
 

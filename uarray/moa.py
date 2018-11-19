@@ -27,7 +27,8 @@ register(Shape(Sequence(w("length"), w("getitem"))), _shape)
 # if the index is unbound we should still be able to get shape
 # TODO: this is probably bad, then we have two ways of getting vector shape
 register(
-    Shape(VectorIndexed(w("idx"), ws("xs"))), lambda idx, xs: Unify(*map(Shape, xs))
+    Shape(CallUnary(VectorCallable(ws("items")), w("index"))),
+    lambda index, items: Unify(*map(Shape, items)),
 )
 
 
@@ -48,7 +49,9 @@ register(Index(Sequence(sw("idx_length", Int), w("idx_getitem")), w("seq")), _in
 
 @operation(name="red")
 def ReduceVector(
-    fn: CCallableBinary[CNestedSequence, CNestedSequence, CNestedSequence], initial_value: CNestedSequence, vec: CNestedSequence
+    fn: CCallableBinary[CNestedSequence, CNestedSequence, CNestedSequence],
+    initial_value: CNestedSequence,
+    vec: CNestedSequence,
 ) -> CNestedSequence:
     ...
 
@@ -227,7 +230,9 @@ register(
 
 @operation
 def BinaryOperation(
-    op: CCallableBinary[CNestedSequence, CNestedSequence, CNestedSequence], l: CNestedSequence, r: CNestedSequence
+    op: CCallableBinary[CNestedSequence, CNestedSequence, CNestedSequence],
+    l: CNestedSequence,
+    r: CNestedSequence,
 ) -> CNestedSequence:
     ...
 
@@ -279,14 +284,18 @@ register(
 
 @operation
 def OmegaUnary(
-    function: CCallableUnary[CNestedSequence, CNestedSequence], dim: CContent, array: CNestedSequence
+    function: CCallableUnary[CNestedSequence, CNestedSequence],
+    dim: CContent,
+    array: CNestedSequence,
 ) -> CNestedSequence:
     ...
 
 
 # TODO: Make this invese. if 0 we should keep traversing
 def _omega_unary_sequence(
-    fn: CCallableUnary[CNestedSequence, CNestedSequence], dim: CInt, array: CNestedSequence
+    fn: CCallableUnary[CNestedSequence, CNestedSequence],
+    dim: CInt,
+    array: CNestedSequence,
 ) -> CNestedSequence:
     if dim.name == 0:
         return CallUnary(fn, array)
@@ -363,7 +372,9 @@ register(
 
 @operation(name="·", to_str=lambda op, l, r: f"({l} ·{op} {r})")
 def OuterProduct(
-    op: CCallableBinary[CNestedSequence, CNestedSequence, CNestedSequence], l: CNestedSequence, r: CNestedSequence
+    op: CCallableBinary[CNestedSequence, CNestedSequence, CNestedSequence],
+    l: CNestedSequence,
+    r: CNestedSequence,
 ) -> CNestedSequence:
     ...
 

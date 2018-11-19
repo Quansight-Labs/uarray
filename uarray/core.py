@@ -54,7 +54,7 @@ def Unbound(*, variable_name: str) -> CUnbound:
     ...
 
 
-# ## other callables
+# other callables
 
 
 @operation(to_str=lambda a: f"_ -> {a}")
@@ -180,24 +180,14 @@ def to_array__tuple(t):
     return vector_of(*(to_array(t_) for t_ in t))
 
 
-@operation
-def VectorIndexed(idx: CContent, *items: T) -> T:
-    ...
-
-
-register(
-    VectorIndexed(sw("index", Int), ws("items")), lambda index, items: items[index.name]
-)
-
-
 @operation(to_str=lambda items: f"<{' '.join(str(i) for i in items)}>")
 def VectorCallable(*items: T) -> CVectorCallable[T]:
     ...
 
 
 register(
-    CallUnary(VectorCallable(ws("items")), w("index")),
-    lambda items, index: VectorIndexed(index, *items),
+    CallUnary(VectorCallable(ws("items")), sw("index", Int)),
+    lambda index, items: items[index.name],
 )
 
 
@@ -262,7 +252,9 @@ register(
 )
 
 
-def with_shape(x: CNestedSequence, shape: typing.Sequence[CContent], i=0) -> CNestedSequence:
+def with_shape(
+    x: CNestedSequence, shape: typing.Sequence[CContent], i=0
+) -> CNestedSequence:
     if i == len(shape):
         return Scalar(Content(x))
     return Sequence(

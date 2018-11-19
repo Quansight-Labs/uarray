@@ -322,7 +322,6 @@ def ToSequenceWithDim(arr: CNestedSequence, ndim: CContent) -> CNestedSequence:
 
 
 def _np_array_to_sequence(arr: CExpression, ndim: CInt):
-
     def inner(e: CNestedSequence, i: int) -> CNestedSequence:
         if i == ndim.name:
             return Scalar(Content(e))
@@ -520,7 +519,7 @@ def _vector_indexed_python_content(
 
 # TODO: Make work with non expressions
 register(
-    VectorIndexed(PythonContent(sw("idx_expr", Expression)), ws("args")),
+    CallUnary(VectorCallable(ws("args")), PythonContent(sw("idx_expr", Expression))),
     _vector_indexed_python_content,
     matchpy.CustomConstraint(all_of_type(Expression)),
 )
