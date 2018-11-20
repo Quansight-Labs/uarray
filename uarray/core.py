@@ -210,13 +210,24 @@ def ConcatVector(l: CVector[T], r: CVector[T]) -> CVector[T]:
 register(ConcatVector(Vector(ws("l")), Vector(ws("r"))), lambda l, r: Vector(*l, *r))
 
 
+@operation
+def FirstVector(vec: CVector[T]) -> T:
+    ...
+
+
+register(FirstVector(Vector(w("x"), w("xs"))), lambda x, xs: x)
+
+
+@operation
+def RestVector(vec: CVector[T]) -> CVector[T]:
+    ...
+
+
+register(RestVector(Vector(w("x"), w("xs"))), lambda x, xs: xs)
+
+
 def vector_of(*values: CNestedSequence) -> CNestedSequence:
     return Sequence(Int(len(values)), Vector(*values))
-
-
-# scalar_fn: CCallableUnary[CArray, CContent] = typing.cast(
-#     CUnaryPythonFunction[CArray, CContent], UnaryPythonFunction(Scalar)
-# )
 
 
 def vector(*values: int) -> CNestedSequence:
@@ -224,6 +235,101 @@ def vector(*values: int) -> CNestedSequence:
     # getitem = Compose(scalar_fn, vc)
 
     return vector_of(*(Scalar(Int(v)) for v in values))
+
+
+@operation
+def NDArray(shape: CVector[CContent], index_fn: CIndexFn) -> CNDArray:
+    ...
+
+
+@operation
+def Shape_(array: CNDArray) -> CVector[CContent]:
+    ...
+
+
+register(Shape_(NDArray(w("shape"), w("index_fn"))), lambda shape, index_fn: shape)
+
+
+@operation
+def IndexFn(array: CNDArray) -> CIndexFn:
+    ...
+
+
+register(IndexFn(NDArray(w("shape"), w("index_fn"))), lambda shape, index_fn: index_fn)
+
+
+@operation
+def NDArrayToNestedSequence(array: CNDArray) -> CNestedSequence:
+    ...
+
+
+register(
+    NDArrayToNestedSequence(NDArray(Vector(), w("index_fn"))),
+    lambda index_fn: Scalar(CallUnary(index_fn, Vector())),
+)
+
+
+def _ndarray_to_nested_sequence(
+    first_dim: CContent, rest_dims: typing.Sequence[CContent], index_fn: CIndexFn
+) -> CNestedSequence:
+    def getitem(idx: CContent) -> CNestedSequence:
+        def new_index_fn(indices: CVector[CContent]) -> CContent:
+            return CallUnary(index_fn, PushVector(idx, indices))
+
+        inner_ndarray = NDArray(Vector(*rest_dims), unary_function(new_index_fn))
+        return NDArrayToNestedSequence(inner_ndarray)
+
+    return Sequence(first_dim, unary_function(getitem))
+
+
+register(
+    NDArrayToNestedSequence(
+        NDArray(Vector(w("first_dim"), w("rest_dims")), w("index_fn"))
+    ),
+    _ndarray_to_nested_sequence,
+)
+
+
+@operation
+def NestedSequenceToNDArray(array: CNestedSequence) -> CNDArray:
+    ...
+
+
+register(
+    NestedSequenceToNDArray(Scalar(w("content"))),
+    lambda content: NDArray(Vector(), Always(content)),
+)
+
+
+def _nested_sequence_to_ndarray(length: CContent, getitem: CGetItem) -> CNDArray:
+    inner_shape = Shape_(NestedSequenceToNDArray(CallUnary(getitem, unbound_content())))
+    shape = PushVector(length, inner_shape)
+
+    def index_fn(indices: CVector[CContent]) -> CContent:
+        outer_index = FirstVector(indices)
+        rest_indices = RestVector(indices)
+
+        inner_index_fn = IndexFn(
+            NestedSequenceToNDArray(CallUnary(getitem, outer_index))
+        )
+
+        return CallUnary(inner_index_fn, rest_indices)
+
+    return NDArray(shape, unary_function(index_fn))
+
+
+register(
+    NestedSequenceToNDArray(Sequence(w("length"), w("getitem"))),
+    _nested_sequence_to_ndarray,
+)
+
+
+@operation
+def WrapShape(shape: CVector[CContent]) -> CNestedSequence:
+    ...
+
+
+register(WrapShape(Vector(ws("items"))), lambda items: vector_of(*map(Scalar, items)))
 
 
 @operation

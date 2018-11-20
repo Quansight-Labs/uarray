@@ -42,7 +42,6 @@ class CCallableBinary(Category, typing.Generic[RET, ARG1, ARG2]):
 
 CGetItem = CCallableUnary[CNestedSequence, CContent]
 
-
 class CUnboundContent(CUnbound, CContent):
     pass
 
@@ -52,3 +51,5 @@ class CInt(CContent):
 
 
 CVector = CCallableUnary[T, CContent]
+
+CIndexFn = CCallableUnary[CContent, CVector[CContent]]

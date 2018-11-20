@@ -10,18 +10,9 @@ def Shape(a: CNestedSequence) -> CNestedSequence:
     ...
 
 
-def _shape(length: CContent, getitem: CGetItem):
-
-    inner_shape = Shape(CallUnary(getitem, unbound_content()))
-
-    return Sequence(
-        Add(Int(1), Length(inner_shape)),
-        PushVector(Scalar(length), GetItem(inner_shape)),
-    )
-
-
-register(Shape(Scalar(w("_"))), lambda _: vector())
-register(Shape(Sequence(w("length"), w("getitem"))), _shape)
+register(
+    Shape(w("array")), lambda array: WrapShape(Shape_(NestedSequenceToNDArray(array)))
+)
 
 
 # if the index is unbound we should still be able to get shape
