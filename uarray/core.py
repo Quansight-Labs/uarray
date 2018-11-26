@@ -284,7 +284,7 @@ def _ndarray_to_nested_sequence(
 
 register(
     NDArrayToNestedSequence(
-        NDArray(Vector(w("first_dim"), w("rest_dims")), w("index_fn"))
+        NDArray(Vector(w("first_dim"), ws("rest_dims")), w("index_fn"))
     ),
     _ndarray_to_nested_sequence,
 )

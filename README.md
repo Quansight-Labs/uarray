@@ -333,12 +333,12 @@ assert list(uarray.replace_scan(called)) == [
 When it is called, each argument is matched to it's name and the `matchpy.substitute` function
 (which we talked about in the first section) is used to replace the args with their values in the body. You can see the full replacement rule for how this executes in `uarray/core.py`.
 
-Another example is the `VectorCallable(*items)` which takes in an index "i" and returns the "i"th arg:
+Another example is the `Vector(*items)` which takes in an index "i" and returns the "i"th arg:
 
 TODO: change vector callable to not wrap in scalar
 
 ```python
-c = uarray.VectorCallable(uarray.Int(5), uarray.Int(10))
+c = uarray.Vector(uarray.Int(5), uarray.Int(10))
 assert uarray.replace(uarray.CallUnary(c, uarray.Int(0))) == uarray.Int(5)
 assert uarray.replace(uarray.CallUnary(c, uarray.Int(1))) == uarray.Int(10)
 ```
@@ -362,10 +362,10 @@ And, if we keep the expressions as MatchPy forms, then they can be reduced, even
 
 So why not just have everthing be a `Function` instead of introducing other callables? Well it allows
 us to move some of the application logic into Python land instead of keeping it generic. For example,
-we _could_ define `VectorCallable` to be a `Function`, but it would require basically a big pattern
+we _could_ define `Vector` to be a `Function`, but it would require basically a big pattern
 matching statement of like "if index == 0, then return this value, elif equal to 1 return this value".
 
-We could implement this all with matchpy operations, but it just requires a lot of extra work, extra forms, and for what gain? Well the gain would be we could then translate this lower level form to a backend without a concept of a VectorCallable, just with a concept of `if, else`.
+We could implement this all with matchpy operations, but it just requires a lot of extra work, extra forms, and for what gain? Well the gain would be we could then translate this lower level form to a backend without a concept of a Vector, just with a concept of `if, else`.
 
 The other side of this added flexibity is the ability to "overload" any matchpy expression to make it
 callable. How? Well you just define a call replacement for it and then it's callable. We will use
