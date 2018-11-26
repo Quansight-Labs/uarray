@@ -1,0 +1,43 @@
+{% set version = '0.4' %}
+{% set sha256 = '06fc0874e1e27c91c862d40b24ee314b95e038275ce653a3dfd8eca00030a85f' %}
+
+package:
+  name: uarray
+  version: {{ version }}
+
+source:
+  fn: uarray-{{ version }}.tar.gz
+  url: https://github.com/Quansight-Labs/uarray/archive/v{{ version }}.tar.gz
+  sha256: {{ sha256 }}
+
+requirements:
+  build:
+    - flit
+    - matchpy
+    - numpy
+    - astunparse
+    - typing_extensions
+    - black
+  run:
+    - matchpy
+    - numpy
+    - astunparse
+    - typing_extensions
+    - black
+
+build:
+  noarch: python
+
+test: {}
+
+about:
+  home: https://github.com/Quansight-Labs/uarray
+  license: BSD
+  license_family: BSD
+  license_file: LICENSE
+  summary: 'Array interface object for Python with pluggable backends and a multiple-dispatch mechanism for defining down-stream functions'
+  dev_url: https://github.com/Quansight-Labs/uarray
+
+extra:
+  recipe-maintainers:
+    - costrouc
