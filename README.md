@@ -59,10 +59,17 @@ effort in order to make better progress.
 ## Status
 This project is in active development and not ready for production use. However, you can install it with:
 
+### PyPI
+
 ```bash
 pip install uarray
 ```
 
+### Conda
+
+```bash
+conda install -c conda-forge -c uarray uarray
+```
 
 ## Development
 
@@ -85,6 +92,28 @@ To re-run notebooks (their outputs are checked in the tests):
 
 ```bash
 jupyter nbconvert --to notebook --inplace --execute NumPy\ Compat.ipynb Transpose\ Test.ipynb NumPy\ Broadcasting.ipynb
+```
+
+### Releases
+
+Make sure to update `pyproject.toml` and `.conda/meta.yaml` to the
+correct version on a new release.
+
+Flit makes `pypi` releases quite simple. Flit will use your
+`~/.pypirc` or environment variables `FLIT_USERNAME`, `FLIT_PASSWORD`,
+and `FLIT_INDEX`.
+
+```bash
+flit publish
+```
+
+Conda releases use the `.conda/meta.yaml` recipe. 
+
+```bash
+conda install conda-build anaconda-client
+anaconda login
+conda build -c conda-forge .conda/
+anaconda upload --user uarray <path to conda build>
 ```
 
 ## Internals
