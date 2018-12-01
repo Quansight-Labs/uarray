@@ -74,7 +74,7 @@ conda install -c conda-forge -c uarray uarray
 ## Development
 
 ```bash
-conda create -n uarray python=3.6
+conda create -n uarray python=3.7
 conda activate uarray
 pip install -r requirements.dev.txt
 flit install --symlink
