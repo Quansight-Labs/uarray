@@ -84,7 +84,7 @@ py.test
 To re-run notebooks (their outputs are checked in the tests):
 
 ```bash
-jupyter nbconvert --to notebook --inplace --execute NumPy\ Compat.ipynb Transpose\ Test.ipynb NumPy\ Broadcasting.ipynb
+jupyter nbconvert --to notebook --inplace --execute notebooks/NumPy\ Compat.ipynb notebooks/Transpose\ Test.ipynb notebooks/NumPy\ Broadcasting.ipynb
 ```
 
 ## Internals

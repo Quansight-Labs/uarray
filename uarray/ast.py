@@ -55,6 +55,13 @@ def ToPythonContent(content: CContent) -> CInitializableContent:
     ...
 
 
+register(
+    ToPythonContent(w("unbound")),
+    lambda unbound: unbound,
+    matchpy.CustomConstraint(lambda unbound: isinstance(unbound, Unbound)),  # type: ignore
+)
+
+
 class ShouldAllocate(matchpy.Symbol):
     name: bool
 
@@ -68,6 +75,7 @@ register(
     ToNPArray(NPArray(w("x")), sw("alloc", ShouldAllocate)), lambda x, alloc: NPArray(x)
 )
 register(ToPythonContent(PythonContent(w("x"))), lambda x: PythonContent(x))
+
 
 # Scalar numpy arrays are converted to scalars, not 0d array
 register(
