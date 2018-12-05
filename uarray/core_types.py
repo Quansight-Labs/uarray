@@ -42,12 +42,24 @@ class CallableBinaryType(Type, typing.Generic[RET, ARG1, ARG2]):
     pass
 
 
-VectorType = CallableUnaryType[T, NatType]
+class VectorType(Type, typing.Generic[T]):
+    """
+    List with length
+    """
+
+    pass
+
+
+# class BoundedNatType(Type):
+#     pass
+
 
 ShapeType = VectorType[NatType]
-IndicesType = VectorType[NatType]
 
-PsiType = CallableUnaryType[T, IndicesType]
+
+ListType = CallableUnaryType[T, NatType]
+IndicesType = ListType[NatType]
+ArrayIndexType = CallableUnaryType[T, IndicesType]
 
 
 TYPE = typing.TypeVar("TYPE", bound=Type)

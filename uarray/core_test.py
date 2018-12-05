@@ -16,16 +16,16 @@ class TestInt:
 
 class TestArray:
     def test_shape(self):
-        shape = Vector()
-        psi = Always(Zero())
+        shape = Vector(Int(0), List())
+        psi = Always(Int(0))
         arr = Array(shape, psi)
-        assert replace(Shape(arr)) == shape
+        assert replace(ArrayShape(arr)) == shape
 
     def test_psi(self):
-        shape = Vector()
-        psi = Always(Zero())
+        shape = Vector(Int(0), List())
+        psi = Always(Int(0))
         arr = Array(shape, psi)
-        assert replace(Psi(arr)) == psi
+        assert replace(ArrayIndex(arr)) == psi
 
 
 class TestAlways:
@@ -61,3 +61,36 @@ class TestCompose:
         assert replace(CallUnary(Compose(IncCallable(), DoubleCallable()), val)) == Int(
             (5 * 2) + 1
         )
+
+
+class TestPythonUnaryFunction:
+    def test_unwraps(self):
+        def inc_int(i: Int) -> Int:
+            return Int(i.value() + 1)
+
+        c = PythonUnaryFunction(inc_int)
+        assert replace(CallUnary(c, Int(2))) == Int(3)
+
+
+class TestList:
+    def test_list_first(self):
+        assert replace(ListFirst(List(Int(0), Int(1), Int(2)))) == Int(0)
+
+    def test_list_push(self):
+        assert replace(ListPush(Int(-1), List(Int(0), Int(1), Int(2)))) == List(
+            Int(-1), Int(0), Int(1), Int(2)
+        )
+
+    def test_list_concat(self):
+        assert replace(ListConcat(List(Int(0), Int(1)), List(Int(2), Int(3)))) == List(
+            Int(0), Int(1), Int(2), Int(3)
+        )
+
+
+class TestVector:
+    def test_to_array(self):
+        res = VectorToArray(Vector(Int(2), List(Int(0), Int(1))))
+
+        assert replace(ArrayShape(res)) == Vector(Int(1), List(Int(2)))
+        assert replace(CallUnary(ArrayIndex(res), List(Int(0)))) == Int(0)
+        assert replace(CallUnary(ArrayIndex(res), List(Int(1)))) == Int(1)
