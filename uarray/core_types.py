@@ -1,4 +1,6 @@
 import typing
+import dataclasses
+import matchpy
 
 T = typing.TypeVar("T")
 U = typing.TypeVar("U")
@@ -8,43 +10,44 @@ ARG1 = typing.TypeVar("ARG1")
 ARG2 = typing.TypeVar("ARG2")
 
 
-class Category:
+class Type:
     """
-    Just for compile time checking with mypy
+    Just for compile time checking with MyPy
     """
 
     pass
 
 
-class CArray(Category):
+class ArrayType(Type, typing.Generic[T]):
+    """
+    mapping from indices to T
+    """
+
     pass
 
 
-class CContent(Category):
+class NatType(Type):
+    """
+    Natural number
+    """
+
     pass
 
 
-class CUnbound(Category):
+class CallableUnaryType(Type, typing.Generic[RET, ARG1]):
     pass
 
 
-class CCallableUnary(Category, typing.Generic[RET, ARG1]):
+class CallableBinaryType(Type, typing.Generic[RET, ARG1, ARG2]):
     pass
 
 
-class CCallableBinary(Category, typing.Generic[RET, ARG1, ARG2]):
-    pass
+VectorType = CallableUnaryType[T, NatType]
+
+ShapeType = VectorType[NatType]
+IndicesType = VectorType[NatType]
+
+PsiType = CallableUnaryType[T, IndicesType]
 
 
-CGetItem = CCallableUnary[CArray, CContent]
-
-
-class CUnboundContent(CUnbound, CContent):
-    pass
-
-
-class CInt(CContent):
-    name: int
-
-
-CVectorCallable = CCallableUnary[T, CContent]
+TYPE = typing.TypeVar("TYPE", bound=Type)
