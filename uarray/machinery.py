@@ -195,7 +195,7 @@ def is_sequence_type(t: typing.Any) -> bool:
         return False
 
 
-def is_symbol_type(t: typing.Any) -> bool:
+def is_symbol_type(t: typing.Any) -> typing.Tuple[bool, typing.Optional[typing.Type]]:
     """
     Returns whether the type, extracted from function signature, is a `matchpy.Symbol`
     subclass.
