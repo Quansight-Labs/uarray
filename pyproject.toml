@@ -20,3 +20,6 @@ classifiers=[
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.7",
 ]
+
+[tool.flit.metadata.requires-extra]
+viz = [ "graphviz" ]
