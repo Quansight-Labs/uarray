@@ -13,7 +13,8 @@ requires = [
     "numpy",
     "astunparse",
     "typing_extensions",
-    "black"
+    "black",
+    "ply"
 ]
 classifiers=[
     "License :: OSI Approved :: BSD License",
