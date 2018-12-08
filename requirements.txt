@@ -11,3 +11,4 @@ pytest-mypy
 black
 flit
 ply
+graphviz
