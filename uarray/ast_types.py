@@ -1,11 +1,11 @@
 import typing
 import ast
 from .core_types import (
-    CArray,
+    ArrayType,
     CContent,
     Category,
     CUnbound,
-    CCallableUnary,
+    CallableUnaryType,
     CVectorCallable,
 )
 
@@ -30,12 +30,12 @@ class CInitializableContent(CInitializable, CContent):
     pass
 
 
-class CInitializableArray(CInitializable, CArray):
+class CInitializableArray(CInitializable, ArrayType):
     pass
 
 
 CStatements = CVectorCallable[CStatement]
-CInitializer = CCallableUnary[CStatements, CIdentifier]
+CInitializer = CallableUnaryType[CStatements, CIdentifier]
 
 
 class CExpression(CInitializer):
@@ -46,7 +46,7 @@ class CSubstituteIdentifier(CInitializer):
     name: typing.Callable[[CIdentifier], CStatements]
 
 
-class CSubstituteStatements(CCallableUnary[CStatements, CStatements]):
+class CSubstituteStatements(CallableUnaryType[CStatements, CStatements]):
     name: typing.Callable[[CStatements], CStatements]
 
 

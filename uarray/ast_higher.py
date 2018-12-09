@@ -9,8 +9,8 @@ def _outer_nparray(_, l_init, r_init):
     def inner():
         l_id = identifier()
         r_id = identifier()
-        yield CallUnary(l_init, l_id)
-        yield CallUnary(r_init, r_id)
+        yield ApplyUnary(l_init, l_id)
+        yield ApplyUnary(r_init, r_id)
         res = ast.Call(
             func=ast.Attribute(
                 value=ast.Attribute(

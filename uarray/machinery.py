@@ -5,12 +5,17 @@ import typing
 import matchpy
 
 
+T = typing.TypeVar("T")
+U = typing.TypeVar("U")
+V = typing.TypeVar("V")
+R = typing.TypeVar("R")
+
+T_COV = typing.TypeVar("T_COV", covariant=True)
+U_COV = typing.TypeVar("U_COV", covariant=True)
+
 _CALLABLE = typing.TypeVar("_CALLABLE", bound=typing.Callable)
 
-_T = typing.TypeVar("_T")
-
-
-Pair = typing.Tuple[typing.Callable[[], _T], typing.Callable[[], _T]]
+DoubleThunkType = typing.Tuple[typing.Callable[[], T], typing.Callable[[], T]]
 
 
 class NoMatchesException(RuntimeError):
@@ -55,7 +60,7 @@ class ManyToOneReplacer(matchpy.ManyToOneReplacer):
             except NoMatchesException:
                 return
 
-    def replacement(self, fn: typing.Callable[..., Pair[_T]]) -> None:
+    def replacement(self, fn: typing.Callable[..., DoubleThunkType[T]]) -> None:
         """
         Uses a function to register a replacement rule. The function should take
         in all "holes" that we want to match on and return two lambdas. The first is the
@@ -142,37 +147,39 @@ def operation(
         sig = inspect.signature(fn)
 
         min_operands = 0
-        fixed = True
         names: typing.List[str] = []
+        is_fixed: typing.List[bool] = []
         for p in sig.parameters.values():
             names.append(p.name)
             # *xs
             if p.kind == p.VAR_POSITIONAL:
-                fixed = False
+                is_fixed.append(False)
             # x
             elif p.kind == p.POSITIONAL_OR_KEYWORD:
+                is_fixed.append(True)
                 min_operands += 1
-            elif p.kind == p.KEYWORD_ONLY:
-                if p.name is not "variable_name":
-                    raise ValueError(
-                        f"Keyword only arg must be variable_name not {p.name}"
-                    )
-
             else:
                 raise NotImplementedError(f"Can't infer operation from paramater {p}")
         op = matchpy.Operation.new(
             name or fn.__name__,
-            matchpy.Arity(min_operands, fixed),
+            matchpy.Arity(min_operands, all(is_fixed)),
             class_name=fn.__name__,
             infix=infix,
         )
         if to_str is not None:
-            op.__str__ = lambda self, names=names: to_str(
-                **{
-                    d: val
-                    for d, val in zip(names, self.operands + [self.variable_name])
-                }
-            )
+
+            def __str__(self):
+                args = {}
+                operands = list(self.operands)
+                for name, fixed in zip(names, is_fixed):
+                    if fixed:
+                        args[name], *operands = operands
+                    else:
+                        args[name] = operands
+                        operands = []
+                return to_str(**args)
+
+            op.__str__ = __str__
         return typing.cast(_CALLABLE, op)
 
     if fn is not None:
@@ -207,11 +214,11 @@ def is_symbol_type(t: typing.Any) -> typing.Tuple[bool, typing.Optional[typing.T
     return issubclass(t, matchpy.Symbol), t
 
 
-class Symbol(matchpy.Symbol, typing.Generic[_T]):
-    def __init__(self, name: _T, variable_name=None):
+class Symbol(matchpy.Symbol, typing.Generic[T]):
+    def __init__(self, name: T, variable_name=None):
         super().__init__(name, variable_name)
 
-    def value(self) -> _T:
+    def value(self) -> T:
         return self.name
 
     def __str__(self):

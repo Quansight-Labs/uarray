@@ -60,7 +60,7 @@ class ShouldAllocate(matchpy.Symbol):
 
 
 @operation
-def ToNPArray(arr: CArray, alloc: ShouldAllocate) -> CInitializableArray:
+def ToNPArray(arr: ArrayType, alloc: ShouldAllocate) -> CInitializableArray:
     ...
 
 
@@ -128,7 +128,7 @@ def _assign_expresion(expr: CExpression, id_: CIdentifier) -> CStatements:
     )
 
 
-register(CallUnary(sw("expr", Expression), sw("id_", Identifier)), _assign_expresion)
+register(ApplyUnary(sw("expr", Expression), sw("id_", Identifier)), _assign_expresion)
 
 
 register(
@@ -146,7 +146,7 @@ def SubstituteIdentifier(
 
 
 register(
-    CallUnary(sw("fn", SubstituteIdentifier), sw("id", Identifier)),
+    ApplyUnary(sw("fn", SubstituteIdentifier), sw("id", Identifier)),
     lambda fn, id: fn.name(id.name),
 )
 
@@ -163,7 +163,7 @@ def all_of_type(type_):
 
 
 register(
-    CallUnary(sw("fn", SubstituteStatements), VectorCallable(ws("args"))),
+    ApplyUnary(sw("fn", SubstituteStatements), VectorCallable(ws("args"))),
     lambda fn, args: fn.name(*(a.name for a in args)),
     matchpy.CustomConstraint(all_of_type(Statement)),
 )
@@ -185,14 +185,14 @@ def statements_then_init(
                 yield next(generator)
             except StopIteration as exc:
                 initializer: CInitializer = exc.value
-                yield CallUnary(initializer, id_)
+                yield ApplyUnary(initializer, id_)
                 return
 
     return unary_function(join_statements(inner))
 
 
 @operation
-def ShapeAsTuple(shape: CArray) -> CInitializer:
+def ShapeAsTuple(shape: ArrayType) -> CInitializer:
     ...
 
 
@@ -205,14 +205,14 @@ register(ShapeAsTuple(Scalar(w("_"))), _shape_as_tuple__scalar)
 
 def _shape_as_tuple__sequence(length, getitem):
 
-    inner_seq = CallUnary(getitem, unbound_content())
+    inner_seq = ApplyUnary(getitem, unbound_content())
 
     @statements_then_init
     def inner():
         inner_shape_id = identifier()
-        yield CallUnary(ShapeAsTuple(inner_seq), inner_shape_id)
+        yield ApplyUnary(ShapeAsTuple(inner_seq), inner_shape_id)
         length_id = identifier()
-        yield CallUnary(Initializer(ToPythonContent(length)), length_id)
+        yield ApplyUnary(Initializer(ToPythonContent(length)), length_id)
         return Expression(
             ast.BinOp(
                 ast.Tuple([ast.Name(length_id.name, ast.Load())], ast.Load()),
@@ -236,7 +236,7 @@ def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
 
             # get shape
             shape_tuple_id = identifier()
-            yield CallUnary(ShapeAsTuple(Sequence(length, getitem)), shape_tuple_id)
+            yield ApplyUnary(ShapeAsTuple(Sequence(length, getitem)), shape_tuple_id)
             # allocate array
             array = ast.Call(
                 ast.Attribute(ast.Name("np", ast.Load()), "empty", ast.Load()),
@@ -248,15 +248,15 @@ def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
             )
 
         length_id = identifier()
-        yield CallUnary(Initializer(ToPythonContent(length)), length_id)
+        yield ApplyUnary(Initializer(ToPythonContent(length)), length_id)
 
         index_id = identifier()
         result_id = identifier()
         # result = getitem(i)
-        initialize_result = CallUnary(
+        initialize_result = ApplyUnary(
             Initializer(
                 ToNPArray(
-                    CallUnary(getitem, python_content_from_id(index_id)),
+                    ApplyUnary(getitem, python_content_from_id(index_id)),
                     ShouldAllocate(False),
                 )
             ),
@@ -304,7 +304,7 @@ def _to_np_array_sequence(length, getitem, alloc: ShouldAllocate):
                 )
             )
 
-        yield CallUnary(inner, initialize_result)
+        yield ApplyUnary(inner, initialize_result)
 
     return inner
 
@@ -317,13 +317,13 @@ register(
 
 
 @operation
-def ToSequenceWithDim(arr: CArray, ndim: CContent) -> CArray:
+def ToSequenceWithDim(arr: ArrayType, ndim: CContent) -> ArrayType:
     ...
 
 
 def _np_array_to_sequence(arr: CExpression, ndim: CInt):
 
-    def inner(e: CArray, i: int) -> CArray:
+    def inner(e: ArrayType, i: int) -> ArrayType:
         if i == ndim.name:
             return Scalar(Content(e))
 
@@ -337,7 +337,7 @@ def _np_array_to_sequence(arr: CExpression, ndim: CInt):
 
         return Sequence(
             PythonContent(length),
-            unary_function(lambda idx: inner(CallUnary(GetItem(e), idx), i + 1)),
+            unary_function(lambda idx: inner(ApplyUnary(GetItem(e), idx), i + 1)),
         )
 
     return inner(NPArray(arr), 0)
@@ -363,9 +363,9 @@ def _nparray_getitem(array_init: CInitializer, idx: CContent):
     @statements_then_init
     def inner():
         idx_id = identifier()
-        yield CallUnary(Initializer(ToPythonContent(idx)), idx_id)
+        yield ApplyUnary(Initializer(ToPythonContent(idx)), idx_id)
         array_id = identifier()
-        yield CallUnary(array_init, array_id)
+        yield ApplyUnary(array_init, array_id)
         # sub_array = array[idx]
         return SubstituteIdentifier(
             lambda id_: VectorCallable(
@@ -385,7 +385,7 @@ def _nparray_getitem(array_init: CInitializer, idx: CContent):
     return NPArray(inner)
 
 
-register(CallUnary(GetItem(NPArray(w("array_init"))), w("idx")), _nparray_getitem)
+register(ApplyUnary(GetItem(NPArray(w("array_init"))), w("idx")), _nparray_getitem)
 
 
 # for now we just noop
@@ -430,8 +430,8 @@ for _op, _a in CONTENT_OPERATIONS:
         def inner():
             l_id = identifier()
             r_id = identifier()
-            yield CallUnary(l_init, l_id)
-            yield CallUnary(r_init, r_id)
+            yield ApplyUnary(l_init, l_id)
+            yield ApplyUnary(r_init, r_id)
             return Expression(
                 ast.BinOp(
                     ast.Name(l_id.name, ast.Load()), a_, ast.Name(r_id.name, ast.Load())
@@ -490,8 +490,8 @@ def _define_function(ret: CInitializable, args: typing.Iterable[CStatement]):
             )
         )
 
-    initialize_array: CStatements = CallUnary(Initializer(ret), ret_id)
-    return CallUnary(SubstituteStatements(inner), initialize_array)
+    initialize_array: CStatements = ApplyUnary(Initializer(ret), ret_id)
+    return ApplyUnary(SubstituteStatements(inner), initialize_array)
 
 
 register(DefineFunction(w("ret"), ws("args")), _define_function)

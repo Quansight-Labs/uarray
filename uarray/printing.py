@@ -3,6 +3,8 @@ import inspect
 
 import black
 import matchpy
+import matchpy.expressions.expressions
+
 import numpy
 
 # @functools.singledispatch
@@ -75,3 +77,8 @@ def to_repr_func(f):
 @to_repr.register(numpy.ufunc)
 def to_repr_ufunc(f):
     return f"np.ufunc({f.__name__})"
+
+
+@to_repr.register(matchpy.expressions.expressions._OperationMeta)
+def to_repr_operation(op):
+    return op.name

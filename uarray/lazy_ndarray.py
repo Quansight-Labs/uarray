@@ -40,7 +40,7 @@ class LazyNDArray(np.lib.mixins.NDArrayOperatorsMixin):
                 logger.info("args = %s", args)
             else:
                 raise NotImplementedError("Only binary ufuncs supported")
-            expr = CallBinary(fn, *args)
+            expr = ApplyBinary(fn, *args)
         elif method == "outer":
             expr = OuterProduct(fn, *args)
         else:

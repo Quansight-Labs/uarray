@@ -32,7 +32,7 @@ class TestAlways:
     def test_returns_val(self):
         val = Int(333)
         arg = Int(123)
-        return replace(CallUnary(Always(val), arg)) == val
+        return replace(ApplyUnary(Always(val), arg)) == val
 
 
 class TestCompose:
@@ -42,25 +42,25 @@ class TestCompose:
             ...
 
         @replacement
-        def _call_double_int(i: Int) -> Pair[NatType]:
-            return lambda: CallUnary(DoubleCallable(), i), lambda: Int(i.value() * 2)
+        def _call_double_int(i: Int) -> ThunkPairType[NatType]:
+            return lambda: ApplyUnary(DoubleCallable(), i), lambda: Int(i.value() * 2)
 
         @operation
         def IncCallable() -> CallableUnaryType[NatType, NatType]:
             ...
 
         @replacement
-        def _call_incr_int(i: Int) -> Pair[NatType]:
-            return lambda: CallUnary(IncCallable(), i), lambda: Int(i.value() + 1)
+        def _call_incr_int(i: Int) -> ThunkPairType[NatType]:
+            return lambda: ApplyUnary(IncCallable(), i), lambda: Int(i.value() + 1)
 
         val = Int(5)
 
-        assert replace(CallUnary(Compose(DoubleCallable(), IncCallable()), val)) == Int(
-            (5 + 1) * 2
-        )
-        assert replace(CallUnary(Compose(IncCallable(), DoubleCallable()), val)) == Int(
-            (5 * 2) + 1
-        )
+        assert replace(
+            ApplyUnary(Compose(DoubleCallable(), IncCallable()), val)
+        ) == Int((5 + 1) * 2)
+        assert replace(
+            ApplyUnary(Compose(IncCallable(), DoubleCallable()), val)
+        ) == Int((5 * 2) + 1)
 
 
 class TestPythonUnaryFunction:
@@ -69,7 +69,7 @@ class TestPythonUnaryFunction:
             return Int(i.value() + 1)
 
         c = PythonUnaryFunction(inc_int)
-        assert replace(CallUnary(c, Int(2))) == Int(3)
+        assert replace(ApplyUnary(c, Int(2))) == Int(3)
 
 
 class TestList:
@@ -92,5 +92,5 @@ class TestVector:
         res = VectorToArray(Vector(Int(2), List(Int(0), Int(1))))
 
         assert replace(ArrayShape(res)) == Vector(Int(1), List(Int(2)))
-        assert replace(CallUnary(ArrayIndex(res), List(Int(0)))) == Int(0)
-        assert replace(CallUnary(ArrayIndex(res), List(Int(1)))) == Int(1)
+        assert replace(ApplyUnary(ArrayIndex(res), List(Int(0)))) == Int(0)
+        assert replace(ApplyUnary(ArrayIndex(res), List(Int(1)))) == Int(1)

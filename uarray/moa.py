@@ -1,388 +1,428 @@
 import typing
-
-import matchpy
-
 from .core import *
 
 
 @operation(name="ρ")
-def Shape(a: CArray) -> CArray:
+def Shape(a: ArrayType[T]) -> ArrayType[NatType]:
     ...
 
 
-def _shape(length: CContent, getitem: CGetItem):
-
-    inner_shape = Shape(CallUnary(getitem, unbound_content()))
-
-    return Sequence(
-        Add(Int(1), Length(inner_shape)),
-        PushVectorCallable(Scalar(length), GetItem(inner_shape)),
-    )
-
-
-register(Shape(Scalar(w("_"))), lambda _: vector())
-register(Shape(Sequence(w("length"), w("getitem"))), _shape)
-
-
-# if the index is unbound we should still be able to get shape
-# TODO: this is probably bad, then we have two ways of getting vector shape
-register(
-    Shape(VectorIndexed(w("idx"), ws("xs"))), lambda idx, xs: Unify(*map(Shape, xs))
-)
+@replacement
+def _array_shape(
+    shape: VecNatType, index: IndexType[T]
+) -> DoubleThunkType[ArrayType[NatType]]:
+    return lambda: Shape(Pair(shape, index)), lambda: VecToArray(shape)
 
 
 @operation(name="ψ", infix=True)
-def Index(indices: CArray, ar: CArray) -> CArray:
+def Index(indices: ArrayType[NatType], ar: ArrayType[T]) -> ArrayType[T]:
     ...
 
 
-def _index(idx_length, idx_getitem, seq):
-    for i in range(idx_length.name):
-        index_value = CallUnary(idx_getitem, Int(i))
-        seq = CallUnary(GetItem(seq), Content(index_value))
-    return seq
+@replacement
+def _array_index(
+    indices_shape: VecNatType,
+    indices_index: IndexType[NatType],
+    array_shape: VecNatType,
+    array_index: IndexType[T],
+) -> DoubleThunkType[ArrayType[T]]:
+    indices = Pair(indices_shape, indices_index)
 
+    def pattern() -> ArrayType[T]:
+        return Index(indices, Pair(array_shape, array_index))
 
-register(Index(Sequence(sw("idx_length", Int), w("idx_getitem")), w("seq")), _index)
+    def replacement_fn() -> ArrayType[T]:
+        index_length = Exl(indices_shape)
+        new_shape = VecDrop(index_length, array_shape)
+        indices_vec = ArrayToVec()
+        new_index = Compose(
+            array_index,
+            Apply(Curry(nat_list_concat), VectorIndex(ArrayToVector(indices))),
+        )
+
+        return Pair(new_shape, new_index)
+
+    return (pattern, replacement_fn)
 
 
 @operation(name="red")
-def ReduceVector(
-    fn: CCallableBinary[CArray, CArray, CArray], initial_value: CArray, vec: CArray
-) -> CArray:
+def Reduce(
+    fn: CallableBinaryType[ArrayType[T], ArrayType[T], ArrayType[T]],
+    initial_value: ArrayType[T],
+    arr: ArrayType[T],
+) -> ArrayType[T]:
     ...
 
 
-def _reduce_vector(fn, value, length, getitem):
-    for i in range(length.name):
-        value = CallBinary(fn, value, CallUnary(getitem, Int(i)))
-    return value
+@replacement
+def _reduce(
+    fn: CallableBinaryType[ArrayType[T], ArrayType[T], ArrayType[T]],
+    initial_value: ArrayType[T],
+    dim: NatType,
+    first_shape: Int,
+    rest_shape: typing.Sequence[NatType],
+    array_index: IndexType[T],
+) -> DoubleThunkType[ArrayType[T]]:
+    def replacement_fn():
+        value = initial_value
+        for i in range(first_shape.value()):
+            value = ApplyBinary(fn, value, Apply(array_index, List(Int(i))))
+        return value
+
+    return (
+        lambda: Reduce(
+            fn,
+            initial_value,
+            Pair(Vector(dim, List(first_shape, *rest_shape)), array_index),
+        ),
+        replacement_fn,
+    )
 
 
-register(
-    ReduceVector(w("fn"), w("value"), Sequence(sw("length", Int), w("getitem"))),
-    _reduce_vector,
-)
+# def _reduce_vector(fn, value, length, getitem):
+#     for i in range(length.name):
+#         value = ApplyBinary(fn, value, Apply(getitem, VectorToPair(Int(1), List(Int(i)))))
+#     return value
 
 
-@operation(name="+", infix=True)
-def Add(l: CContent, r: CContent) -> CContent:
-    ...
+# register(
+#     ReduceVector(w("fn"), w("value"), Sequence(sw("length", Int), w("getitem"))),
+#     _reduce_vector,
+# )
 
 
-register(Add(sw("l", Int), sw("r", Int)), lambda l, r: Int(l.name + r.name))
+# @operation(name="+", infix=True)
+# def Add(l: CContent, r: CContent) -> CContent:
+#     ...
 
 
-@operation(name="*", infix=True)
-def Multiply(l: CContent, r: CContent) -> CContent:
-    ...
+# register(Add(sw("l", Int), sw("r", Int)), lambda l, r: Int(l.name + r.name))
 
 
-register(Multiply(sw("l", Int), sw("r", Int)), lambda l, r: Int(l.name * r.name))
+# @operation(name="*", infix=True)
+# def Multiply(l: CContent, r: CContent) -> CContent:
+#     ...
 
 
-def wrap_binary(
-    fn: typing.Callable[[CContent, CContent], CContent]
-) -> typing.Callable[[CArray, CArray], CArray]:
-    return lambda a, b: Scalar(fn(Content(a), Content(b)))
+# register(Multiply(sw("l", Int), sw("r", Int)), lambda l, r: Int(l.name * r.name))
 
 
-@operation(name="π")
-def Pi(ar: CArray) -> CArray:
-    ...
+# def wrap_binary(
+#     fn: typing.Callable[[CContent, CContent], CContent]
+# ) -> typing.Callable[[ArrayType, ArrayType], ArrayType]:
+#     return lambda a, b: Scalar(fn(Content(a), Content(b)))
 
 
-multiply = binary_function(wrap_binary(Multiply))
+# @operation(name="π")
+# def Pi(ar: ArrayType) -> ArrayType:
+#     ...
 
 
-def _pi(ar: CArray) -> CArray:
-    return ReduceVector(binary_function(wrap_binary(Multiply)), Scalar(Int(1)), ar)
+# multiply = binary_function(wrap_binary(Multiply))
 
 
-register(Pi(w("ar")), _pi)
+# def _pi(ar: ArrayType) -> ArrayType:
+#     return ReduceVector(binary_function(wrap_binary(Multiply)), Scalar(Int(1)), ar)
 
 
-@operation(name="τ")
-def Total(ar: CArray) -> CArray:
-    ...
+# register(Pi(w("ar")), _pi)
 
 
-register(Total(w("x")), lambda x: Pi(Shape(x)))
+# @operation(name="τ")
+# def Total(ar: ArrayType) -> ArrayType:
+#     ...
+
+
+# register(Total(w("x")), lambda x: Pi(Shape(x)))
 
 
 @operation(name="ι")
-def Iota(n: CArray) -> CArray:
+def Iota(n: ArrayType[NatType]) -> ArrayType[NatType]:
     """
     Iota(n) returns a vector of 0 to n-1.
     """
     ...
 
 
-register(Iota(Scalar(w("n"))), lambda n: Sequence(n, unary_function(Scalar)))
+empty_indices: ListType[NatType] = List()
 
 
-@operation(name="δ")
-def Dim(n: CArray) -> CArray:
-    ...
+@replacement
+def _iota(
+    shape_index: ListType[NatType], array_index: IndexType[NatType]
+) -> DoubleThunkType[ArrayType[NatType]]:
 
-
-register(Dim(w("x")), lambda x: Pi(Shape(Shape(x))))
-
-
-@operation(name="%")
-def Remainder(l: CContent, r: CContent) -> CContent:
-    ...
-
-
-register(Remainder(sw("l", Int), sw("r", Int)), lambda l, r: Int(l.name % r.name))
-
-
-@operation(name="//")
-def Quotient(l: CContent, r: CContent) -> CContent:
-    ...
-
-
-register(Quotient(sw("l", Int), sw("r", Int)), lambda l, r: Int(l.name // r.name))
-
-
-@operation(name="rav")
-def Ravel(n: CArray) -> CArray:
-    ...
-
-
-register(Ravel(Scalar(w("c"))), lambda c: Sequence(Int(1), Always(Scalar(c))))
-
-
-def _ravel_sequence(length: CContent, getitem: CGetItem) -> CArray:
-    a = Sequence(length, getitem)
-
-    inner_size = Content(Total(CallUnary(getitem, unbound_content())))
-
-    def new_getitem(idx: CContent) -> CArray:
-        this_idx = Quotient(idx, inner_size)
-        next_idx = Remainder(idx, inner_size)
-        return CallUnary(GetItem(Ravel(CallUnary(getitem, this_idx))), next_idx)
-
-    return Sequence(Content(Total(a)), unary_function(new_getitem))
-
-
-register(Ravel(Sequence(w("length"), w("getitem"))), _ravel_sequence)
-
-
-@operation(name="ρvec")
-def ReshapeVector(new_shape: CVectorCallable, vec: CArray) -> CArray:
-    ...
-
-
-def _reshape_vector_scalar(length: CContent, getitem: CGetItem) -> CArray:
-    return Scalar(Content(CallUnary(getitem, Int(0))))
-
-
-register(
-    ReshapeVector(VectorCallable(), Sequence(w("length"), w("getitem"))),
-    _reshape_vector_scalar,
-)
-
-
-def _reshape_vector_array(
-    new_length: CContent,
-    rest: typing.Iterable[CArray],
-    length: CContent,
-    getitem: CGetItem,
-) -> CArray:
-    inner_size = Content(Pi(vector_of(*rest)))
-
-    def new_getitem(idx: CContent) -> CArray:
-        offset = Multiply(inner_size, idx)
-
-        def inner_getitem(inner_idx: CContent) -> CArray:
-            return CallUnary(getitem, Remainder(Add(inner_idx, offset), length))
-
-        return ReshapeVector(
-            VectorCallable(*rest), Sequence(inner_size, unary_function(inner_getitem))
-        )
-
-    return Sequence(new_length, unary_function(new_getitem))
-
-
-register(
-    ReshapeVector(
-        VectorCallable(Scalar(w("new_length")), ws("rest")),
-        Sequence(w("length"), w("getitem")),
-    ),
-    _reshape_vector_array,
-)
-
-
-@operation(name="ρ", infix=True)
-def Reshape(new_shape: CArray, array: CArray) -> CArray:
-    ...
-
-
-register(
-    Reshape(Sequence(w("length"), w("getitem")), w("array")),
-    lambda length, getitem, array: ReshapeVector(getitem, Ravel(array)),
-)
-
-
-@operation
-def BinaryOperation(
-    op: CCallableBinary[CArray, CArray, CArray], l: CArray, r: CArray
-) -> CArray:
-    ...
-
-
-# Both scalars
-
-register(
-    BinaryOperation(w("op"), Scalar(w("l")), Scalar(w("r"))),
-    lambda op, l, r: CallBinary(op, Scalar(l), Scalar(r)),
-)
-
-
-register(
-    BinaryOperation(w("op"), Scalar(w("s")), Sequence(w("length"), w("getitem"))),
-    lambda op, s, length, getitem: Sequence(
-        length,
-        unary_function(
-            lambda idx: BinaryOperation(op, Scalar(s), CallUnary(getitem, idx))
-        ),
-    ),
-)
-register(
-    BinaryOperation(w("op"), Sequence(w("length"), w("getitem")), Scalar(w("s"))),
-    lambda op, s, length, getitem: Sequence(
-        length,
-        unary_function(
-            lambda idx: BinaryOperation(op, CallUnary(getitem, idx), Scalar(s))
-        ),
-    ),
-)
-
-
-register(
-    BinaryOperation(
-        w("op"),
-        Sequence(w("l_length"), w("l_getitem")),
-        Sequence(w("r_length"), w("r_getitem")),
-    ),
-    lambda op, l_length, l_getitem, r_length, r_getitem: Sequence(
-        Unify(l_length, r_length),
-        unary_function(
-            lambda idx: BinaryOperation(
-                op, CallUnary(l_getitem, idx), CallUnary(r_getitem, idx)
-            )
-        ),
-    ),
-)
-
-
-@operation
-def OmegaUnary(
-    function: CCallableUnary[CArray, CArray], dim: CContent, array: CArray
-) -> CArray:
-    ...
-
-
-# TODO: Make this invese. if 0 we should keep traversing
-def _omega_unary_sequence(
-    fn: CCallableUnary[CArray, CArray], dim: CInt, array: CArray
-) -> CArray:
-    if dim.name == 0:
-        return CallUnary(fn, array)
-    new_dim = Int(dim.name - 1)
-    return Sequence(
-        Length(array),
-        unary_function(
-            lambda idx: _omega_unary_sequence(
-                fn, new_dim, CallUnary(GetItem(array), idx)
-            )
+    return (
+        lambda: Iota(Pair(Vector(Int(0), shape_index), array_index)),
+        lambda: Pair(
+            Vector(Int(1), List(Apply(array_index, empty_indices))),
+            PythonUnaryFunction(ListFirst),
         ),
     )
 
 
-register(OmegaUnary(w("fn"), sw("dim", Int), w("array")), _omega_unary_sequence)
+# @operation(name="δ")
+# def Dim(n: ArrayType) -> ArrayType:
+#     ...
 
 
-@operation(infix=True)
-def Transpose(ordering: CArray, array: CArray) -> CArray:
-    ...
+# register(Dim(w("x")), lambda x: Pi(Shape(Shape(x))))
 
 
-def _tranpose_sequence(
-    _: CInt, first_order: CInt, ordering: typing.Sequence, array: CArray
-):
-    """
-    Tranpose([first_order, *ordering], array)[first_idx, *idx]
-    == Transpose(new_ordering, array[(<:,> * first_order), first_idx])[idx]
-
-    Where new_ordering has each value that is above first_order decremented by 1.
-    """
-    first_order_val = first_order.name
-    ordering_val = [o.operands[0].name for o in ordering]
-    new_ordering_val = [o - 1 if o > first_order_val else o for o in ordering_val]
-
-    first_idx = unbound_content()
-    new_expr = Transpose(
-        vector(*new_ordering_val),
-        OmegaUnary(
-            unary_function(lambda array: CallUnary(GetItem(array), first_idx)),
-            first_order,
-            array,
-        ),
-    )
-    new_getitem: CGetItem = UnaryFunction(new_expr, first_idx)
-    new_length_expr = array
-    for _1 in range(first_order_val):
-        new_length_expr = CallUnary(GetItem(new_length_expr), unbound_content())
-    return Sequence(Length(new_length_expr), new_getitem)
+# @operation(name="%")
+# def Remainder(l: CContent, r: CContent) -> CContent:
+#     ...
 
 
-# base case, length 0 vector
-register(
-    Transpose(Sequence(sw("_", Int), VectorCallable()), w("array")),
-    lambda _, array: array,
-)
-# recursive case
-register(
-    Transpose(
-        Sequence(
-            sw("_", Int), VectorCallable(Scalar(sw("first_order", Int)), ws("ordering"))
-        ),
-        w("array"),
-    ),
-    _tranpose_sequence,
-    matchpy.CustomConstraint(
-        lambda ordering: all(
-            isinstance(o, Scalar) and isinstance(o.operands[0], Int)  # type: ignore
-            for o in ordering
-        )
-    ),
-)
+# register(Remainder(sw("l", Int), sw("r", Int)), lambda l, r: Int(l.name % r.name))
 
 
-@operation(name="·", to_str=lambda op, l, r: f"({l} ·{op} {r})")
-def OuterProduct(
-    op: CCallableBinary[CArray, CArray, CArray], l: CArray, r: CArray
-) -> CArray:
-    ...
+# @operation(name="//")
+# def Quotient(l: CContent, r: CContent) -> CContent:
+#     ...
 
 
-register(
-    OuterProduct(w("op"), Scalar(w("l")), w("r")),
-    lambda op, l, r: BinaryOperation(op, Scalar(l), r),
-)
-register(
-    OuterProduct(w("op"), Sequence(w("length"), w("getitem")), w("r")),
-    lambda op, length, getitem, r: Sequence(
-        length, unary_function(lambda idx: OuterProduct(op, CallUnary(getitem, idx), r))
-    ),
-)
+# register(Quotient(sw("l", Int), sw("r", Int)), lambda l, r: Int(l.name // r.name))
 
 
-@operation(name="·", to_str=lambda l_op, r_op, l, r: f"({l} {l_op}·{r_op} {r})")
-def InnerProduct(l_op, r_op, l: CArray, r: CArray) -> CArray:
-    ...
+# @operation(name="rav")
+# def Ravel(n: ArrayType) -> ArrayType:
+#     ...
+
+
+# register(Ravel(Scalar(w("c"))), lambda c: Sequence(Int(1), Always(Scalar(c))))
+
+
+# def _ravel_sequence(length: CContent, getitem: CGetItem) -> ArrayType:
+#     a = Sequence(length, getitem)
+
+#     inner_size = Content(Total(Apply(getitem, unbound_content())))
+
+#     def new_getitem(idx: CContent) -> ArrayType:
+#         this_idx = Quotient(idx, inner_size)
+#         next_idx = Remainder(idx, inner_size)
+#         return Apply(GetItem(Ravel(Apply(getitem, this_idx))), next_idx)
+
+#     return Sequence(Content(Total(a)), unary_function(new_getitem))
+
+
+# register(Ravel(Sequence(w("length"), w("getitem"))), _ravel_sequence)
+
+
+# @operation(name="ρvec")
+# def ReshapeVector(new_shape: CVectorCallable, vec: ArrayType) -> ArrayType:
+#     ...
+
+
+# def _reshape_vector_scalar(length: CContent, getitem: CGetItem) -> ArrayType:
+#     return Scalar(Content(Apply(getitem, Int(0))))
+
+
+# register(
+#     ReshapeVector(VectorCallable(), Sequence(w("length"), w("getitem"))),
+#     _reshape_vector_scalar,
+# )
+
+
+# def _reshape_vector_array(
+#     new_length: CContent,
+#     rest: typing.Iterable[ArrayType],
+#     length: CContent,
+#     getitem: CGetItem,
+# ) -> ArrayType:
+#     inner_size = Content(Pi(vector_of(*rest)))
+
+#     def new_getitem(idx: CContent) -> ArrayType:
+#         offset = Multiply(inner_size, idx)
+
+#         def inner_getitem(inner_idx: CContent) -> ArrayType:
+#             return Apply(getitem, Remainder(Add(inner_idx, offset), length))
+
+#         return ReshapeVector(
+#             VectorCallable(*rest), Sequence(inner_size, unary_function(inner_getitem))
+#         )
+
+#     return Sequence(new_length, unary_function(new_getitem))
+
+
+# register(
+#     ReshapeVector(
+#         VectorCallable(Scalar(w("new_length")), ws("rest")),
+#         Sequence(w("length"), w("getitem")),
+#     ),
+#     _reshape_vector_array,
+# )
+
+
+# @operation(name="ρ", infix=True)
+# def Reshape(new_shape: ArrayType, array: ArrayType) -> ArrayType:
+#     ...
+
+
+# register(
+#     Reshape(Sequence(w("length"), w("getitem")), w("array")),
+#     lambda length, getitem, array: ReshapeVector(getitem, Ravel(array)),
+# )
+
+
+# @operation
+# def BinaryOperation(
+#     op: CallableBinaryType[ArrayType, ArrayType, ArrayType], l: ArrayType, r: ArrayType
+# ) -> ArrayType:
+#     ...
+
+
+# # Both scalars
+
+# register(
+#     BinaryOperation(w("op"), Scalar(w("l")), Scalar(w("r"))),
+#     lambda op, l, r: ApplyBinary(op, Scalar(l), Scalar(r)),
+# )
+
+
+# register(
+#     BinaryOperation(w("op"), Scalar(w("s")), Sequence(w("length"), w("getitem"))),
+#     lambda op, s, length, getitem: Sequence(
+#         length,
+#         unary_function(
+#             lambda idx: BinaryOperation(op, Scalar(s), Apply(getitem, idx))
+#         ),
+#     ),
+# )
+# register(
+#     BinaryOperation(w("op"), Sequence(w("length"), w("getitem")), Scalar(w("s"))),
+#     lambda op, s, length, getitem: Sequence(
+#         length,
+#         unary_function(
+#             lambda idx: BinaryOperation(op, Apply(getitem, idx), Scalar(s))
+#         ),
+#     ),
+# )
+
+
+# register(
+#     BinaryOperation(
+#         w("op"),
+#         Sequence(w("l_length"), w("l_getitem")),
+#         Sequence(w("r_length"), w("r_getitem")),
+#     ),
+#     lambda op, l_length, l_getitem, r_length, r_getitem: Sequence(
+#         Unify(l_length, r_length),
+#         unary_function(
+#             lambda idx: BinaryOperation(
+#                 op, Apply(l_getitem, idx), Apply(r_getitem, idx)
+#             )
+#         ),
+#     ),
+# )
+
+
+# @operation
+# def OmegaUnary(
+#     function: CallableUnaryType[ArrayType, ArrayType], dim: CContent, array: ArrayType
+# ) -> ArrayType:
+#     ...
+
+
+# # TODO: Make this invese. if 0 we should keep traversing
+# def _omega_unary_sequence(
+#     fn: CallableUnaryType[ArrayType, ArrayType], dim: CInt, array: ArrayType
+# ) -> ArrayType:
+#     if dim.name == 0:
+#         return Apply(fn, array)
+#     new_dim = Int(dim.name - 1)
+#     return Sequence(
+#         Length(array),
+#         unary_function(
+#             lambda idx: _omega_unary_sequence(
+#                 fn, new_dim, Apply(GetItem(array), idx)
+#             )
+#         ),
+#     )
+
+
+# register(OmegaUnary(w("fn"), sw("dim", Int), w("array")), _omega_unary_sequence)
+
+
+# @operation(infix=True)
+# def Transpose(ordering: ArrayType, array: ArrayType) -> ArrayType:
+#     ...
+
+
+# def _tranpose_sequence(
+#     _: CInt, first_order: CInt, ordering: typing.Sequence, array: ArrayType
+# ):
+#     """
+#     Tranpose([first_order, *ordering], array)[first_idx, *idx]
+#     == Transpose(new_ordering, array[(<:,> * first_order), first_idx])[idx]
+
+#     Where new_ordering has each value that is above first_order decremented by 1.
+#     """
+#     first_order_val = first_order.name
+#     ordering_val = [o.operands[0].name for o in ordering]
+#     new_ordering_val = [o - 1 if o > first_order_val else o for o in ordering_val]
+
+#     first_idx = unbound_content()
+#     new_expr = Transpose(
+#         vector(*new_ordering_val),
+#         OmegaUnary(
+#             unary_function(lambda array: Apply(GetItem(array), first_idx)),
+#             first_order,
+#             array,
+#         ),
+#     )
+#     new_getitem: CGetItem = UnaryFunction(new_expr, first_idx)
+#     new_length_expr = array
+#     for _1 in range(first_order_val):
+#         new_length_expr = Apply(GetItem(new_length_expr), unbound_content())
+#     return Sequence(Length(new_length_expr), new_getitem)
+
+
+# # base case, length 0 vector
+# register(
+#     Transpose(Sequence(sw("_", Int), VectorCallable()), w("array")),
+#     lambda _, array: array,
+# )
+# # recursive case
+# register(
+#     Transpose(
+#         Sequence(
+#             sw("_", Int), VectorCallable(Scalar(sw("first_order", Int)), ws("ordering"))
+#         ),
+#         w("array"),
+#     ),
+#     _tranpose_sequence,
+#     matchpy.CustomConstraint(
+#         lambda ordering: all(
+#             isinstance(o, Scalar) and isinstance(o.operands[0], Int)  # type: ignore
+#             for o in ordering
+#         )
+#     ),
+# )
+
+
+# @operation(name="·", to_str=lambda op, l, r: f"({l} ·{op} {r})")
+# def OuterProduct(
+#     op: CallableBinaryType[ArrayType, ArrayType, ArrayType], l: ArrayType, r: ArrayType
+# ) -> ArrayType:
+#     ...
+
+
+# register(
+#     OuterProduct(w("op"), Scalar(w("l")), w("r")),
+#     lambda op, l, r: BinaryOperation(op, Scalar(l), r),
+# )
+# register(
+#     OuterProduct(w("op"), Sequence(w("length"), w("getitem")), w("r")),
+#     lambda op, length, getitem, r: Sequence(
+#         length, unary_function(lambda idx: OuterProduct(op, Apply(getitem, idx), r))
+#     ),
+# )
+
+
+# @operation(name="·", to_str=lambda l_op, r_op, l, r: f"({l} {l_op}·{r_op} {r})")
+# def InnerProduct(l_op, r_op, l: ArrayType, r: ArrayType) -> ArrayType:
+#     ...
 
 
 # # inner product is associative with scalar multiplication
