@@ -49,3 +49,8 @@ def to_numpy_array(a: Array[T], nd: numpy.ndarray = None) -> numpy.ndarray:
 @to_numpy_array.register
 def _to_numpy_array_numpy(a: NumpyArray) -> numpy.ndarray:
     return a.a
+
+
+@outer_product.register
+def _outer_product_numpy(a: NumpyArray, b, op, mtype):
+    return NumpyArray(numpy.multiply.outer(a.a, b.a))

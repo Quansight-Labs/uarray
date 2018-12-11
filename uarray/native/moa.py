@@ -1,4 +1,6 @@
 import typing
+import functools
+
 
 from .typing import *
 from .helpers import *
@@ -88,6 +90,7 @@ def iota(a: Array[int]) -> Array[int]:
     return AbstractArray(AbstractNaturals.from_value(n), lambda idxs: idxs[0], int)
 
 
+@functools.singledispatch
 def outer_product(
     l: Array[T], r: Array[V], op: typing.Callable[[T, V], R], mtype: typing.Type[R]
 ) -> Array[R]:
