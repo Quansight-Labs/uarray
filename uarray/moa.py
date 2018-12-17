@@ -1,46 +1,57 @@
 import typing
+from .machinery import *
 from .core import *
+from .core.arrays import Array
+
+
+T_cov = typing.TypeVar("T_cov")
 
 
 @operation(name="ρ")
-def Shape(a: ArrayType[T]) -> ArrayType[NatType]:
+def Shape(a: ArrayType[T_cov]) -> ArrayType[NatType]:
     ...
 
 
 @replacement
 def _array_shape(
-    shape: VecNatType, index: IndexType[T]
+    shape: ShapeType, idx: IdxType[T_cov]
 ) -> DoubleThunkType[ArrayType[NatType]]:
-    return lambda: Shape(Pair(shape, index)), lambda: VecToArray(shape)
+    return lambda: Shape(Array(shape, idx)), lambda: VecToArray(shape)
 
 
 @operation(name="ψ", infix=True)
-def Index(indices: ArrayType[NatType], ar: ArrayType[T]) -> ArrayType[T]:
+def Index(indices: ArrayType[NatType], ar: ArrayType[T_cov]) -> ArrayType[T_cov]:
     ...
+
+
+"""
+Should indexing function map from lists or vectors?
+
+    lists: dont need length! helps when destructing, dont have to recreat vectors everywhere
+
+    vectors: simpler, dont need to think about other data type. Only need to define operations
+    on vectors not lists.
+"""
 
 
 @replacement
 def _array_index(
-    indices_shape: VecNatType,
-    indices_index: IndexType[NatType],
-    array_shape: VecNatType,
-    array_index: IndexType[T],
-) -> DoubleThunkType[ArrayType[T]]:
-    indices = Pair(indices_shape, indices_index)
+    indices_shape: ShapeType,
+    indices_idx: IdxType[NatType],
+    array_shape: ShapeType,
+    array_idx: IdxType[T_cov],
+) -> DoubleThunkType[ArrayType[T_cov]]:
+    def pattern() -> ArrayType[T_cov]:
+        return Index(Array(indices_shape, indices_idx), Array(array_shape, array_idx))
 
-    def pattern() -> ArrayType[T]:
-        return Index(indices, Pair(array_shape, array_index))
+    def replacement_fn() -> ArrayType[T_cov]:
+        indices_length = VecLength(indices_shape)
+        new_shape = VecDrop(indices_length, array_shape)
 
-    def replacement_fn() -> ArrayType[T]:
-        index_length = Exl(indices_shape)
-        new_shape = VecDrop(index_length, array_shape)
-        indices_vec = ArrayToVec()
-        new_index = Compose(
-            array_index,
-            Apply(Curry(nat_list_concat), VectorIndex(ArrayToVector(indices))),
-        )
+        def index_fn(idx: ShapeType) -> T_cov:
+            return Apply(array_idx, VecConcat(Array(indices_shape, indices_idx), idx))
 
-        return Pair(new_shape, new_index)
+        return Array(new_shape, abstraction(index_fn))
 
     return (pattern, replacement_fn)
 

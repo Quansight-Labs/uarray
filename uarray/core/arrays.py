@@ -1,26 +1,70 @@
+from ..machinery import *
+from .naturals import *
 from .vectors import *
+from .abstractions import *
 
-VecNatType = VecType[NatType]
-IndexType = FunctionType[VecNatType, T]
-# (shape, index)
-ArrayType = PairType[VecNatType, IndexType[T]]
+__all__ = [
+    "ShapeType",
+    "IdxType",
+    "ArrayType",
+    "array_0d",
+    "array_1d",
+    "ArrayShape",
+    "ArrayIdx",
+    "VecToArray",
+    "ArrayToVec",
+]
+T_cov = typing.TypeVar("T_cov")
 
-# @operation
-# def VecToArray(v: VecType[T]) -> ArrayType[T]:
-#     """
-#     Returns a 1D array that has contents of the vector.
-#     """
-#     ...
+
+"""
+Should arrays depend on vector implementation? Should the destructture them?
+
+Yes -> less replacement, cleaner code
+    requires replacement happen on Vec instead of some other vec like thing
+No -> Creates abstraction layer between them. Independence
+    allows replacement on non vec thing
+    maybe we dont want this... i.e. like Array, so if we have a non Vec VecType thing
+    we can define custom replacements for it....
+
+    But this is *within* array replacements. so what is use case??
+
+Underlying question -> Should abstract definitions only be applied on abstract inputs or all inputs?
+
+    -> Only abstract
+        Difference between "type" of thing and instantiation of that thing with default constructor
+
+        Operations apply on Type but replacements are defined with default constructor.
+
+        Like Nats within vectors. Vector doesn't know about `Int` implementation.
+
+        So ->>??
+
+Another way of framing: How do we make most explicit what backends need to define?
+i.e. if you define a custom XXX what needs to be implemented on it? 
+"""
+
+ShapeType = VecType[NatType]
+IdxType = AbstractionType[ShapeType, T_cov]
 
 
-def array_0d(x: T) -> ArrayType[T]:
+class ArrayType(typing.Generic[T_cov]):
+    pass
+
+
+@operation
+def Array(shape: ShapeType, idx: IdxType[T_cov]) -> ArrayType[T_cov]:
+    ...
+
+
+def array_0d(x: T_cov) -> ArrayType[T_cov]:
     """
     Returns a scalar array of `x`.
     """
-    return Pair(vec(), Const(x))
+    return Array(vec(), const(x))
 
 
-def array_1d(*xs: T) -> ArrayType[T]:
+def array_1d(*xs: T_cov) -> ArrayType[T_cov]:
     """
     Returns a vector array of `xs`.
     """
@@ -28,24 +72,29 @@ def array_1d(*xs: T) -> ArrayType[T]:
 
 
 @operation
-def VecToArray(v: VecType[T]) -> ArrayType[T]:
-    """
-    Returns a 1D array that has contents of the vector.
-    """
+def ArrayShape(a: ArrayType[T_cov]) -> ShapeType:
     ...
 
 
 @replacement
-def _vec_to_array(v: VecType[T]) -> DoubleThunkType[ArrayType[T]]:
-    vec_first: Function[VecType[NatType], NatType] = Function(VecFirst)
-    return (
-        lambda: VecToArray(v),
-        lambda: Pair(vec(Exl(v)), Compose(Exr(v), vec_first)),
-    )
+def _array_shape(shape: ShapeType, idx: IdxType[T_cov]) -> DoubleThunkType[ShapeType]:
+    return lambda: ArrayShape(Array(shape, idx)), lambda: shape
 
 
 @operation
-def ArrayToVec(a: ArrayType[T]) -> VecType[T]:
+def ArrayIdx(a: ArrayType[T_cov]) -> IdxType[T_cov]:
+    ...
+
+
+@replacement
+def _array_idx(
+    shape: ShapeType, idx: IdxType[T_cov]
+) -> DoubleThunkType[IdxType[T_cov]]:
+    return (lambda: ArrayIdx(Array(shape, idx)), lambda: idx)
+
+
+@operation
+def VecToArray(v: VecType[T_cov]) -> ArrayType[T_cov]:
     """
     Returns a 1D array that has contents of the vector.
     """
@@ -53,32 +102,46 @@ def ArrayToVec(a: ArrayType[T]) -> VecType[T]:
 
 
 @replacement
-def _array_to_vec(a: ArrayType[T]) -> DoubleThunkType[VecType[T]]:
-    def _replacement() -> VecType[T]:
-        shape = Exr(Exl(a))
-        length = Apply(shape, Int(0))
-        idx = Exr(a)
+def _vec_to_array(v: VecType[T_cov]) -> DoubleThunkType[ArrayType[T_cov]]:
+    def fn():
+        shape = vec(VecLength(v))
 
-        def list_index(i):
-            Apply(idx, Pair(Int(0), List(i)))
+        def idx(idx: ShapeType) -> T_cov:
+            return Apply(VecContent(v), VecFirst(idx))
 
-        vec_first: FunctionType[VecType[T], T] = Function(VecFirst)
-        reveal_type(vec_first)
-        reveal_type(idx)
-        lst = Compose(vec_first, idx)
-        return Pair(length, lst)
+        return Array(vec(VecLength(v)), abstraction(idx))
 
-    return (lambda: ArrayToVec(a), _replacement)
+    return (lambda: VecToArray(v), fn)
 
 
-# @replacement
-# def _array_to_vector(
-#     shape_list: ListType[NatType], array_index: ArrayIndexType[T]
-# ) -> ThunkPairType[VectorType[T]]:
+@operation
+def ArrayToVec(a: ArrayType[T_cov]) -> VecType[T_cov]:
+    """
+    Returns a vector from a 1D array
+    """
+    ...
 
-#     return (
-#         lambda: ArrayToVector(Array(Vector(Int(1), shape_list), array_index)),
-#         lambda: Vector(
-#             ApplyUnary(shape_list, Int(0)), Compose(array_index, singleton_list)
-#         ),
-#     )
+
+"""
+Should I keep writing tests or go on to array definitions?
+
+Array definitions? need to get these working. Can write tests for them, then go back and add lower level tests if they fail.
+"""
+
+
+@replacement
+def _array_to_vec(
+    shape: ShapeType, idx: IdxType[T_cov]
+) -> DoubleThunkType[VecType[T_cov]]:
+    # TODO: Maybe move to vectors file b/c it is vector constructor?
+    from .vectors import Vec
+
+    def fn() -> VecType[T_cov]:
+        length = VecFirst(shape)
+
+        def content(vec_idx: NatType) -> T_cov:
+            return Apply(idx, vec(vec_idx))
+
+        return Vec(length, abstraction(content))
+
+    return (lambda: ArrayToVec(Array(shape, idx)), fn)

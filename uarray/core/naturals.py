@@ -1,4 +1,8 @@
-from .functions import *
+from ..machinery import *
+from .booleans import *
+from .equality import *
+
+__all__ = ["NatType", "nat", "NatLTE", "NatIncr", "NatDecr", "NatAdd", "NatSubtract"]
 
 
 class NatType:
@@ -9,12 +13,34 @@ class NatType:
     pass
 
 
+def nat(i: int) -> NatType:
+    return Int(i)
+
+
 class Int(Symbol[int], NatType):
     """
     Natural number represented by python integer
     """
 
     pass
+
+
+@replacement
+def _are_ints_equal(x: Int, y: Int):
+    return lambda: Equal(x, y), lambda: symbols_equal(x, y)
+
+
+@operation
+def NatLTE(l: NatType, r: NatType) -> BoolType:
+    """
+    l <= r
+    """
+    ...
+
+
+@replacement
+def _ints_lte(x: Int, y: Int):
+    return lambda: NatLTE(x, y), lambda: bool_(x.value() <= y.value())
 
 
 @operation

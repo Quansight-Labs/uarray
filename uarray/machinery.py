@@ -5,20 +5,15 @@ import typing
 import matchpy
 
 
-T = typing.TypeVar("T")
-U = typing.TypeVar("U")
-V = typing.TypeVar("V")
-R = typing.TypeVar("R")
+_T = typing.TypeVar("_T")
 
-T_COV = typing.TypeVar("T_COV", covariant=True)
-U_COV = typing.TypeVar("U_COV", covariant=True)
 
 _CALLABLE = typing.TypeVar("_CALLABLE", bound=typing.Callable)
 
-DoubleThunkType = typing.Tuple[typing.Callable[[], T], typing.Callable[[], T]]
+DoubleThunkType = typing.Tuple[typing.Callable[[], _T], typing.Callable[[], _T]]
 
 
-class NoMatchesException(RuntimeError):
+class _NoMatchesException(RuntimeError):
     pass
 
 
@@ -32,7 +27,7 @@ class ManyToOneReplacer(matchpy.ManyToOneReplacer):
             except StopIteration:
                 continue
             return pos, replacement, subst
-        raise NoMatchesException()
+        raise _NoMatchesException()
 
     def _replace_once(self, expr):
         pos, replacement, subst = self._first_match(expr)
@@ -57,10 +52,10 @@ class ManyToOneReplacer(matchpy.ManyToOneReplacer):
             yield expr
             try:
                 expr = self._replace_once(expr)
-            except NoMatchesException:
+            except _NoMatchesException:
                 return
 
-    def replacement(self, fn: typing.Callable[..., DoubleThunkType[T]]) -> None:
+    def replacement(self, fn: typing.Callable[..., DoubleThunkType[_T]]) -> None:
         """
         Uses a function to register a replacement rule. The function should take
         in all "holes" that we want to match on and return two lambdas. The first is the
@@ -214,11 +209,11 @@ def is_symbol_type(t: typing.Any) -> typing.Tuple[bool, typing.Optional[typing.T
     return issubclass(t, matchpy.Symbol), t
 
 
-class Symbol(matchpy.Symbol, typing.Generic[T]):
-    def __init__(self, name: T, variable_name=None):
+class Symbol(matchpy.Symbol, typing.Generic[_T]):
+    def __init__(self, name: _T, variable_name=None):
         super().__init__(name, variable_name)
 
-    def value(self) -> T:
+    def value(self) -> _T:
         return self.name
 
     def __str__(self):

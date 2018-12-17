@@ -12,3 +12,4 @@ junit
 coverage.xml
 **/.coverage
 dist
+**/*.pyc
