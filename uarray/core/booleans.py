@@ -1,8 +1,15 @@
+import typing
+
 from ..machinery import *
 
 T = typing.TypeVar("T")
 
 __all__ = ["BoolType", "bool_", "symbols_equal", "If"]
+
+
+##
+# Types
+##
 
 
 class BoolType:
@@ -13,14 +20,24 @@ class BoolType:
     pass
 
 
-@operation(name="true")
+##
+# Constructors
+##
+
+
+@operation
 def TrueBool() -> BoolType:
     ...
 
 
-@operation(name="false")
+@operation
 def FalseBool() -> BoolType:
     ...
+
+
+##
+# Helper constructors
+##
 
 
 def bool_(x: bool) -> BoolType:
@@ -33,7 +50,12 @@ def symbols_equal(x: Symbol[T], y: Symbol[T]) -> BoolType:
     return bool_(x.value() == y.value())
 
 
-@operation(name="if")
+##
+# Operations
+##
+
+
+@operation
 def If(cond: BoolType, is_true: T, is_false: T) -> T:
     """
     if cond:

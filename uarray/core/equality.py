@@ -1,9 +1,16 @@
+import typing
+
 from ..machinery import *
 from .booleans import *
 
 T = typing.TypeVar("T")
 
 __all__ = ["Unify", "Equal"]
+
+
+##
+# Operations
+##
 
 
 @operation
@@ -24,7 +31,7 @@ def _unify_multiple(x: T, xs: typing.Sequence[T]) -> DoubleThunkType[T]:
     return lambda: Unify(x, x, *xs), lambda: Unify(x, *xs)
 
 
-@operation(name="=")
+@operation
 def Equal(x: T, y: T) -> BoolType:
     ...
 

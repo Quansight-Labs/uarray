@@ -4,6 +4,10 @@ from .equality import *
 
 __all__ = ["NatType", "nat", "NatLTE", "NatIncr", "NatDecr", "NatAdd", "NatSubtract"]
 
+##
+# Types
+##
+
 
 class NatType:
     """
@@ -13,16 +17,27 @@ class NatType:
     pass
 
 
-def nat(i: int) -> NatType:
-    return Int(i)
-
-
+##
+# Constructors
+##
 class Int(Symbol[int], NatType):
     """
     Natural number represented by python integer
     """
 
     pass
+
+
+##
+# Helper constructors
+##
+def nat(i: int) -> NatType:
+    return Int(i)
+
+
+##
+# Operations
+##
 
 
 @replacement

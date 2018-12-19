@@ -6,8 +6,13 @@ from .booleans import bool_
 
 
 @hypothesis.strategies.defines_strategy
-def natural_ints(min_value=0, max_value=None):
+def natural_ints(min_value=0, max_value=5):
     return hypothesis.strategies.integers(min_value, max_value)
+
+
+@hypothesis.strategies.defines_strategy
+def naturals():
+    return natural_ints().map(nat)
 
 
 @hypothesis.given(natural_ints())

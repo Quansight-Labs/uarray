@@ -4,13 +4,21 @@ import typing
 
 import matchpy
 
+__all__ = [
+    "DoubleThunkType",
+    "replace",
+    "replace_scan",
+    "operation",
+    "Symbol",
+    "replacement",
+    "operation_and_replacement",
+]
+T = typing.TypeVar("T")
 
-_T = typing.TypeVar("_T")
 
+T_callable = typing.TypeVar("T_callable", bound=typing.Callable)
 
-_CALLABLE = typing.TypeVar("_CALLABLE", bound=typing.Callable)
-
-DoubleThunkType = typing.Tuple[typing.Callable[[], _T], typing.Callable[[], _T]]
+DoubleThunkType = typing.Tuple[typing.Callable[[], T], typing.Callable[[], T]]
 
 
 class _NoMatchesException(RuntimeError):
@@ -18,8 +26,11 @@ class _NoMatchesException(RuntimeError):
 
 
 class ManyToOneReplacer(matchpy.ManyToOneReplacer):
-    def _first_match(self, expr):
-        for subexpr, pos in matchpy.expressions.functions.preorder_iter_with_position(
+    def _first_match(self, expr: matchpy.Expression):
+        for (
+            subexpr,
+            pos,
+        ) in matchpy.expressions.functions.preorder_iter_with_position(  # type: ignore
             expr
         ):
             try:
@@ -29,7 +40,7 @@ class ManyToOneReplacer(matchpy.ManyToOneReplacer):
             return pos, replacement, subst
         raise _NoMatchesException()
 
-    def _replace_once(self, expr):
+    def _replace_once(self, expr: matchpy.Expression) -> matchpy.Expression:
         pos, replacement, subst = self._first_match(expr)
         try:
             result = replacement(**subst)
@@ -41,13 +52,15 @@ class ManyToOneReplacer(matchpy.ManyToOneReplacer):
                 f"Couldn't call {inspect.getsourcelines(replacement)} when matching {repr(e)}"
             ) from e
         try:
-            return matchpy.functions.replace(expr, pos, result)
+            return matchpy.functions.replace(expr, pos, result)  # type: ignore
         except ValueError as e:
             raise ValueError(
                 f"Failed to replace using {repr(replacement)} giving {repr(result)}"
             ) from e
 
-    def replace_scan(self, expr: matchpy.Expression) -> matchpy.Expression:
+    def replace_scan(
+        self, expr: matchpy.Expression
+    ) -> typing.Iterator[matchpy.Expression]:
         while True:
             yield expr
             try:
@@ -55,7 +68,7 @@ class ManyToOneReplacer(matchpy.ManyToOneReplacer):
             except _NoMatchesException:
                 return
 
-    def replacement(self, fn: typing.Callable[..., DoubleThunkType[_T]]) -> None:
+    def replacement(self, fn: typing.Callable[..., DoubleThunkType[T]]) -> None:
         """
         Uses a function to register a replacement rule. The function should take
         in all "holes" that we want to match on and return two lambdas. The first is the
@@ -69,12 +82,12 @@ class ManyToOneReplacer(matchpy.ManyToOneReplacer):
         constraints: typing.List[matchpy.Constraint] = []
         for p in sig.parameters.values():
             is_sequence = is_sequence_type(p.annotation)
-            is_symbol, symbol_type = is_symbol_type(p.annotation)
-            if not is_sequence and not is_symbol:
+            symbol_type = is_symbol_type(p.annotation)
+            if not is_sequence and not symbol_type:
                 wildcards.append(matchpy.Wildcard.dot(p.name))
-            elif is_sequence and not is_symbol:
+            elif is_sequence and not symbol_type:
                 wildcards.append([matchpy.Wildcard.star(p.name)])
-            elif not is_sequence and is_symbol:
+            elif not is_sequence and symbol_type:
                 wildcards.append(matchpy.Wildcard.symbol(p.name, symbol_type))
             else:
                 raise NotImplementedError()
@@ -97,32 +110,50 @@ class ManyToOneReplacer(matchpy.ManyToOneReplacer):
             )
         )
 
+    def operation_and_replacement(self, fn: T_callable) -> T_callable:
+        op = operation(fn)
+        self.add(
+            matchpy.ReplacementRule(
+                matchpy.Pattern(op(matchpy.Wildcard.star("args"))),
+                lambda args: fn(*args),
+            )
+        )
+        return op
+
 
 replacer = ManyToOneReplacer()
 replace = replacer.replace
 replace_scan = replacer.replace_scan
 replacement = replacer.replacement
+operation_and_replacement = replacer.operation_and_replacement
 
 
-@typing.overload
-def operation(fn: _CALLABLE) -> _CALLABLE:
-    ...
+class Arg(typing.NamedTuple):
+    name: str
+    is_star: bool
 
 
-@typing.overload
-def operation(
-    *, to_str: typing.Callable[..., str] = None, name: str = None, infix: bool = False
-) -> typing.Callable[[_CALLABLE], _CALLABLE]:
-    ...
+def _analyze_args(params: typing.Sequence[inspect.Parameter]) -> typing.Iterable[Arg]:
+    for p in params:
+        # *xs
+        if p.kind == p.VAR_POSITIONAL:
+            is_star = True
+        # x
+        elif p.kind == p.POSITIONAL_OR_KEYWORD:
+            is_star = False
+        else:
+            raise NotImplementedError(f"Can't infer operation from paramater {p}")
+        yield Arg(p.name, is_star)
 
 
-def operation(
-    fn: _CALLABLE = None,
-    *,
-    to_str: typing.Callable[..., str] = None,
-    name: str = None,
-    infix: bool = False,
-) -> typing.Union[typing.Callable[[_CALLABLE], _CALLABLE], _CALLABLE]:
+def _arity_from_args(args: typing.Iterable[Arg]) -> matchpy.Arity:
+    return matchpy.Arity(
+        len([None for a in args if not a.is_star]),
+        not any(map(lambda a: a.is_star, args)),
+    )
+
+
+def operation(fn: T_callable) -> T_callable:
     """
     Register a matchpy operation for a function.
 
@@ -138,48 +169,10 @@ def operation(
         )
     """
 
-    def inner(fn: _CALLABLE) -> _CALLABLE:
-        sig = inspect.signature(fn)
-
-        min_operands = 0
-        names: typing.List[str] = []
-        is_fixed: typing.List[bool] = []
-        for p in sig.parameters.values():
-            names.append(p.name)
-            # *xs
-            if p.kind == p.VAR_POSITIONAL:
-                is_fixed.append(False)
-            # x
-            elif p.kind == p.POSITIONAL_OR_KEYWORD:
-                is_fixed.append(True)
-                min_operands += 1
-            else:
-                raise NotImplementedError(f"Can't infer operation from paramater {p}")
-        op = matchpy.Operation.new(
-            name or fn.__name__,
-            matchpy.Arity(min_operands, all(is_fixed)),
-            class_name=fn.__name__,
-            infix=infix,
-        )
-        if to_str is not None:
-
-            def __str__(self):
-                args = {}
-                operands = list(self.operands)
-                for name, fixed in zip(names, is_fixed):
-                    if fixed:
-                        args[name], *operands = operands
-                    else:
-                        args[name] = operands
-                        operands = []
-                return to_str(**args)
-
-            op.__str__ = __str__
-        return typing.cast(_CALLABLE, op)
-
-    if fn is not None:
-        return inner(fn)
-    return inner
+    args = list(_analyze_args(list(inspect.signature(fn).parameters.values())))
+    op = matchpy.Operation.new(fn.__name__, _arity_from_args(args))
+    op.args = args  # type: ignore
+    return typing.cast(T_callable, op)
 
 
 def is_sequence_type(t: typing.Any) -> bool:
@@ -197,23 +190,22 @@ def is_sequence_type(t: typing.Any) -> bool:
         return False
 
 
-def is_symbol_type(t: typing.Any) -> typing.Tuple[bool, typing.Optional[typing.Type]]:
+def is_symbol_type(t: typing.Any) -> typing.Optional[typing.Type[matchpy.Symbol]]:
     """
-    Returns whether the type, extracted from function signature, is a `matchpy.Symbol`
-    subclass.
+    Returns the symbol type extracted from the type signature, if it is one.
     """
     if isinstance(t, typing._GenericAlias):  # type: ignore
         t = t.__origin__
-    if not isinstance(t, type):
-        return False, None
-    return issubclass(t, matchpy.Symbol), t
+    if not isinstance(t, type) or not issubclass(t, matchpy.Symbol):
+        return None
+    return t
 
 
-class Symbol(matchpy.Symbol, typing.Generic[_T]):
-    def __init__(self, name: _T, variable_name=None):
-        super().__init__(name, variable_name)
+class Symbol(matchpy.Symbol, typing.Generic[T]):
+    def __init__(self, name: T):
+        super().__init__(name)
 
-    def value(self) -> _T:
+    def value(self) -> T:
         return self.name
 
     def __str__(self):
