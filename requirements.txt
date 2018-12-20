@@ -12,3 +12,4 @@ black
 flit
 ply
 graphviz
+hypothesis
