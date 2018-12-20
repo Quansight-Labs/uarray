@@ -37,9 +37,9 @@ def test_1d_array(xs):
 
 @hypothesis.given(list_of_naturals())
 def test_vec_to_array(xs):
-    assert_arrays_eql(VecToArray(vec(*xs)), [len(xs)], xs)
+    assert_arrays_eql(VecToArray1D(vec(*xs)), [len(xs)], xs)
 
 
 @hypothesis.given(list_of_naturals())
 def test_array_to_vec(xs):
-    assert_vector_is_list(ArrayToVec(array_1d(*xs)), xs)
+    assert_vector_is_list(Array1DToVec(array_1d(*xs)), xs)
