@@ -7,9 +7,10 @@ import matchpy
 from ..machinery import *
 from .pairs import *
 
-__all__ = ["Apply", "abstraction", "never_abstraction", "const_abstraction"]
+__all__ = ["Apply", "abstraction", "variable", "never_abstraction", "const_abstraction"]
 T = typing.TypeVar("T")
 U = typing.TypeVar("U")
+V = typing.TypeVar("V")
 
 
 ##
@@ -56,6 +57,11 @@ def _apply_abstraction(var: T, body: U, arg: T) -> DoubleThunkType[U]:
 # Helpers
 ##
 
+
+def variable(name: str) -> typing.Any:
+    return Variable(variable_name=name)
+
+
 _i = 0
 
 
@@ -64,7 +70,7 @@ def abstraction(body: typing.Callable[[T], U], var_name: str = None) -> PairType
     if var_name is None:
         var_name = f"v{_i}"
         _i += 1
-    var = typing.cast(T, Variable(variable_name=var_name))
+    var = typing.cast(T, variable(var_name))
     return Pair(var, body(var))
 
 

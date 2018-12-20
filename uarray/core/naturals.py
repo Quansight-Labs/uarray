@@ -1,9 +1,28 @@
+import typing
+
+import matchpy
+
 from ..machinery import *
 from .booleans import *
 from .equality import *
+from .pairs import *
+from .abstractions import *
 
-__all__ = ["NatType", "nat", "NatLTE", "NatIncr", "NatDecr", "NatAdd", "NatSubtract"]
+__all__ = [
+    "NatType",
+    "nat",
+    "NatLTE",
+    "NatLT",
+    "NatIncr",
+    "NatMultiply",
+    "NatDecr",
+    "NatAdd",
+    "NatSubtract",
+    "NonZeroInt",
+    "NatLoop",
+]
 
+T = typing.TypeVar("T")
 ##
 # Types
 ##
@@ -26,6 +45,19 @@ class Int(Symbol[int], NatType):
     """
 
     pass
+
+
+class NonZeroInt(Int):
+    """
+    Used in replacement so a custom constraint is added
+    """
+
+    pass
+
+
+NonZeroInt.constraint = matchpy.CustomConstraint(  # type: ignore
+    lambda i: i.value() != 0
+)
 
 
 ##
@@ -59,6 +91,19 @@ def _ints_lte(x: Int, y: Int):
 
 
 @operation
+def NatLT(l: NatType, r: NatType) -> BoolType:
+    """
+    l < r
+    """
+    ...
+
+
+@replacement
+def _ints_lt(x: Int, y: Int):
+    return lambda: NatLT(x, y), lambda: bool_(x.value() < y.value())
+
+
+@operation
 def NatIncr(n: NatType) -> NatType:
     ...
 
@@ -89,6 +134,16 @@ def _nat_add(l: Int, r: Int) -> DoubleThunkType[NatType]:
 
 
 @operation
+def NatMultiply(l: NatType, r: NatType) -> NatType:
+    ...
+
+
+@replacement
+def _nat_multiply(l: Int, r: Int) -> DoubleThunkType[NatType]:
+    return lambda: NatMultiply(l, r), lambda: Int(l.value() * r.value())
+
+
+@operation
 def NatSubtract(l: NatType, r: NatType) -> NatType:
     ...
 
@@ -96,3 +151,29 @@ def NatSubtract(l: NatType, r: NatType) -> NatType:
 @replacement
 def _nat_subtract(l: Int, r: Int) -> DoubleThunkType[NatType]:
     return lambda: NatSubtract(l, r), lambda: Int(l.value() - r.value())
+
+
+@operation
+def NatLoop(
+    initial: T, n: NatType, abstraction: PairType[PairType[NatType, T], T]
+) -> T:
+    """
+    v = initial
+    for i in range(n):
+        v = abstraction(i, v)
+    return v
+    """
+    ...
+
+
+@replacement
+def _nat_loop(
+    initial: T, n: Int, abstraction: PairType[PairType[NatType, T], T]
+) -> DoubleThunkType[T]:
+    def replacement():
+        v = initial
+        for i in range(n.value()):
+            v = Apply(abstraction, Pair(nat(i), v))
+        return v
+
+    return lambda: NatLoop(initial, n, abstraction), replacement

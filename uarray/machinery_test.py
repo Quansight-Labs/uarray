@@ -131,6 +131,27 @@ class TestReplacement:
         assert test_replacer.replace(C(E(123))) == E(124)
         assert test_replacer.replace(C(A())) == C(A())
 
+    def test_constraint(self):
+        class E(Symbol[int]):
+            pass
+
+        def constraint(e):
+            return e.value() == 5
+
+        class SpecificE(E):
+            pass
+
+        SpecificE.constraint = matchpy.CustomConstraint(constraint)
+
+        test_replacer = ManyToOneReplacer()
+
+        @test_replacer.replacement
+        def _(e: SpecificE):
+            return lambda: e, lambda: E(20)
+
+        assert test_replacer.replace(E(10)) == E(10)
+        assert test_replacer.replace(E(5)) == E(20)
+
 
 class TestOperationAndReplacment:
     def test_works(self):

@@ -88,17 +88,15 @@ class ManyToOneReplacer(matchpy.ManyToOneReplacer):
             elif is_sequence and not symbol_type:
                 wildcards.append([matchpy.Wildcard.star(p.name)])
             elif not is_sequence and symbol_type:
+                if hasattr(symbol_type, "constraint"):
+                    constraint = symbol_type.constraint  # type: ignore
+                    constraints.append(constraint)
+                    symbol_type = symbol_type.__bases__[0]
                 wildcards.append(matchpy.Wildcard.symbol(p.name, symbol_type))
             else:
                 raise NotImplementedError()
-                # wildcards.append([ws(p.name)])
-                # def custom_constraint(symbols):
-                #     return all(isinstance(s, p.annotation) for s in symbols)
-
-                # constraints.append(matchpy.CustomConstraint(custom_constraint))
             if p.kind != p.POSITIONAL_OR_KEYWORD:
                 raise NotImplementedError(f"Can't infer replacement from paramater {p}")
-
         pattern = fn(*wildcards)[0]()
 
         def replacement_fn(**kwargs):
@@ -202,8 +200,8 @@ def is_symbol_type(t: typing.Any) -> typing.Optional[typing.Type[matchpy.Symbol]
 
 
 class Symbol(matchpy.Symbol, typing.Generic[T]):
-    def __init__(self, name: T):
-        super().__init__(name)
+    def __init__(self, name: T, variable_name=None):
+        super().__init__(name, variable_name=None)
 
     def value(self) -> T:
         return self.name

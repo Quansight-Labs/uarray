@@ -16,7 +16,7 @@ from .vectors_test import assert_vector_is_list, list_of_naturals
 
 def assert_arrays_eql(array: ArrayType, shape: typing.List[int], content):
     array = replace(array)
-    assert_vector_is_list(replace(Exl(array)), shape)  # type: ignore
+    assert_vector_is_list(replace(Exl(array)), list(map(nat, shape)))  # type: ignore
     idx_abs = replace(Exr(array))
     for indxs in itertools.product(*map(range, shape)):
         x = content

@@ -2,7 +2,7 @@ import hypothesis
 import typing
 from ..machinery import replace
 from .vectors import *
-from .naturals import nat
+from .naturals import *
 from .pairs import *
 from .naturals_test import naturals, natural_ints
 from .abstractions import *
@@ -17,10 +17,10 @@ def list_of_naturals(min_size=0, max_size=5):
     )
 
 
-def assert_vector_is_list(v: VecType[T], xs: typing.List[T]):
+def assert_vector_is_list(v: VecType[T], xs: typing.Sequence[T]):
     v = replace(v)
-    assert replace(Exl(vec(*xs))) == nat(len(xs))
-    l = Exr(vec(*xs))
+    assert replace(Exl(v)) == nat(len(xs))
+    l = Exr(v)
     for i, x in enumerate(xs):
         assert replace(Apply(l, nat(i))) == x
 
@@ -37,7 +37,7 @@ def test_vec_first(xs):
 
 @hypothesis.given(list_of_naturals(min_size=1))
 def test_vec_rest(xs):
-    assert_vector_is_list(VecFirst(vec(*xs)), xs[1:])
+    assert_vector_is_list(VecRest(vec(*xs)), xs[1:])
 
 
 @hypothesis.given(naturals(), list_of_naturals())
@@ -72,3 +72,20 @@ def test_vec_drop(i_and_xs):
 def test_vec_take(i_and_xs):
     i, xs = i_and_xs
     assert_vector_is_list(VecTake(nat(i), vec(*xs)), xs[:i])
+
+
+@hypothesis.given(list_of_naturals())
+def test_vec_reverse(xs):
+    assert_vector_is_list(VecReverse(vec(*xs)), xs[::-1])
+
+
+@abstraction
+def nat_add_abstraction(p: PairType[NatType, NatType]):
+    return NatAdd(Exl(p), Exr(p))
+
+
+@hypothesis.given(hypothesis.strategies.lists(elements=natural_ints(), max_size=5))
+def test_vec_reduce(xs):
+    assert replace(VecReduce(nat_add_abstraction, nat(0), vec(*map(nat, xs)))) == nat(
+        sum(xs)
+    )

@@ -32,11 +32,11 @@ def repr_(self):
     return to_repr(self)
 
 
-matchpy.Operation._repr_pretty_ = repr_pretty
-matchpy.Symbol._repr_pretty_ = repr_pretty
+matchpy.Operation._repr_pretty_ = repr_pretty  # type: ignore
+matchpy.Symbol._repr_pretty_ = repr_pretty  # type: ignore
 
-matchpy.Operation.__repr__ = repr_
-matchpy.Symbol.__repr__ = repr_
+matchpy.Operation.__repr__ = repr_  # type: ignore
+matchpy.Symbol.__repr__ = repr_  # type: ignore
 
 
 @to_repr.register(list)
@@ -53,7 +53,7 @@ def to_repr_dict(d):
 
 @to_repr.register(matchpy.Operation)
 def to_repr_op(op: matchpy.Operation):
-    args = list(map(to_repr, op.operands))
+    args = list(map(to_repr, op.operands))  # type: ignore
     if op.variable_name is not None:
         args.append(f"variable_name={to_repr(op.variable_name)}")
     return f"{type(op).__name__}({', '.join(args)})"

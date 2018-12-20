@@ -14,10 +14,12 @@ __all__ = [
     "ArrayType",
     "array_0d",
     "array_1d",
-    "VecToArray",
-    "ArrayToVec",
+    "VecToArray1D",
+    "Array1DToVec",
+    "Array1DToList",
+    "Array0DToInner",
 ]
-T_cov = typing.TypeVar("T_cov")
+T = typing.TypeVar("T")
 
 ##
 # Types
@@ -27,9 +29,9 @@ ShapeType = VecType[NatType]
 
 IdxsType = ListType[NatType]
 # mapping from indices to values
-IdxAbstractionType = PairType[IdxsType, T_cov]
+IdxAbstractionType = PairType[IdxsType, T]
 
-ArrayType = PairType[ShapeType, IdxAbstractionType[T_cov]]
+ArrayType = PairType[ShapeType, IdxAbstractionType[T]]
 
 
 ##
@@ -37,42 +39,58 @@ ArrayType = PairType[ShapeType, IdxAbstractionType[T_cov]]
 ##
 
 
-def array_0d(x: T_cov) -> ArrayType[T_cov]:
+def array_0d(x: T) -> ArrayType[T]:
     """
     Returns a scalar array of `x`.
     """
     return Pair(vec(), const_abstraction(x))
 
 
-def array_1d(*xs: T_cov) -> ArrayType[T_cov]:
+def array_1d(*xs: T) -> ArrayType[T]:
     """
     Returns a vector array of `xs`.
     """
-    return VecToArray(vec(*xs))
+    return VecToArray1D(vec(*xs))
 
 
 @operation_and_replacement
-def VecToArray(v: VecType[T_cov]) -> ArrayType[T_cov]:
+def VecToArray1D(v: VecType[T]) -> ArrayType[T]:
     """
     Returns a 1D array that has contents of the vector.
     """
 
     @abstraction
-    def idx_abstraction(idx: IdxsType) -> T_cov:
+    def idx_abstraction(idx: IdxsType) -> T:
         return Apply(Exr(v), ListFirst(idx))
 
     return Pair(vec(Exl(v)), idx_abstraction)
 
 
 @operation_and_replacement
-def ArrayToVec(a: ArrayType[T_cov]) -> VecType[T_cov]:
+def Array1DToList(a: ArrayType[T]) -> ListType[T]:
     """
     Returns a vector from a 1D array
     """
-    length = VecFirst(Exl(a))
 
     @abstraction
-    def content(vec_idx: NatType) -> T_cov:
+    def content(vec_idx: NatType) -> T:
         return Apply(Exr(a), list_(vec_idx))
 
-    return Pair(length, content)
+    return content
+
+
+@operation_and_replacement
+def Array1DToVec(a: ArrayType[T]) -> VecType[T]:
+    """
+    Returns a vector from a 1D array
+    """
+    return Pair(VecFirst(Exl(a)), Array1DToList(a))
+
+
+@operation_and_replacement
+def Array0DToInner(a: ArrayType[T]) -> T:
+    """
+    Returns a vector from a 1D array
+    """
+    idxs: ListType[NatType] = list_()
+    return Apply(Exr(a), idxs)

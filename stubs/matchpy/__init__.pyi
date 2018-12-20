@@ -6,7 +6,7 @@ class Expression:
     pass
 
 class Symbol(Expression, typing.Generic[T]):
-    def __init__(self, name: T): ...
+    def __init__(self, name: T, variable_name: str = None): ...
     name: T
 
 class Wildcard(Expression):

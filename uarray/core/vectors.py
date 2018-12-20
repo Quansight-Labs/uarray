@@ -17,23 +17,25 @@ __all__ = [
     "VecConcat",
     "VecDrop",
     "VecTake",
+    "VecReverse",
+    "VecReduce",
 ]
 
-T_cov = typing.TypeVar("T_cov")
+T = typing.TypeVar("T")
 
 ##
 # Types
 ##
 
 # length, content
-VecType = PairType[NatType, ListType[T_cov]]
+VecType = PairType[NatType, ListType[T]]
 
 ##
 # Helper constructors
 ##
 
 
-def vec(*xs: T_cov) -> VecType[T_cov]:
+def vec(*xs: T) -> VecType[T]:
     return Pair(nat(len(xs)), list_(*xs))
 
 
@@ -43,7 +45,7 @@ def vec(*xs: T_cov) -> VecType[T_cov]:
 
 
 @operation_and_replacement
-def VecFirst(v: VecType[T_cov]) -> T_cov:
+def VecFirst(v: VecType[T]) -> T:
     """
     v[0]
     """
@@ -51,7 +53,7 @@ def VecFirst(v: VecType[T_cov]) -> T_cov:
 
 
 @operation_and_replacement
-def VecRest(v: VecType[T_cov]) -> VecType[T_cov]:
+def VecRest(v: VecType[T]) -> VecType[T]:
     """
     v[1:]
     """
@@ -59,7 +61,7 @@ def VecRest(v: VecType[T_cov]) -> VecType[T_cov]:
 
 
 @operation_and_replacement
-def VecPush(x: T_cov, v: VecType[T_cov]) -> VecType[T_cov]:
+def VecPush(x: T, v: VecType[T]) -> VecType[T]:
     """
     [x] + v
     """
@@ -67,15 +69,25 @@ def VecPush(x: T_cov, v: VecType[T_cov]) -> VecType[T_cov]:
 
 
 @operation_and_replacement
-def VecConcat(l: VecType[T_cov], r: VecType[T_cov]) -> VecType[T_cov]:
+def VecConcat(l: VecType[T], r: VecType[T]) -> VecType[T]:
     return Pair(NatAdd(Exl(l), Exl(r)), ListConcat(Exl(l), Exr(l), Exr(r)))
 
 
 @operation_and_replacement
-def VecDrop(n: NatType, v: VecType[T_cov]) -> VecType[T_cov]:
+def VecDrop(n: NatType, v: VecType[T]) -> VecType[T]:
     return Pair(NatSubtract(Exl(v), n), ListDrop(n, Exr(v)))
 
 
 @operation_and_replacement
-def VecTake(n: NatType, v: VecType[T_cov]) -> VecType[T_cov]:
+def VecTake(n: NatType, v: VecType[T]) -> VecType[T]:
     return Pair(n, Exr(v))
+
+
+@operation_and_replacement
+def VecReverse(v: VecType[T]) -> VecType[T]:
+    return Pair(Exl(v), ListReverse(Exl(v), Exr(v)))
+
+
+@operation_and_replacement
+def VecReduce(op: PairType[PairType[T, T], T], initial: T, v: VecType[T]) -> T:
+    return ListReduce(op, initial, Exl(v), Exr(v))
