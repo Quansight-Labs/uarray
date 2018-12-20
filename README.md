@@ -1,4 +1,4 @@
-# uarray - Universal Array Interface
+# uarray - Universal Array Interface. This is experimental and very early research code. Don't use this.
 
 [![Join the chat at https://gitter.im/Plures/uarray](https://badges.gitter.im/Plures/uarray.svg)](https://gitter.im/Plures/uarray?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/Quansight-Labs/uarray/master?urlpath=lab/tree/notebooks/NumPy%20Compat.ipynb) [![Build Status](https://dev.azure.com/teoliphant/teoliphant/_apis/build/status/Quansight-Labs.uarray)](https://dev.azure.com/teoliphant/teoliphant/_build/latest?definitionId=1) [![PyPI](https://img.shields.io/pypi/v/uarray.svg?style=flat-square)](https://pypi.org/project/uarray/)
 
@@ -6,6 +6,8 @@
 - [Future Meetings](https://calendar.google.com/calendar/embed?src=quansight.com_cg7sf4usbcn18gdhdb3l2c6v1g%40group.calendar.google.com&ctz=America%2FNew_York)
 - [Meeting Notes](https://github.com/Quansight-Labs/uarray/wiki/Meeting-Notes)
 - [References](https://github.com/Quansight-Labs/uarray/wiki/References)
+- [Papers](https://paperpile.com/shared/fHftX5) 
+
 
 ## Background
 

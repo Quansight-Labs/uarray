@@ -13,10 +13,14 @@ requires = [
     "numpy",
     "astunparse",
     "typing_extensions",
-    "black"
+    "black",
+    "ply"
 ]
 classifiers=[
     "License :: OSI Approved :: BSD License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.7",
 ]
+
+[tool.flit.metadata.requires-extra]
+viz = [ "graphviz" ]
