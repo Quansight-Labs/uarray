@@ -133,6 +133,16 @@ def _nat_add(l: Int, r: Int) -> DoubleThunkType[NatType]:
     return lambda: NatAdd(l, r), lambda: Int(l.value() + r.value())
 
 
+@replacement
+def _nat_add_0_l(x: NatType):
+    return lambda: NatAdd(nat(0), x), lambda: x
+
+
+@replacement
+def _nat_add_0_r(x: NatType):
+    return lambda: NatAdd(x, nat(0)), lambda: x
+
+
 @operation
 def NatMultiply(l: NatType, r: NatType) -> NatType:
     ...
@@ -141,6 +151,16 @@ def NatMultiply(l: NatType, r: NatType) -> NatType:
 @replacement
 def _nat_multiply(l: Int, r: Int) -> DoubleThunkType[NatType]:
     return lambda: NatMultiply(l, r), lambda: Int(l.value() * r.value())
+
+
+@replacement
+def _nat_multiply_0_l(x: NatType):
+    return lambda: NatMultiply(nat(0), x), lambda: nat(0)
+
+
+@replacement
+def _nat_multiply_0_r(x: NatType):
+    return lambda: NatMultiply(x, nat(0)), lambda: nat(0)
 
 
 @operation

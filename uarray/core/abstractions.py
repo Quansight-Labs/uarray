@@ -6,6 +6,8 @@ import matchpy
 
 from ..machinery import *
 from .pairs import *
+from .equality import *
+from .booleans import *
 
 __all__ = ["Apply", "abstraction", "variable", "never_abstraction", "const_abstraction"]
 T = typing.TypeVar("T")
@@ -36,6 +38,16 @@ def Bottom():
 ##
 # Operations
 ##
+
+
+@replacement
+def _bottom_never_equal(x):
+    return lambda: Equal(Bottom(), x), lambda: bool_(False)
+
+
+@replacement
+def _bottom_never_equal_2(x):
+    return lambda: Equal(x, Bottom()), lambda: bool_(False)
 
 
 @operation
