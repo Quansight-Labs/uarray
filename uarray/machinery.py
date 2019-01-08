@@ -1,210 +1,135 @@
-import collections
-import inspect
+#%%
 import typing
+import dataclasses
 
-import matchpy
-
-__all__ = [
-    "DoubleThunkType",
-    "replace",
-    "replace_scan",
-    "operation",
-    "Symbol",
-    "replacement",
-    "operation_and_replacement",
-]
 T = typing.TypeVar("T")
+T_collection = typing.TypeVar("T_collection", bound=typing.Collection)
 
 
-T_callable = typing.TypeVar("T_callable", bound=typing.Callable)
+@dataclasses.dataclass(eq=False)
+class Node(typing.Generic[T_collection]):
+    name: str
+    args: T_collection
 
-DoubleThunkType = typing.Tuple[typing.Callable[[], T], typing.Callable[[], T]]
+    def replace_with(self, node: "Node") -> None:
+        self.name = node.name
+        self.args = node.args  # type: ignore
+
+    def could_equal(self, other_node: "Node") -> bool:
+        return self.name == other_node.name and len(self.args) == len(other_node.args)
 
 
-class _NoMatchesException(RuntimeError):
+ArgNames = typing.Collection[typing.Optional[str]]
+
+
+@dataclasses.dataclass(frozen=True)
+class Replacement:
+    name: str
+    arg_names: ArgNames
+    replace: typing.Callable[..., Node]
+
+
+Replacements = typing.Collection[Replacement]
+
+
+def args_match(args: typing.Collection, arg_names: ArgNames) -> bool:
+    if len(args) != len(arg_names):
+        return False
+    for arg, arg_name in zip(args, arg_names):
+        if arg_name is not None and (not isinstance(arg, Node) or arg.name != arg_name):
+            return False
+    return True
+
+
+class NoReplacementFound(Exception):
     pass
 
 
-class ManyToOneReplacer(matchpy.ManyToOneReplacer):
-    def _first_match(self, expr: matchpy.Expression):
-        for (
-            subexpr,
-            pos,
-        ) in matchpy.expressions.functions.preorder_iter_with_position(  # type: ignore
-            expr
+def find_relevent_replacement(
+    node: Node, replacements: Replacements
+) -> typing.Tuple[Node, Replacement]:
+    for replacement in replacements:
+        if node.name != replacement.name or not args_match(
+            node.args, replacement.arg_names
         ):
+            continue
+        return node, replacement
+    for arg in node.args:
+        if isinstance(arg, Node):
             try:
-                replacement, subst = next(iter(self.matcher.match(subexpr)))
-            except StopIteration:
-                continue
-            return pos, replacement, subst
-        raise _NoMatchesException()
+                return find_relevent_replacement(arg, replacements)
+            except NoReplacementFound:
+                pass
+    raise NoReplacementFound
 
-    def _replace_once(self, expr: matchpy.Expression) -> matchpy.Expression:
-        pos, replacement, subst = self._first_match(expr)
+
+def replace(node: Node, replacements: Replacements):
+    while True:
         try:
-            result = replacement(**subst)
-        except TypeError as e:
-            # TODO: set custom traceback with line number
-            # https://docs.python.org/3/library/traceback.html
-            # https://docs.python.org/3/library/inspect.html#inspect.getsource
-            raise TypeError(
-                f"Couldn't call {inspect.getsourcelines(replacement)} when matching {repr(e)}"
-            ) from e
-        try:
-            return matchpy.functions.replace(expr, pos, result)  # type: ignore
-        except ValueError as e:
-            raise ValueError(
-                f"Failed to replace using {repr(replacement)} giving {repr(result)}"
-            ) from e
-
-    def replace_scan(
-        self, expr: matchpy.Expression
-    ) -> typing.Iterator[matchpy.Expression]:
-        while True:
-            yield expr
-            try:
-                expr = self._replace_once(expr)
-            except _NoMatchesException:
-                return
-
-    def replacement(self, fn: typing.Callable[..., DoubleThunkType[T]]) -> None:
-        """
-        Uses a function to register a replacement rule. The function should take
-        in all "holes" that we want to match on and return two lambdas. The first is the
-        expression to match against. The second is the value it should be replaced with.
-        """
-        sig = inspect.signature(fn)
-
-        wildcards: typing.List[
-            typing.Union[matchpy.Wildcard, typing.Sequence[matchpy.Wildcard]]
-        ] = []
-        constraints: typing.List[matchpy.Constraint] = []
-        for p in sig.parameters.values():
-            is_sequence = is_sequence_type(p.annotation)
-            symbol_type = is_symbol_type(p.annotation)
-            if not is_sequence and not symbol_type:
-                wildcards.append(matchpy.Wildcard.dot(p.name))
-            elif is_sequence and not symbol_type:
-                wildcards.append([matchpy.Wildcard.star(p.name)])
-            elif not is_sequence and symbol_type:
-                if hasattr(symbol_type, "constraint"):
-                    constraint = symbol_type.constraint  # type: ignore
-                    constraints.append(constraint)
-                    symbol_type = symbol_type.__bases__[0]
-                wildcards.append(matchpy.Wildcard.symbol(p.name, symbol_type))
-            else:
-                raise NotImplementedError()
-            if p.kind != p.POSITIONAL_OR_KEYWORD:
-                raise NotImplementedError(f"Can't infer replacement from paramater {p}")
-        pattern = fn(*wildcards)[0]()
-
-        def replacement_fn(**kwargs):
-            return fn(**kwargs)[1]()
-
-        self.add(
-            matchpy.ReplacementRule(
-                matchpy.Pattern(pattern, *constraints), replacement_fn
-            )
-        )
-
-    def operation_and_replacement(self, fn: T_callable) -> T_callable:
-        op = operation(fn)
-        self.add(
-            matchpy.ReplacementRule(
-                matchpy.Pattern(op(matchpy.Wildcard.star("args"))),
-                lambda args: fn(*args),
-            )
-        )
-        return op
+            replace_node, replacement = find_relevent_replacement(node, replacements)
+        except NoReplacementFound:
+            return
+        new_node = replacement.replace(*replace_node.args)  # type: ignore
+        replace_node.replace_with(new_node)
+        yield replace_node, replacement
 
 
-replacer = ManyToOneReplacer()
-replace = replacer.replace
-replace_scan = replacer.replace_scan
-replacement = replacer.replacement
-operation_and_replacement = replacer.operation_and_replacement
+# def replace_variables(
+#     root: Node, replacements: typing.Dict[VariableNode, Node]
+# ) -> None:
+#     """
+#     Replaces all instances of variable in root with the replacement node
+#     """
+#     for variable, node in replacements.items():
+#         if variable is node:
+#             root.replace_with(variable)
+#             return
+#     for arg in root.args:
+#         # don't replace on primitive edges
+#         if isinstance(arg, Node):
+#             replace_variables(arg, replacements)
 
 
-class Arg(typing.NamedTuple):
-    name: str
-    is_star: bool
+# class ReplacementPattern(typing.NamedTuple):
+#     """
+#     Holds a replacement pattern.
+#     """
+
+#     pattern: Node
+#     replacement: Node
+#     variables: typing.Set[VariableNode]
 
 
-def _analyze_args(params: typing.Sequence[inspect.Parameter]) -> typing.Iterable[Arg]:
-    for p in params:
-        # *xs
-        if p.kind == p.VAR_POSITIONAL:
-            is_star = True
-        # x
-        elif p.kind == p.POSITIONAL_OR_KEYWORD:
-            is_star = False
-        else:
-            raise NotImplementedError(f"Can't infer operation from paramater {p}")
-        yield Arg(p.name, is_star)
+# class CannotMatchError(Exception):
+#     def __init__(self, root, pattern):
+#         self.root = root
+#         self.pattern = pattern
 
 
-def _arity_from_args(args: typing.Iterable[Arg]) -> matchpy.Arity:
-    return matchpy.Arity(
-        len([None for a in args if not a.is_star]),
-        not any(map(lambda a: a.is_star, args)),
-    )
+# def match_variables(
+#     root: Node, pattern: Node, variables: typing.Set[VariableNode]
+# ) -> typing.Dict[VariableNode, Node]:
+#     """
+#     Returns a mapping of variables to the values at them, if it matches.
+
+#     Otherwise raises CannotMatchError.
+#     """
+#     # first we check whether the pattern is a variable. If so
+#     for variable in variables:
+#         if pattern is variable:
+#             return {variable: root}
+#     if not root.could_equal(pattern):
+#         raise CannotMatchError(root, pattern)
+#     mapping = {}
+#     for new_root, new_pattern in zip(root.args, pattern.args):
+#         if isinstance(new_root, Node) and isinstance(new_pattern, Node):
+#             mapping.update(match_variables(new_root, new_pattern, variables))
+#         # if one of them is a primitive type, then the other should be as well and they should be equal
+#         elif new_root != new_pattern:
+#             raise CannotMatchError(new_root, new_pattern)
+#     return mapping
 
 
-def operation(fn: T_callable) -> T_callable:
-    """
-    Register a matchpy operation for a function.
-
-    The function should have a fixed number of args and one return.
-
-    This can also be done manually, by typing the result of `matchpy.Operation.new`
-    as a callable, but this is more fluent.
-
-    Manual way is like this:
-
-        Sequence: t.Callable[[CContent, CGetItem], ArrayType] = mp.Operation.new(
-            "Sequence", mp.Arity.binary
-        )
-    """
-
-    args = list(_analyze_args(list(inspect.signature(fn).parameters.values())))
-    op = matchpy.Operation.new(fn.__name__, _arity_from_args(args))
-    op.args = args  # type: ignore
-    return typing.cast(T_callable, op)
-
-
-def is_sequence_type(t: typing.Any) -> bool:
-    """
-    Returns whether the type, extracted from function signature, is a `typing.Sequence`
-    subtype.
-
-    This is hacky, would appreciate better way if found!
-
-    https://stackoverflow.com/a/50103907/907060
-    """
-    try:
-        return t.__origin__ is collections.abc.Sequence
-    except AttributeError:
-        return False
-
-
-def is_symbol_type(t: typing.Any) -> typing.Optional[typing.Type[matchpy.Symbol]]:
-    """
-    Returns the symbol type extracted from the type signature, if it is one.
-    """
-    if isinstance(t, typing._GenericAlias):  # type: ignore
-        t = t.__origin__
-    if not isinstance(t, type) or not issubclass(t, matchpy.Symbol):
-        return None
-    return t
-
-
-class Symbol(matchpy.Symbol, typing.Generic[T]):
-    def __init__(self, name: T, variable_name=None):
-        super().__init__(name, variable_name=None)
-
-    def value(self) -> T:
-        return self.name
-
-    def __str__(self):
-        return str(self.name)
+# def trigger_replacement(root: Node, pattern: ReplacementPattern) -> Node:
+#     variables = match_variables(root, pattern.pattern, pattern.variables)
+#     return replace_variables(pattern.replacement, variables)
