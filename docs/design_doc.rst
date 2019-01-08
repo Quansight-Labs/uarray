@@ -85,12 +85,10 @@ So we end up with a two stage process:
 Each ``Node`` has a ``name`` (string) and a sequence of ``args``. Each
 arg is either a ``Node`` or any other Python value.
 
-To define how the graph executes, we register replacements for the
-nodes. For each replacement, we define the ``name`` it operates on a
-replacement function that should return a new node given the old node.
-If it returns ``NotImplemented``, we look for other replacements to
-call. The replacements are ordered so those that are registered later
-and called first.
+To execute a graph, we also need a compilation context. This is a mapping
+from node names to functions which return a replacement node or
+`NotImplemented`.
+If they return a node, that node is replaced, otherwise it is kept as is.
 
 To execute, we keep applying them, anywhere they match in the graph,
 until they all return ``NotImplemented``.
@@ -99,7 +97,7 @@ For example, let's say we have a a graph like this:
 
 .. code:: python
 
-    Node('add_int', [Node('int', [1]), Node('int', [2])])
+    initial = Node('add_int', [Node('int', [1]), Node('int', [2])])
 
 And we would like to evaluate it by adding the integers, to a graph that
 looks like this:
@@ -108,10 +106,9 @@ looks like this:
 
     Node('int', [3])
 
-We would register a replacement like this:
+We would define a compilation context like this:
 
 .. code:: python
-
 
     def replace(node):
         if len(node.args) != 2 \
@@ -120,16 +117,112 @@ We would register a replacement like this:
             return NotImplemented
         return Node('int', [node.args[0].args[0] + node.args[1].args[1]])
 
-    register_replacement(
-        'add_int',
-        replace
-    )
+    context = {
+        "add_int": replace
+    }
 
-When we apply a ``Replacement`` to a graph, we mutate the graph to
-contain the result of the replacement. Because we update the nodes in
-place, if one node is updated that has two different parents, each will
-see the new node as a child without having to keep track of all parent
-nodes.
+
+Then we could compile the expression using that context:
+
+.. code:: python
+
+    >>> compile(context, initial)
+    Node('int', [3])
+
+
+Creating Compilation Contexts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Often we would like to define multiple functions in different places
+that each cover a different case of replacing a node. We can create
+a new function that combines these two by introducing a ``ChainCallable``
+structure (inspired by ``collections.ChainMap``), that could look like this:
+
+
+.. code:: python
+
+    class ChainCallable:
+        def __init__(self, *callables):
+            self.callables = callables
+
+        def __call__(self, *args, **kwargs):
+            for callable in self.callables:
+                res = callable(*args, **kwargs)
+                if res != NotImplemented:
+                    return res
+            return NotImplemented
+
+
+So with this we could create two versions of `add_int`, depending one which adds python integers
+and the other which creates a Python AST node based on two existing ast nodes that does addition:
+
+
+.. code:: python
+
+
+    context = collections.defaultdict(ChainCallable)
+
+    @context['add_int'].callables.append
+    def replace(node):
+        if len(node.args) != 2 \
+                or node.args[0].name != 'int' \
+                or node.args[1].name != 'int':
+            return NotImplemented
+        return Node('int', [node.args[0].args[0] + node.args[1].args[1]])
+
+
+    @context['add_int'].callables.append
+    def replace_python_ast(node):
+        if len(node.args) != 2 \
+                or node.args[0].name != 'python_ast' \
+                or node.args[1].name != 'python_ast':
+            return NotImplemented
+        return Node('python_ast', [ast.Add(node.args[0].args[0], node.args[1].args[1])])
+
+
+These two replacement also share a common point in that they both only execute if the args are a
+certain type. We can generalize this by creating a ``NodeWithArgs`` class:
+
+.. code:: python
+
+
+    class NodeWithArgs:
+        def __init__(self, arg_names, replacement):
+            self.arg_name == arg_names
+            self.replacement == replacement
+
+        def __call__(self, node):
+            args = node.args
+            if len(args) != self.arg_names:
+                return NotImplemented
+            for actual_arg_name, required_arg_name in zip(args, self.arg_names):
+                if required_arg_name is None:
+                    continue
+                if actual_arg_name != required_arg_name"
+                    return NotImplemented
+            return self.replacement(node)
+
+Then we can rewrite the above with:
+
+
+.. code:: python
+
+
+    context = collections.defaultdict(ChainCallable)
+
+    def replace(node):
+        return Node('int', [node.args[0].args[0] + node.args[1].args[1]])
+
+    context['add_int'].callables.append(NodeWithArgs(['int', 'int']), replace)
+
+
+    def replace_python_ast(node):
+        return Node('python_ast', [ast.AddNode(node.args[0].args[0], node.args[1].args[1])])
+
+    context['add_int'].callables.append(NodeWithArgs(['python_ast', 'python_ast']), replace)
+
+
+Different modules will also likely want to have their own context and then the user can compose those contexts
+(we can introduce a new class here).´
 
 Lambda Calculus
 ~~~~~~~~~~~~~~~
@@ -162,7 +255,7 @@ this:
         # recursively apply to child args that are Nodes themselves, don't apply to literal args
         return Node(body.name, [Node('apply', [abstraction, arg]) if isinstance(arg, Node) else arg for arg in body.args])
 
-    register_replacement('apply', replace)
+    context = {'apply': replace}
 
 Core Replacements
 ~~~~~~~~~~~~~~~~~
