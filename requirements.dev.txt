@@ -9,3 +9,5 @@ altair
 pandas
 pypandoc
 pandoc
+sphinx
+
