@@ -1,6 +1,65 @@
 #%%
 import typing
 import dataclasses
+import typing_extensions
+import collections.abc
+
+T = typing.TypeVar("T")
+
+T_partial = typing.TypeVar("T_partial", bound=NotImplemented, covariant=True)
+
+T_partial_callable = typing.TypeVar(
+    "T_partial_callable", bound=typing.Callable[..., NotImplemented]
+)
+
+
+class ChainCallable:
+    """
+    Like ChainMap but for callables. Combines a bunch of functions
+    into one function, where each are tried in order on the arguments
+    until one returns something other than `NotImplemented`.
+    """
+
+    def __init__(self, *callables):
+        self.callables = callables
+
+    def __call__(self, *args, **kwargs):
+        for callable in self.callables:
+            res = callable(*args, **kwargs)
+            if res is not NotImplemented:
+                return res
+        return NotImplemented
+
+
+class ChainCallableMap(collections.abc.Mapping):
+    def __init__(self, *callable_maps):
+        self.callable_maps = callable_maps
+
+    def __getitem__(self, key):
+        return ChainCallable(
+            *(callable_map[key] for callable_map in self.callable_maps)
+        )
+
+    def __len(self):
+        s = set()
+        for callable_map in self.callable_maps:
+            s.update(callable_map.keys())
+        return len(s)
+
+    def __iter__(self):
+        s = set()
+        for callable_map in self.callable_maps:
+            s.update(callable_map.keys())
+        return iter(s)
+
+
+Replacement = typing.Callable[[Node], typing.Union[Node, NotImplemented]]
+ReplacmentMapping = typing.Mapping[str, Replacement]
+
+
+class CompilationStrategy:
+    mapping: typing.Mapping[str, Replacement]
+
 
 T = typing.TypeVar("T")
 T_collection = typing.TypeVar("T_collection", bound=typing.Collection)
