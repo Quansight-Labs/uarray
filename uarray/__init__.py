@@ -1,9 +1,13 @@
 """Universal array library"""
+
 # from . import ast_higher  # NOQA
 
+from .dispatch import *  # NOQA
+
 from .core import *  # NOQA
-from .moa import *  # NOQA
-from .machinery import *  # NOQA
+
+# from .moa import *  # NOQA
+# from .machinery import *  # NOQA
 
 # from .logging import enable_logging
 

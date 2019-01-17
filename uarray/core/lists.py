@@ -1,130 +1,142 @@
 import typing
+import typing_extensions
+import abc
+import dataclasses
 
-from ..machinery import *
+from ..dispatch import *
 from .naturals import *
 from .abstractions import *
-from .equality import *
-from .booleans import *
-from .pairs import *
-
-__all__ = [
-    "ListType",
-    "list_",
-    "ListFirst",
-    "ListRest",
-    "ListPush",
-    "ListConcat",
-    "ListDrop",
-    "ListReverse",
-    "ListReduce",
-]
 
 T = typing.TypeVar("T")
-U = typing.TypeVar("U")
 V = typing.TypeVar("V")
-
-##
-# Types
-##
-
-# Lists are mappings from integers to values
-ListType = PairType[NatType, T]
-
-##
-# Helper constructors
-##
+T_list = typing.TypeVar("T_list", bound="ListProtocol")
+T_nat = typing.TypeVar("T_nat", bound=NatProtocol)
 
 
-def list_(*xs: T) -> ListType[T]:
-    v = never_abstraction
-    for x in xs[::-1]:
-        v = ListPush(x, v)
-    return v
+class ListProtocol(typing_extensions.Protocol[T]):
+    @abc.abstractmethod
+    @classmethod
+    def create(cls, *items: T) -> "ListProtocol[T]":
+        ...
+
+    @abc.abstractmethod
+    def __getitem__(self, index: T_nat) -> T:
+        ...
+
+    # TODO: Refactor many of these to __getitem__ slices
+
+    @abc.abstractmethod
+    def first(self) -> T:
+        """
+        x[0]
+        """
+        ...
+
+    @abc.abstractmethod
+    def rest(self) -> "ListProtocol[T]":
+        """
+        x[1:]
+        """
+        ...
+
+    @abc.abstractmethod
+    def push(self, item: T) -> "ListProtocol[T]":
+        ...
+
+    @abc.abstractmethod
+    def concat(self: T_list, other: T_list) -> "ListProtocol[T]":
+        ...
+
+    @abc.abstractmethod
+    def drop(self, n: NatProtocol) -> "ListProtocol[T]":
+        """
+        x[:-n]
+        """
+        ...
+
+    @abc.abstractmethod
+    def take(self, n: NatProtocol) -> "ListProtocol[T]":
+        """
+        x[:n]
+        """
+        ...
+
+    @abc.abstractmethod
+    def reverse(self) -> "ListProtocol[T]":
+        """
+        x[::-1]
+        """
+        ...
+
+    def reduce(
+        self,
+        length: NatProtocol,
+        initial: V,
+        op: AbstractionProtocol[V, AbstractionProtocol[T, V]],
+    ) -> V:
+        @Abstraction.create_bin
+        def loop_op(v: V, idx: NatProtocol) -> V:
+            return op(v)(self[idx])
+
+        return length.loop(initial, loop_op)
 
 
-##
-# Operations
-##
+@dataclasses.dataclass
+class List(ListProtocol[T]):
+    value: typing.Sequence[T]
 
+    @classmethod
+    def create(cls, *items: T) -> "ListProtocol[T]":
+        return cls(items)
 
-@operation_and_replacement
-def ListFirst(l: ListType[T]) -> T:
-    """
-    v[0]
-    """
-    return Apply(l, nat(0))
+    def __getitem__(self, index: Nat) -> T:
+        return self.value[index.value]
 
+    # TODO: Refactor many of these to __getitem__ slices
 
-@operation_and_replacement
-def ListRest(l: ListType[T]) -> ListType[T]:
-    """
-    v[1:]
-    """
+    def first(self) -> T:
+        """
+        x[0]
+        """
+        ...
 
-    def new_list(idx: NatType) -> T:
-        return Apply(l, NatIncr(idx))
+    def rest(self) -> "ListProtocol[T]":
+        """
+        x[1:]
+        """
+        ...
 
-    return abstraction(new_list)
+    def push(self, item: T) -> "ListProtocol[T]":
+        ...
 
+    def concat(self: T_list, other: T_list) -> "ListProtocol[T]":
+        ...
 
-@operation_and_replacement
-def ListPush(x: T, l: ListType[T]) -> ListType[T]:
-    """
-    [x] + v
-    """
+    def drop(self, n: NatProtocol) -> "ListProtocol[T]":
+        """
+        x[:-n]
+        """
+        ...
 
-    def new_list(idx: NatType) -> T:
-        return If(Equal(idx, nat(0)), x, Apply(l, NatDecr(idx)))
+    def take(self, n: NatProtocol) -> "ListProtocol[T]":
+        """
+        x[:n]
+        """
+        ...
 
-    return abstraction(new_list)
+    def reverse(self) -> "ListProtocol[T]":
+        """
+        x[::-1]
+        """
+        ...
 
+    def reduce(
+        self,
+        length: NatProtocol,
+        initial: V,
+        op: AbstractionProtocol[V, AbstractionProtocol[T, V]],
+    ) -> V:
+        def loop_op(v: V, idx: NatProtocol) -> V:
+            return op(v)(self[idx])
 
-@operation_and_replacement
-def ListConcat(l_length: NatType, l: ListType[T], r: ListType[T]) -> ListType[T]:
-    """
-    l + r
-    """
-
-    def new_list(idx: NatType) -> T:
-        return If(
-            NatLT(idx, l_length), Apply(l, idx), Apply(r, (NatSubtract(idx, l_length)))
-        )
-
-    return abstraction(new_list)
-
-
-@operation_and_replacement
-def ListDrop(n: NatType, l: ListType[T]) -> ListType[T]:
-    """
-    l[n:]
-    """
-
-    def new_list(idx: NatType) -> T:
-        return Apply(l, NatAdd(idx, n))
-
-    return abstraction(new_list)
-
-
-@operation_and_replacement
-def ListReverse(n: NatType, l: ListType[T]) -> ListType[T]:
-    """
-    l[::-1]
-    """
-
-    def new_list(idx: NatType) -> T:
-        return Apply(l, NatDecr(NatSubtract(n, idx)))
-
-    return abstraction(new_list)
-
-
-@operation_and_replacement
-def ListReduce(
-    op: PairType[PairType[T, T], T], initial: T, length: NatType, l: ListType[T]
-) -> T:
-    @abstraction
-    def loop_abstraction(index_val_pair):
-        idx = Exl(index_val_pair)
-        val = Exr(index_val_pair)
-        return Apply(op, Pair(Apply(l, idx), val))
-
-    return NatLoop(initial, length, loop_abstraction)
+        return length.loop(initial, Abstraction.create(loop_op))

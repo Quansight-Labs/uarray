@@ -1,75 +1,67 @@
 import typing
 
-from ..machinery import *
+from .context import *
+
+from ..dispatch import *
+
+__all__ = ["Bool"]
+
 
 T = typing.TypeVar("T")
+T_cov = typing.TypeVar("T_cov", covariant=True)
 
-__all__ = ["BoolType", "bool_", "symbols_equal", "If"]
-
-
-##
-# Types
-##
+T_box = typing.TypeVar("T_box", bound=Box)
+T_bool = typing.TypeVar("T_bool", bound="Bool")
+T_wrapper = typing.TypeVar("T_wrapper", bound=Wrapper)
 
 
-class BoolType:
-    """
-    Boolean
-    """
+class Bool(Wrapper):
+    def if_(self, if_true: T_wrapper, if_false: T_wrapper) -> T_wrapper:
+        return type(if_true)(Box(Operation(Bool.if_, [self, if_true, if_false])))
 
-    pass
+    def and_(self: T_bool, other: T_bool) -> "Bool":
+        return Bool(Box(Operation(Bool.and_, [self, other])))
 
+    def or_(self: T_bool, other: T_bool) -> "Bool":
+        return Bool(Box(Operation(Bool.or_, [self, other])))
 
-##
-# Constructors
-##
+    def not_(self: T_bool) -> "Bool":
+        return Bool(Box(Operation(Bool.not_, [self])))
 
-
-@operation
-def TrueBool() -> BoolType:
-    ...
-
-
-@operation
-def FalseBool() -> BoolType:
-    ...
+    def equal(self: T_bool, other: T_bool) -> "Bool":
+        return Bool(Box(Operation(Bool.equal, [self, other])))
 
 
-##
-# Helper constructors
-##
+@register(ctx, Bool.if_)
+def if_(self: Bool, if_true: T_wrapper, if_false: T_wrapper) -> T_wrapper:
+    if isinstance(self.value.value, bool):
+        return if_true if self.value else if_false
+    return NotImplemented
 
 
-def bool_(x: bool) -> BoolType:
-    if x:
-        return TrueBool()
-    return FalseBool()
+@register(ctx, Bool.not_)
+def not_(self: Bool) -> Bool:
+    if isinstance(self.value.value, bool):
+        return Bool(Box(not self.value.value))
+    return NotImplemented
 
 
-def symbols_equal(x: Symbol[T], y: Symbol[T]) -> BoolType:
-    return bool_(x.value() == y.value())
+@register(ctx, Bool.and_)
+def and_(self: Bool, other: Bool) -> Bool:
+    if isinstance(self.value.value, bool) and isinstance(other.value.value, bool):
+        return Bool(Box(self.value.value and other.value.value))
+    return NotImplemented
 
 
-##
-# Operations
-##
+@register(ctx, Bool.or_)
+def or_(self: Bool, other: Bool) -> Bool:
+    if isinstance(self.value.value, bool) and isinstance(other.value.value, bool):
+        return Bool(Box(self.value.value or other.value.value))
+    return NotImplemented
 
 
-@operation
-def If(cond: BoolType, is_true: T, is_false: T) -> T:
-    """
-    if cond:
-        return is_zero
-    return isnt_zero
-    """
-    ...
-
-
-@replacement
-def _if_is_true(is_true: T, is_false: T) -> DoubleThunkType[T]:
-    return lambda: If(TrueBool(), is_true, is_false), lambda: is_true
-
-
-@replacement
-def _if_is_false(is_true: T, is_false: T) -> DoubleThunkType[T]:
-    return lambda: If(FalseBool(), is_true, is_false), lambda: is_false
+@register(ctx, Bool.equal)
+def equal(self: Bool, other: Bool) -> Bool:
+    if isinstance(self.value.value, bool) and isinstance(other.value.value, bool):
+        return Bool(Box(self.value.value == other.value.value))
+    return NotImplemented
