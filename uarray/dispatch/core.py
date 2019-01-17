@@ -4,6 +4,7 @@ import contextvars
 import dataclasses
 import functools
 import typing
+import copy
 
 __all__ = [
     "Operation",
@@ -18,8 +19,6 @@ __all__ = [
     "key",
     "ChildrenType",
     "replace",
-    "replace_once",
-    "replace_generator",
     "ChainCallable",
     "MapChainCallable",
     "ChainCallableMap",
@@ -178,31 +177,38 @@ global_context: contextvars.ContextVar[ContextType] = contextvars.ContextVar(
 )
 
 
-def replace(box: Box) -> None:
-    while replace_once(box) is not None:
+def replace_inplace(box: Box) -> None:
+    while replace_inplace_once(box) is not None:
         pass
 
 
-def replace_generator(box: Box) -> typing.Iterator[Box]:
+def replace(box: Box) -> Box:
+    box = copy.deepcopy(box)
+    while replace_inplace_once(box) is not None:
+        box = copy.deepcopy(box)
+    return box
+
+
+def replace_inplace_generator(box: Box) -> typing.Iterator[Box]:
     """
     Keeps calling replacemnts on the node, or it's children, until no more match.
 
     Returns a sequence of the boxes that are mutated during each replacement.
     """
     while True:
-        replaced_box = replace_once(box)
+        replaced_box = replace_inplace_once(box)
         if replaced_box is None:
             return
         yield replaced_box
 
 
-def replace_once(box: Box) -> typing.Optional[Box]:
+def replace_inplace_once(box: Box) -> typing.Optional[Box]:
     """
     Tries to replace the box and it's children,
     returning the box that was replaced or None if no replacement could be matched.
     """
     for child in children(box.value):
-        replaced_child = replace_once(child)
+        replaced_child = replace_inplace_once(child)
         if replaced_child:
             return replaced_child
 

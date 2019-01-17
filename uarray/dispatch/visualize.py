@@ -1,17 +1,7 @@
-import itertools
 import functools
 from .core import *
 
-try:
-    import graphviz
-except ImportError as e:
-    graphviz = None
-
-
-# graphviz.Digraph()
-
-# if graphviz is None:
-#     raise ImportError("The graphviz package is required to draw expressions")
+import graphviz
 
 
 @functools.singledispatch
@@ -26,12 +16,17 @@ def _box_desc(box: Box):
 
 @description.register
 def _operation_desc(op: Operation):
-    return str(key(op))
+    return description(key(op))
+
+
+@description.register(type(lambda: None))
+def _operation_func(op):
+    return op.__qualname__
 
 
 @description.register
 def _wrapper_desc(w: Wrapper):
-    return type(w).__name__
+    return type(w).__qualname__
 
 
 @functools.singledispatch
@@ -41,7 +36,17 @@ def id_(expr) -> str:
 
 @functools.singledispatch
 def attributes(expr):
-    return dict(color="black", fillcolor="white", fontcolor="black")
+    return {"shape": "plaintext"}
+
+
+@attributes.register
+def attributes_box(expr: Box):
+    return {"shape": "box"}
+
+
+@attributes.register
+def attributes_wrapper(expr: Wrapper):
+    return {"shape": "egg"}
 
 
 @functools.singledispatch
@@ -63,30 +68,18 @@ def visualize(expr, dot: graphviz.Digraph) -> str:
         dot.edge(expr_id, child_id)
     return expr_id
 
-    # default_node_attr = dict(color="black", fillcolor="white", fontcolor="black")
 
-    # def _label_node(dot, expr):
-    #     unique_id = str(next(counter))
-    #     shape = "oval"
-    #     node_description = type(expr).__name__
-    #     if isinstance(expr, matchpy.Symbol):
-    #         node_description = str(expr.value())
-    #     if expr.variable_name:
-    #         shape = "box"
-    #         node_description = expr.variable_name
+try:
+    svg_formatter = get_ipython().display_formatter.formatters["image/svg+xml"]
+except Exception:
+    pass
+else:
 
-    #     if with_attrs:
-    #         dot.attr("node", shape=shape, **default_node_attr)
-    #     dot.node(unique_id, node_description)
-    #     return unique_id
+    def svg(expr):
+        d = graphviz.Digraph()
+        visualize(expr, d)
+        return d._repr_svg_()
 
-    # def _visualize_node(dot, expr):
-    #     expr_id = _label_node(dot, expr)
-    #     if not isinstance(expr, matchpy.Symbol):
-    #         for sub_expr in expr:
-    #             sub_expr_id = _visualize_node(dot, sub_expr)
-    #             dot.edge(expr_id, sub_expr_id)
-    #     return expr_id
-
-    # _visualize_node(dot, expr)
-    # return dot
+    svg_formatter.for_type(Box, svg)
+    svg_formatter.for_type(Wrapper, svg)
+    svg_formatter.for_type(Operation, svg)
