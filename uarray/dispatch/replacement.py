@@ -11,8 +11,8 @@ T_call = typing.TypeVar("T_call", bound=typing.Callable)
 
 def register(
     context: MutableContextType, target: T_call
-) -> typing.Callable[[T_call], None]:
-    def inner(fn: T_call, context=context) -> None:
+) -> typing.Callable[[T_call], T_call]:
+    def inner(fn: T_call, context=context) -> T_call:
         def replacement(op: Box) -> Box:
             args = children(op.value)
             try:
@@ -22,6 +22,7 @@ def register(
             return resulting_box
 
         context[target] = replacement
+        return fn
 
     return inner
 
