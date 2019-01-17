@@ -1,4 +1,5 @@
 import functools
+import typing
 from .core import *
 
 import graphviz
@@ -11,7 +12,7 @@ def description(expr):
 
 @description.register
 def _box_desc(box: Box):
-    return "Box"
+    return type(box).__qualname__
 
 
 @description.register
@@ -21,6 +22,11 @@ def _operation_desc(op: Operation):
 
 @description.register(type(lambda: None))
 def _operation_func(op):
+    return op.__qualname__
+
+
+@description.register
+def description_type(op: type):
     return op.__qualname__
 
 
@@ -49,12 +55,15 @@ def _box_children(box: Box):
     return [box.value]
 
 
-def visualize(expr, dot: graphviz.Digraph) -> str:
+def visualize(expr, dot: graphviz.Digraph, seen: typing.Set[str]) -> str:
     expr_id = id_(expr)
+    if expr_id in seen:
+        return expr_id
+    seen.add(expr_id)
     dot.attr("node", **attributes(expr))
     dot.node(expr_id, description(expr))
     for child in children_nodes(expr):
-        child_id = visualize(child, dot)
+        child_id = visualize(child, dot, seen)
         dot.edge(expr_id, child_id)
     return expr_id
 
@@ -67,7 +76,7 @@ else:
 
     def svg(expr):
         d = graphviz.Digraph()
-        visualize(expr, d)
+        visualize(expr, d, set())
         return d._repr_svg_()
 
     svg_formatter.for_type(Box, svg)

@@ -29,28 +29,26 @@ class Abstraction(Box[AbstractionOperation[U_box]], typing.Generic[T_box, U_box]
 
     @classmethod
     def create(
-        cls,
-        fn: typing.Callable[[T_box], U_box],
-        wrap_var: typing.Callable[[VariableType], T_box],
+        cls, fn: typing.Callable[[T_box], U_box], arg_type: typing.Type[T_box]
     ) -> "Abstraction[T_box, U_box]":
-        variable = Box(None)
-        return cls(Operation(Abstraction, (variable, fn(wrap_var(variable)))))
+        variable: T_box = arg_type(None)
+        return cls(Operation(Abstraction, (variable, fn(variable))))
 
     @classmethod
     def const(cls, value: T_box) -> "Abstraction[Box[object], T_box]":
-        return cls.create(lambda _: value, lambda var: type(value)(var))
+        return cls.create(lambda _: value, type(value))
 
     @classmethod
-    def identity(cls, wrapper_type: typing.Type[T_box]) -> "Abstraction[T_box, T_box]":
-        return cls.create(lambda v: v, lambda var: wrapper_type(var))
+    def identity(cls, arg_type: typing.Type[T_box]) -> "Abstraction[T_box, T_box]":
+        return cls.create(lambda v: v, arg_type)
 
 
 @register(ctx, Abstraction.__call__)
 def apply_abstraction(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
     # copy so that we can replace without replacing original abstraction
     variable, body = copy.deepcopy(self.value.args)
-    variable.value = arg
-    return body.value
+    variable.value = arg.value
+    return body
 
 
 # def variable():
