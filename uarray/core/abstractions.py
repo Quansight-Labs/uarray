@@ -14,10 +14,11 @@ U_box = typing.TypeVar("U_box", bound=Box)
 V_box = typing.TypeVar("V_box", bound=Box)
 W_box = typing.TypeVar("W_box", bound=Box)
 X_box = typing.TypeVar("X_box", bound=Box)
-T_box_cov = typing.TypeVar("T_box_cov", bound=Box, covariant=True)
-T_box_contra = typing.TypeVar("T_box_contra", bound=Box, contravariant=True)
 
+T_box_cov = typing.TypeVar("T_box_cov", bound=Box, covariant=True)
 U_box_cov = typing.TypeVar("U_box_cov", bound=Box, covariant=True)
+
+T_box_contra = typing.TypeVar("T_box_contra", bound=Box, contravariant=True)
 U_box_contra = typing.TypeVar("U_box_contra", bound=Box, contravariant=True)
 
 
@@ -79,4 +80,4 @@ class Abstraction(
         self.compose(other)(v) == self(other(v))
         """
         other_variable, other_body = other.value.args
-        return Abstraction(other_variable, self(other_body))
+        return Abstraction(Operation(Abstraction, (other_variable, self(other_body))))

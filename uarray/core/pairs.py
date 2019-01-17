@@ -1,51 +1,24 @@
-from ..machinery import *
-import typing
+# import typing
 
-__all__ = ["Pair", "PairType", "Exl", "Exr"]
-T = typing.TypeVar("T")
-U = typing.TypeVar("U")
+# from ..dispatch import *
+# from .context import *
 
 
-##
-# Types
-##
+# T_box = typing.TypeVar("T_box", bound=Box)
+# U_box = typing.TypeVar("U_box", bound=Box)
+# T_box_cov = typing.TypeVar("T_box_cov", bound=Box, covariant=True)
+# U_box_cov = typing.TypeVar("U_box_cov", bound=Box, covariant=True)
 
 
-class PairType(typing.Generic[T, U]):
+# class Pair(Box, typing.Generic[T_box_cov, U_box_cov]):
+#     @classmethod
+#     def create(cls, left: T_box, right: U_box) -> "Pair[T_box, U_box]":
+#         return cls(Operation(Pair, (left, right)))
 
-    pass
+#     @property
+#     def left(self) -> "T_box_cov":
+#         return cls(Operation(Pair.left, (self,)))
 
-
-##
-# Constructors
-##
-
-
-@operation
-def Pair(l: T, r: U) -> PairType[T, U]:
-    ...
-
-
-##
-# Operations
-##
-
-
-@operation
-def Exl(p: PairType[T, U]) -> T:
-    ...
-
-
-@replacement
-def _replace_exl(l: T, r: U) -> DoubleThunkType[T]:
-    return lambda: Exl(Pair(l, r)), lambda: l
-
-
-@operation
-def Exr(p: PairType[T, U]) -> U:
-    ...
-
-
-@replacement
-def _replace_exr(l: T, r: U) -> DoubleThunkType[U]:
-    return lambda: Exr(Pair(l, r)), lambda: r
+#     @property
+#     def right(self) -> "U_box_cov":
+#         return cls(Operation(Pair.right, (self,)))
