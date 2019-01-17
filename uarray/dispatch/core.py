@@ -52,7 +52,7 @@ def tuple_children(op: tuple) -> tuple:
     return op
 
 
-KeyType = typing.Any
+KeyType = object
 
 
 @functools.singledispatch
@@ -65,7 +65,7 @@ T_args = typing.TypeVar("T_args", bound=ChildrenType)
 
 @dataclasses.dataclass(frozen=True)
 class Operation(typing.Generic[T_args]):
-    name: typing.Any
+    name: object
     args: T_args
 
 
@@ -75,8 +75,11 @@ def operation_children(op: Operation[T_args]) -> T_args:
 
 
 @key.register
-def operation_key(op: Operation) -> str:
+def operation_key(op: Operation) -> object:
     return op.name
+
+
+T_wrapper = typing.TypeVar("T_wrapper", bound="Wrapper")
 
 
 @dataclasses.dataclass(frozen=True)
