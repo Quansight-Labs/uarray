@@ -47,11 +47,6 @@ def children(node) -> ChildrenType:
     return ()
 
 
-@children.register
-def tuple_children(op: tuple) -> tuple:
-    return op
-
-
 KeyType = object
 
 

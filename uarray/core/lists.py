@@ -7,19 +7,17 @@ from .abstractions import *
 from .naturals import *
 
 T = typing.TypeVar("T")
-V_box = typing.TypeVar("V_box", bound=Box)
 T_box = typing.TypeVar("T_box", bound=Box)
+V_box = typing.TypeVar("V_box", bound=Box)
 
 
-# Don't make list generic??
-# Do we need anything besides list of naturals?
+__all__ = ["List", "ListContents", "ListType"]
 
 
 class ListType(Box[typing.Type[T_box]], typing.Generic[T_box]):
     pass
 
 
-# TODO: Change list contents to contains ListContentsOperation
 class ListContents(Box):
     @classmethod
     def create(cls, *args: Box) -> "ListContents":
@@ -133,11 +131,6 @@ class List(Box[ListOperation[T_box]], typing.Generic[T_box]):
         op: Abstraction[V_box, Abstraction[T_box, V_box]],
     ) -> V_box:
         return type(initial)(Operation(List.reduce, (self, length, initial, op)))
-        # @Abstraction.create_bin
-        # def loop_op(v: V, idx: Nat) -> V:
-        #     return op(v)(self[idx])
-
-        # return length.loop(initial, loop_op)
 
 
 @register(ctx, List.__getitem__)
