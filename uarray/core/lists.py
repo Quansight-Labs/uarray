@@ -140,6 +140,14 @@ class List(Box[ListOperation[T_box]], typing.Generic[T_box]):
         # return length.loop(initial, loop_op)
 
 
+@register(ctx, List.__getitem__)
+def __getitem__(self: List[T_box], index: Nat) -> T_box:
+    if not self._contents._concrete or not index._concrete:
+        return NotImplemented
+
+    return self._contents._args[index.value]
+
+
 @register(ctx, ListContents.rest)
 def rest(self: ListContents) -> ListContents:
     if not self._concrete:
