@@ -1,15 +1,12 @@
 import typing
 
-from .context import *
-
 from ..dispatch import *
+from .context import *
 
 __all__ = ["Bool"]
 
 
 T = typing.TypeVar("T")
-T_cov = typing.TypeVar("T_cov", covariant=True)
-
 T_box = typing.TypeVar("T_box", bound=Box)
 
 

@@ -15,6 +15,7 @@ __all__ = [
     "MutableContextType",
     "KeyType",
     "children",
+    "replace_generator",
     "key",
     "ChildrenType",
     "replace",
@@ -176,6 +177,16 @@ def replace(box: Box) -> Box:
     while replace_inplace_once(box) is not None:
         box = copy.deepcopy(box)
     return box
+
+
+def replace_generator(box: Box) -> typing.Iterator[typing.Tuple[Box, Box]]:
+    box = copy.deepcopy(box)
+    while True:
+        replaced_box = replace_inplace_once(box)
+        if replaced_box is None:
+            return
+        yield replaced_box, box
+        box = copy.deepcopy(box)
 
 
 def replace_inplace_generator(box: Box) -> typing.Iterator[Box]:

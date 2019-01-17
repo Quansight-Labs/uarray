@@ -1,142 +1,153 @@
 import typing
-import typing_extensions
-import abc
-import dataclasses
 
 from ..dispatch import *
+from .context import *
 from .booleans import *
 from .abstractions import *
 
-__all__ = ["NatProtocol", "Nat"]
+__all__ = ["Nat"]
 
 T = typing.TypeVar("T")
-T_nat = typing.TypeVar("T_nat", bound="NatProtocol")
-ctx = MapChainCallable()
+T_box = typing.TypeVar("T_box", bound=Box)
 
 
-class NatProtocol(typing_extensions.Protocol):
-    @classmethod
-    @abc.abstractmethod
-    def create(cls, value: int) -> NatProtocol:
-        ...
+class Nat(Box):
+    def lte(self, other: "Nat") -> Bool:
+        op = Operation(Nat.lte, (self, other))
+        return Bool(op)
 
-    @abc.abstractmethod
-    def lte(self: T_nat, other: T_nat) -> BoolProtocol:
-        ...
+    def lt(self, other: "Nat") -> Bool:
+        op = Operation(Nat.lt, (self, other))
+        return Bool(op)
 
-    @abc.abstractmethod
-    def lt(self: T_nat, other: T_nat) -> BoolProtocol:
-        ...
+    def __add__(self, other: "Nat") -> "Nat":
+        op = Operation(Nat.__add__, (self, other))
+        return Nat(op)
 
-    @abc.abstractmethod
-    def __add__(self: T_nat, other: T_nat) -> "NatProtocol":
-        ...
+    def __mul__(self, other: "Nat") -> "Nat":
+        op = Operation(Nat.__mul__, (self, other))
+        return Nat(op)
 
-    @abc.abstractmethod
-    def __mul__(self: T_nat, other: T_nat) -> "NatProtocol":
-        ...
+    def __sub__(self, other: "Nat") -> "Nat":
+        op = Operation(Nat.__sub__, (self, other))
+        return Nat(op)
 
-    @abc.abstractmethod
-    def __sub__(self: T_nat, other: T_nat) -> "NatProtocol":
-        ...
+    def __floordiv__(self, other: "Nat") -> "Nat":
+        op = Operation(Nat.__floordiv__, (self, other))
+        return Nat(op)
 
-    @abc.abstractmethod
-    def __floordiv__(self: T_nat, other: T_nat) -> "NatProtocol":
-        ...
+    def __mod__(self, other: "Nat") -> "Nat":
+        op = Operation(Nat.__mod__, (self, other))
+        return Nat(op)
 
-    @abc.abstractmethod
-    def __mod__(self: T_nat, other: T_nat) -> "NatProtocol":
-        ...
+    def equal(self, other: "Nat") -> "Bool":
+        op = Operation(Nat.equal, (self, other))
+        return Bool(op)
 
-    @abc.abstractmethod
-    def equal(self: T_nat, other: T_nat) -> BoolProtocol:
-        ...
-
-    @abc.abstractmethod
     def loop(
-        self,
-        initial: T,
-        op: AbstractionProtocol[T, AbstractionProtocol["NatProtocol", T]],
-    ) -> T:
+        self, initial: T_box, fn: Abstraction[T_box, Abstraction["Nat", T_box]]
+    ) -> T_box:
         """
         v = initial
         for i in range(n):
             v = op(v)(i)
         return v
         """
-        ...
+        op = Operation(Nat.loop, (self, initial, fn))
+        return type(initial)(op)
 
 
-x: typing.Callable = NatProtocol.__add__
-# xt = type(x)
+@register(ctx, Nat.equal)
+def equal(self: Nat, other: Nat) -> Bool:
+    if isinstance(self.value, int) and isinstance(other.value, int):
+        return Bool(self.value == other.value)
+    return NotImplemented
 
 
-@dataclasses.dataclass
-class Nat(NatProtocol):
-    value: int
+@register(ctx, Nat.lte)
+def lte(self: Nat, other: Nat) -> Bool:
+    if isinstance(self.value, int) and isinstance(other.value, int):
+        return Bool(self.value <= other.value)
+    return NotImplemented
 
-    @classmethod
-    def create(cls, value: int) -> Nat:
-        return cls(value)
 
-    def equal(self, other: Nat) -> BoolProtocol:
-        return Bool.create(self.value == other.value)
+@register(ctx, Nat.lt)
+def lt(self: Nat, other: Nat) -> Bool:
+    if isinstance(self.value, int) and isinstance(other.value, int):
+        return Bool(self.value < other.value)
+    return NotImplemented
 
-    def lte(self, other: Nat) -> BoolProtocol:
-        return Bool.create(self.value <= other.value)
 
-    def lt(self, other: Nat) -> BoolProtocol:
-        return Bool.create(self.value < other.value)
+@register(ctx, Nat.__add__)
+def __add__(self: Nat, other: Nat) -> Nat:
+    if isinstance(self.value, int) and isinstance(other.value, int):
+        return Nat(self.value + other.value)
+    return NotImplemented
 
-    def __add__(self, other: Nat) -> "NatProtocol":
-        return Nat.create(self.value + other.value)
 
-    def __mul__(self, other: Nat) -> "NatProtocol":
-        return Nat.create(self.value * other.value)
+@register(ctx, Nat.__mul__)
+def __mul__(self: Nat, other: Nat) -> Nat:
+    if isinstance(self.value, int) and isinstance(other.value, int):
+        return Nat(self.value * other.value)
+    return NotImplemented
 
-    def __sub__(self, other: Nat) -> "NatProtocol":
-        return Nat.create(self.value - other.value)
 
-    def __floordiv__(self, other: Nat) -> "NatProtocol":
-        return Nat.create(self.value // other.value)
+@register(ctx, Nat.__sub__)
+def __sub__(self: Nat, other: Nat) -> Nat:
+    if isinstance(self.value, int) and isinstance(other.value, int):
+        return Nat(self.value - other.value)
+    return NotImplemented
 
-    def __mod__(self, other: Nat) -> "NatProtocol":
-        return Nat.create(self.value % other.value)
 
-    def loop(
-        self,
-        initial: T,
-        op: AbstractionProtocol[T, AbstractionProtocol["NatProtocol", T]],
-    ) -> T:
+@register(ctx, Nat.__floordiv__)
+def __floordiv__(self: Nat, other: Nat) -> Nat:
+    if isinstance(self.value, int) and isinstance(other.value, int):
+        return Nat(self.value // other.value)
+    return NotImplemented
+
+
+@register(ctx, Nat.__mod__)
+def __mod__(self: Nat, other: Nat) -> Nat:
+    if isinstance(self.value, int) and isinstance(other.value, int):
+        return Nat(self.value % other.value)
+    return NotImplemented
+
+
+@register(ctx, Nat.loop)
+def loop(
+    self, initial: T_box, fn: Abstraction[T_box, Abstraction["Nat", T_box]]
+) -> T_box:
+    if isinstance(self.value, int):
         v = initial
         for i in range(self.value):
-            v = op(v)(Nat.create(i))
+            v = fn(v)(Nat(i))
         return v
-
-
-@register(ctx, NatProtocol.__add__)
-def add_0_left(left: NatProtocol, right: NatProtocol) -> NatProtocol:
-    if isinstance(left, Nat) and left.value == 0:
-        return right
     return NotImplemented
 
 
-@register(ctx, NatProtocol.__add__)
-def add_0_right(left: NatProtocol, right: NatProtocol) -> NatProtocol:
-    if isinstance(right, Nat) and right.value == 0:
-        return left
+@register(ctx, Nat.__add__)
+def __add__0_left(self: Nat, other: Nat) -> Nat:
+    if self.value == 0:
+        return other
     return NotImplemented
 
 
-@register(ctx, NatProtocol.__mul__)
-def mul_0_left(left: NatProtocol, right: NatProtocol) -> NatProtocol:
-    if isinstance(left, Nat) and left.value == 0:
-        return right
+@register(ctx, Nat.__add__)
+def __add__0_right(self: Nat, other: Nat) -> Nat:
+    if other.value == 0:
+        return self
     return NotImplemented
 
 
-@register(ctx, NatProtocol.__mul__)
-def mul_0_right(left: NatProtocol, right: NatProtocol) -> NatProtocol:
-    if isinstance(right, Nat) and right.value == 0:
-        return left
+@register(ctx, Nat.__add__)
+def __mul__0_left(self: Nat, other: Nat) -> Nat:
+    if self.value == 0:
+        return self
+    return NotImplemented
+
+
+@register(ctx, Nat.__add__)
+def __mul__0_right(self: Nat, other: Nat) -> Nat:
+    if other.value == 0:
+        return other
     return NotImplemented

@@ -11,10 +11,13 @@ __all__ = ["Abstraction"]
 
 T_box = typing.TypeVar("T_box", bound=Box)
 U_box = typing.TypeVar("U_box", bound=Box)
+V_box = typing.TypeVar("V_box", bound=Box)
 VariableType = Box[object]
 
 
 AbstractionOperation = Operation[typing.Tuple[VariableType, T_box]]
+
+BinaryAbstraction = "Abstraction[T_box, Abstraction[U_box, V_box]]"
 
 
 class Abstraction(Box[AbstractionOperation[U_box]], typing.Generic[T_box, U_box]):
@@ -33,6 +36,17 @@ class Abstraction(Box[AbstractionOperation[U_box]], typing.Generic[T_box, U_box]
     ) -> "Abstraction[T_box, U_box]":
         variable: T_box = arg_type(None)
         return cls(Operation(Abstraction, (variable, fn(variable))))
+
+    @classmethod
+    def create_bin(
+        cls,
+        fn: typing.Callable[[T_box, U_box], V_box],
+        arg1_type: typing.Type[T_box],
+        arg2_type: typing.Type[U_box],
+    ) -> "Abstraction[T_box, Abstraction[U_box, V_box]]":
+        return cls.create(
+            lambda arg1: cls.create(lambda arg2: fn(arg1, arg2), arg2_type), arg1_type
+        )
 
     @classmethod
     def const(cls, value: T_box) -> "Abstraction[Box[object], T_box]":

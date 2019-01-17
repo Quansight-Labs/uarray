@@ -17,7 +17,18 @@ def _box_desc(box: Box):
 
 @description.register
 def _operation_desc(op: Operation):
-    return description(key(op))
+    name = description(key(op))
+    n_ports = len(children(op))
+    return f"""<
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+        <TR>
+            <TD COLSPAN="{n_ports}">{name}</TD>
+        </TR>
+        <TR>
+        {' '.join(f'<TD PORT="{i}"></TD>' for i in range(n_ports))}
+        </TR>
+        </TABLE>
+    >"""
 
 
 @description.register(type(lambda: None))
@@ -30,19 +41,34 @@ def description_type(op: type):
     return op.__qualname__
 
 
+_id = 0
+
+
 @functools.singledispatch
 def id_(expr) -> str:
-    return str(id(expr))
+    global _id
+    _id += 1
+    return str(_id)
+
+
+@id_.register
+def id_box(b: Box):
+    return str(id(b))
+
+
+@id_.register
+def id_operation(b: Operation):
+    return str(id(b))
 
 
 @functools.singledispatch
 def attributes(expr):
-    return {"shape": "plaintext"}
+    return {"shape": "plaintext", "style": ""}
 
 
 @attributes.register
 def attributes_box(expr: Box):
-    return {"shape": "box"}
+    return {"shape": "box", "style": "filled"}
 
 
 @functools.singledispatch
@@ -62,9 +88,9 @@ def visualize(expr, dot: graphviz.Digraph, seen: typing.Set[str]) -> str:
     seen.add(expr_id)
     dot.attr("node", **attributes(expr))
     dot.node(expr_id, description(expr))
-    for child in children_nodes(expr):
+    for i, child in enumerate(children_nodes(expr)):
         child_id = visualize(child, dot, seen)
-        dot.edge(expr_id, child_id)
+        dot.edge(f"{expr_id}:{i}", child_id)
     return expr_id
 
 
