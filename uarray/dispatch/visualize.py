@@ -24,11 +24,6 @@ def _operation_func(op):
     return op.__qualname__
 
 
-@description.register
-def _wrapper_desc(w: Wrapper):
-    return type(w).__qualname__
-
-
 @functools.singledispatch
 def id_(expr) -> str:
     return str(id(expr))
@@ -42,11 +37,6 @@ def attributes(expr):
 @attributes.register
 def attributes_box(expr: Box):
     return {"shape": "box"}
-
-
-@attributes.register
-def attributes_wrapper(expr: Wrapper):
-    return {"shape": "egg"}
 
 
 @functools.singledispatch
@@ -81,5 +71,3 @@ else:
         return d._repr_svg_()
 
     svg_formatter.for_type(Box, svg)
-    svg_formatter.for_type(Wrapper, svg)
-    svg_formatter.for_type(Operation, svg)

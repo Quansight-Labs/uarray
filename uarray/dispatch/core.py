@@ -9,7 +9,6 @@ import copy
 __all__ = [
     "Operation",
     "Box",
-    "Wrapper",
     "global_context",
     "ReplacementType",
     "ContextType",
@@ -36,7 +35,7 @@ class Box(typing.Generic[T_cov]):
     value: T_cov
 
 
-ReplacementType = typing.Callable[[object], object]
+ReplacementType = typing.Callable[[Box], Box]
 
 
 ChildrenType = typing.Sequence[Box]
@@ -79,19 +78,6 @@ def operation_key(op: Operation) -> object:
     return op.name
 
 
-T_wrapper = typing.TypeVar("T_wrapper", bound="Wrapper")
-
-
-@dataclasses.dataclass(frozen=True)
-class Wrapper(typing.Generic[T]):
-    value: Box[T]
-
-
-@children.register(Wrapper)
-def wrapper_children(w: Wrapper[T]) -> typing.List[Box[T]]:
-    return [w.value]
-
-
 ContextType = typing.Mapping[KeyType, ReplacementType]
 MutableContextType = typing.MutableMapping[KeyType, ReplacementType]
 
@@ -106,7 +92,7 @@ class ChainCallable:
     def __init__(self, *callables: ReplacementType):
         self.callables = list(callables)
 
-    def __call__(self, arg: object) -> object:
+    def __call__(self, arg: Box) -> Box:
         for callable in self.callables:
             res = callable(arg)
             if res is not NotImplemented:
@@ -223,11 +209,11 @@ def replace_inplace_once(box: Box) -> typing.Optional[Box]:
         return None
 
     # computes the new node and copies it over
-    new_value = replacement(box.value)
+    new_box = replacement(box)
 
-    if new_value == NotImplemented:
+    if new_box == NotImplemented:
         return None
 
-    box.value = new_value
+    box.value = new_box.value
 
     return box

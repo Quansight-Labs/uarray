@@ -6,20 +6,20 @@ from .core import *
 
 __all__ = ["register"]
 
+T_call = typing.TypeVar("T_call", bound=typing.Callable)
+
 
 def register(
-    context: MutableContextType, target: typing.Callable
-) -> typing.Callable[[typing.Callable], None]:
-    def inner(fn: typing.Callable, context=context) -> None:
-        def replacement(op: object) -> object:
-            args = children(op)
+    context: MutableContextType, target: T_call
+) -> typing.Callable[[T_call], None]:
+    def inner(fn: T_call, context=context) -> None:
+        def replacement(op: Box) -> Box:
+            args = children(op.value)
             try:
-                resulting_wrapping = fn(*args)
+                resulting_box = fn(*args)
             except Exception:
                 raise Exception(f"Trying to replace {op} by calling {fn} with {args}")
-            if resulting_wrapping == NotImplemented:
-                return NotImplemented
-            return resulting_wrapping.value.value
+            return resulting_box
 
         context[target] = replacement
 

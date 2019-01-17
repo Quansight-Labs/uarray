@@ -1,7 +1,6 @@
 """
 Lambda calculus
 """
-import dataclasses
 import typing
 import copy
 
@@ -10,64 +9,48 @@ from .context import *
 
 __all__ = ["Abstraction"]
 
-T_wrapper = typing.TypeVar("T_wrapper", bound=Wrapper)
-U_wrapper = typing.TypeVar("U_wrapper", bound=Wrapper)
-VariableType = Box[typing.Any]
+T_box = typing.TypeVar("T_box", bound=Box)
+U_box = typing.TypeVar("U_box", bound=Box)
+VariableType = Box[object]
 
 
-@dataclasses.dataclass
-class AbstractionOperation(typing.Generic[T_wrapper]):
-    variable: VariableType
-    body: Box[T_wrapper]
+AbstractionOperation = Operation[typing.Tuple[VariableType, T_box]]
 
 
-@children.register(AbstractionOperation)
-def abstraction_op_children(
-    aop: AbstractionOperation[T_wrapper]
-) -> typing.Tuple[VariableType, Box[T_wrapper]]:
-    return (aop.variable, aop.body)
-
-
-class Abstraction(
-    Wrapper[AbstractionOperation[U_wrapper]], typing.Generic[T_wrapper, U_wrapper]
-):
+class Abstraction(Box[AbstractionOperation[U_box]], typing.Generic[T_box, U_box]):
     """
-    Abstraction from type T_wrapper to type U_wrapper.
+    Abstraction from type T_box to type U_box.
     """
 
-    def __call__(self, arg: T_wrapper) -> U_wrapper:
-        return type(self.value.value.body.value)(
-            Box(Operation(Abstraction.__call__, [self, arg]))
-        )
+    def __call__(self, arg: T_box) -> U_box:
+        variable, body = self.value.args
+        op = Operation(Abstraction.__call__, (self, arg))
+        return type(body)(op)
 
     @classmethod
     def create(
         cls,
-        fn: typing.Callable[[T_wrapper], U_wrapper],
-        wrap_var: typing.Callable[[VariableType], T_wrapper],
-    ) -> "Abstraction[T_wrapper, U_wrapper]":
+        fn: typing.Callable[[T_box], U_box],
+        wrap_var: typing.Callable[[VariableType], T_box],
+    ) -> "Abstraction[T_box, U_box]":
         variable = Box(None)
-        return cls(Box(AbstractionOperation(variable, Box(fn(wrap_var(variable))))))
+        return cls(Operation(Abstraction, (variable, fn(wrap_var(variable)))))
 
     @classmethod
-    def const(cls, value: T_wrapper) -> "Abstraction[Wrapper[typing.Any], T_wrapper]":
+    def const(cls, value: T_box) -> "Abstraction[Box[object], T_box]":
         return cls.create(lambda _: value, lambda var: type(value)(var))
 
     @classmethod
-    def identity(
-        cls, wrapper_type: typing.Type[T_wrapper]
-    ) -> "Abstraction[T_wrapper, T_wrapper]":
+    def identity(cls, wrapper_type: typing.Type[T_box]) -> "Abstraction[T_box, T_box]":
         return cls.create(lambda v: v, lambda var: wrapper_type(var))
 
 
 @register(ctx, Abstraction.__call__)
-def apply_abstraction(
-    self: Abstraction[T_wrapper, U_wrapper], arg: T_wrapper
-) -> U_wrapper:
+def apply_abstraction(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
     # copy so that we can replace without replacing original abstraction
-    abstraction_op = copy.deepcopy(self.value.value)
-    abstraction_op.variable.value = arg
-    return abstraction_op.body.value
+    variable, body = copy.deepcopy(self.value.args)
+    variable.value = arg
+    return body.value
 
 
 # def variable():
