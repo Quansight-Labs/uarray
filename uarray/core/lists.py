@@ -1,142 +1,203 @@
 import typing
-import typing_extensions
-import abc
-import dataclasses
 
 from ..dispatch import *
-from .naturals import *
+from .context import *
+from .booleans import *
 from .abstractions import *
+from .naturals import *
 
 T = typing.TypeVar("T")
-V = typing.TypeVar("V")
-T_list = typing.TypeVar("T_list", bound="ListProtocol")
-T_nat = typing.TypeVar("T_nat", bound=NatProtocol)
+V_box = typing.TypeVar("V_box", bound=Box)
+T_box = typing.TypeVar("T_box", bound=Box)
 
 
-class ListProtocol(typing_extensions.Protocol[T]):
-    @abc.abstractmethod
+# Don't make list generic??
+# Do we need anything besides list of naturals?
+
+
+class ListType(Box[typing.Type[T_box]], typing.Generic[T_box]):
+    pass
+
+
+# TODO: Change list contents to contains ListContentsOperation
+class ListContents(Box):
     @classmethod
-    def create(cls, *items: T) -> "ListProtocol[T]":
-        ...
+    def create(cls, *args: Box) -> "ListContents":
+        return cls(Operation(ListContents, args))
 
-    @abc.abstractmethod
-    def __getitem__(self, index: T_nat) -> T:
-        ...
+    @property
+    def _args(self) -> tuple:
+        return self.value.args
+
+    @property
+    def _concrete(self) -> bool:
+        return isinstance(self.value, Operation) and self.value.name == ListContents
+
+    def rest(self) -> "ListContents":
+        return ListContents(Operation(ListContents.rest, (self,)))
+
+    def push(self, item: Box) -> "ListContents":
+        return ListContents(Operation(ListContents.push, (self, item)))
+
+    def concat(self, other: "ListContents") -> "ListContents":
+        return ListContents(Operation(ListContents.concat, (self, other)))
+
+    def drop(self, n: Nat) -> "ListContents":
+        return ListContents(Operation(ListContents.drop, (self, n)))
+
+    def take(self, n: Nat) -> "ListContents":
+        return ListContents(Operation(ListContents.take, (self, n)))
+
+    def reverse(self) -> "ListContents":
+        return ListContents(Operation(ListContents.reverse, (self,)))
+
+
+ListOperation = Operation[typing.Tuple[ListType[T_box], ListContents]]
+
+
+class List(Box[ListOperation[T_box]], typing.Generic[T_box]):
+    """
+    Typed version of ListContents
+    """
+
+    @classmethod
+    def create(
+        cls, arg_type: typing.Type[T_box], contents: ListContents
+    ) -> "List[T_box]":
+        return List(Operation(List, (ListType(arg_type), contents)))
+
+    @classmethod
+    def create_args(cls, arg_type: typing.Type[T_box], *args: T_box) -> "List[T_box]":
+        return cls.create(arg_type, ListContents.create(*args))
+
+    @classmethod
+    def create_infer(cls, arg: T_box, *args: T_box) -> "List[T_box]":
+        return cls.create_args(type(arg), arg, *args)
+
+    @property
+    def _dtype(self) -> typing.Type[T_box]:
+        return self.value.args[0].value
+
+    @property
+    def _contents(self) -> ListContents:
+        return self.value.args[1]
+
+    def _replace_contents(self, new_contents: ListContents) -> "List[T_box]":
+        return List(Operation(List, (self.value.args[0], new_contents)))
+
+    def __getitem__(self, index: Nat) -> T_box:
+        return self._dtype(Operation(List.__getitem__, (self, index)))
 
     # TODO: Refactor many of these to __getitem__ slices
 
-    @abc.abstractmethod
-    def first(self) -> T:
+    def first(self) -> T_box:
         """
         x[0]
         """
-        ...
+        return self._dtype(Operation(List.first, (self,)))
 
-    @abc.abstractmethod
-    def rest(self) -> "ListProtocol[T]":
+    def rest(self) -> "List[T_box]":
         """
         x[1:]
         """
-        ...
+        return self._replace_contents(self._contents.rest())
 
-    @abc.abstractmethod
-    def push(self, item: T) -> "ListProtocol[T]":
-        ...
+    def push(self, item: T_box) -> "List[T_box]":
+        return self._replace_contents(self._contents.push(item))
 
-    @abc.abstractmethod
-    def concat(self: T_list, other: T_list) -> "ListProtocol[T]":
-        ...
+    def concat(self, other: "List[T_box]") -> "List[T_box]":
+        return self._replace_contents(self._contents.concat(other._contents))
 
-    @abc.abstractmethod
-    def drop(self, n: NatProtocol) -> "ListProtocol[T]":
+    def drop(self, n: Nat) -> "List[T_box]":
         """
         x[:-n]
         """
-        ...
+        return self._replace_contents(self._contents.drop(n))
 
-    @abc.abstractmethod
-    def take(self, n: NatProtocol) -> "ListProtocol[T]":
+    def take(self, n: Nat) -> "List[T_box]":
         """
         x[:n]
         """
-        ...
+        return self._replace_contents(self._contents.drop(n))
 
-    @abc.abstractmethod
-    def reverse(self) -> "ListProtocol[T]":
+    def reverse(self) -> "List[T_box]":
         """
         x[::-1]
         """
-        ...
+        return self._replace_contents(self._contents.reverse())
 
     def reduce(
         self,
-        length: NatProtocol,
-        initial: V,
-        op: AbstractionProtocol[V, AbstractionProtocol[T, V]],
-    ) -> V:
-        @Abstraction.create_bin
-        def loop_op(v: V, idx: NatProtocol) -> V:
-            return op(v)(self[idx])
+        length: Nat,
+        initial: V_box,
+        op: Abstraction[V_box, Abstraction[T_box, V_box]],
+    ) -> V_box:
+        return type(initial)(Operation(List.reduce, (self, length, initial, op)))
+        # @Abstraction.create_bin
+        # def loop_op(v: V, idx: Nat) -> V:
+        #     return op(v)(self[idx])
 
-        return length.loop(initial, loop_op)
+        # return length.loop(initial, loop_op)
 
 
-@dataclasses.dataclass
-class List(ListProtocol[T]):
-    value: typing.Sequence[T]
+@register(ctx, ListContents.rest)
+def rest(self: ListContents) -> ListContents:
+    if not self._concrete:
+        return NotImplemented
+    return ListContents.create(*self._args[1:])
 
-    @classmethod
-    def create(cls, *items: T) -> "ListProtocol[T]":
-        return cls(items)
 
-    def __getitem__(self, index: Nat) -> T:
-        return self.value[index.value]
+@register(ctx, ListContents.push)
+def push(self: ListContents, item: Box) -> ListContents:
+    if not self._concrete:
+        return NotImplemented
+    return ListContents.create(item, *self._args)
 
-    # TODO: Refactor many of these to __getitem__ slices
 
-    def first(self) -> T:
-        """
-        x[0]
-        """
-        ...
+@register(ctx, ListContents.concat)
+def concat(self: ListContents, other: ListContents) -> ListContents:
+    if not self._concrete or not other._concrete:
+        return NotImplemented
+    return ListContents.create(*self._args, *other._args)
 
-    def rest(self) -> "ListProtocol[T]":
-        """
-        x[1:]
-        """
-        ...
 
-    def push(self, item: T) -> "ListProtocol[T]":
-        ...
+@register(ctx, ListContents.drop)
+def drop(self: ListContents, n: Nat) -> ListContents:
+    if not self._concrete or not n._concrete:
+        return NotImplemented
+    return ListContents.create(*self._args[: -n.value])
 
-    def concat(self: T_list, other: T_list) -> "ListProtocol[T]":
-        ...
 
-    def drop(self, n: NatProtocol) -> "ListProtocol[T]":
-        """
-        x[:-n]
-        """
-        ...
+@register(ctx, ListContents.take)
+def take(self: ListContents, n: Nat) -> ListContents:
+    if not self._concrete or not n._concrete:
+        return NotImplemented
+    return ListContents.create(*self.value[: n.value])
 
-    def take(self, n: NatProtocol) -> "ListProtocol[T]":
-        """
-        x[:n]
-        """
-        ...
 
-    def reverse(self) -> "ListProtocol[T]":
-        """
-        x[::-1]
-        """
-        ...
+@register(ctx, ListContents.reverse)
+def reverse(self: ListContents) -> ListContents:
+    if not self._concrete:
+        return NotImplemented
+    return ListContents.create(*self.value[::-1])
 
-    def reduce(
-        self,
-        length: NatProtocol,
-        initial: V,
-        op: AbstractionProtocol[V, AbstractionProtocol[T, V]],
-    ) -> V:
-        def loop_op(v: V, idx: NatProtocol) -> V:
-            return op(v)(self[idx])
 
-        return length.loop(initial, Abstraction.create(loop_op))
+@register(ctx, List.first)
+def first(self: List[T_box]) -> T_box:
+    if not self._contents._concrete:
+        return NotImplemented
+    return self._contents._args[0]
+
+
+@register(ctx, List.reduce)
+def reduce(
+    self: List[T_box],
+    length: Nat,
+    initial: V_box,
+    op: Abstraction[V_box, Abstraction[T_box, V_box]],
+) -> V_box:
+    def fn(v: V_box, idx: Nat) -> V_box:
+        return op(v)(self[idx])
+
+    abstraction = Abstraction.create_bin(fn, type(initial), Nat)
+    return length.loop(initial, abstraction)

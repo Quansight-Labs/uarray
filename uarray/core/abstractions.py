@@ -32,20 +32,23 @@ class Abstraction(Box[AbstractionOperation[U_box]], typing.Generic[T_box, U_box]
 
     @classmethod
     def create(
-        cls, fn: typing.Callable[[T_box], U_box], arg_type: typing.Type[T_box]
+        cls,
+        fn: typing.Callable[[T_box], U_box],
+        create_arg: typing.Callable[[object], T_box],
     ) -> "Abstraction[T_box, U_box]":
-        variable: T_box = arg_type(None)
+        variable: T_box = create_arg(None)
         return cls(Operation(Abstraction, (variable, fn(variable))))
 
     @classmethod
     def create_bin(
         cls,
         fn: typing.Callable[[T_box, U_box], V_box],
-        arg1_type: typing.Type[T_box],
-        arg2_type: typing.Type[U_box],
+        create_arg1: typing.Callable[[object], T_box],
+        create_arg2: typing.Callable[[object], U_box],
     ) -> "Abstraction[T_box, Abstraction[U_box, V_box]]":
         return cls.create(
-            lambda arg1: cls.create(lambda arg2: fn(arg1, arg2), arg2_type), arg1_type
+            lambda arg1: cls.create(lambda arg2: fn(arg1, arg2), create_arg2),
+            create_arg1,
         )
 
     @classmethod
@@ -61,110 +64,6 @@ class Abstraction(Box[AbstractionOperation[U_box]], typing.Generic[T_box, U_box]
 def apply_abstraction(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
     # copy so that we can replace without replacing original abstraction
     variable, body = copy.deepcopy(self.value.args)
+    # TODO: need mapping from arg to value to use...
     variable.value = arg.value
     return body
-
-
-# def variable():
-#     return Operation("variable", ())
-
-
-# @dataclasses.dataclass
-# class Bottom:
-#     """
-#     Value that should never be returned by a function.
-#     (for example the getitem function for an empty list should return this type)
-
-#     https://en.wikipedia.org/wiki/Bottom_type
-#     """
-
-#     pass
-
-
-# bottom = Bottom()
-
-
-# @dataclasses.dataclass
-# class Variable:
-#     name: typing.Optional[str] = None
-
-
-# # @dataclasses.dataclass
-# # class Abstraction(typing.Generic[T]):
-# #     variable: Box[Variable]
-# #     body: Box[T]
-
-
-# # @children.register
-# # def _abstraction_children(a: Abstraction):
-# #     return (a.variable, a.body)
-
-
-# # @dataclasses.dataclass
-# # class Apply(typing.Generic[T, V]):
-# #     abstraction: Box[Abstraction[T]]
-# #     arg: Box[V]
-
-
-# # @children.register
-# # def _apply_children(a: Apply):
-# #     return (a.abstraction, a.arg)
-
-
-# # def replace_apply(b: Box[Apply[T, V]]) -> Box[T]:
-# #     apply = b.inside
-
-# #     abstraction = apply.abstraction.inside
-# #     arg = apply.arg.inside
-
-# #     # rewrite inside of variable to be arg
-# #     variable_box: Box = abstraction.variable
-# #     variable_box.inside = arg
-
-# #     # return body, arg has now been replaced
-# #     return abstraction.body
-
-
-# # class Abstrea
-
-
-# class AbstractionProtocol(typing_extensions.Protocol[T, V]):
-#     @classmethod
-#     @abc.abstractmethod
-#     def create(cls, fn: typing.Callable[[T], V]) -> AbstractionProtocol[T, V]:
-#         ...
-
-#     @classmethod
-#     def create_bin(
-#         cls, fn: typing.Callable[[T, U], V]
-#     ) -> AbstractionProtocol[T, AbstractionProtocol[U, V]]:
-#         return cls.create(lambda t: cls.create(lambda u: fn(t, u)))
-
-#     def __call__(self, arg: T) -> V:
-#         ...
-
-
-# @dataclasses.dataclass
-# class Abstraction(AbstractionProtocol[T, V]):
-#     abstraction: Abstraction
-
-#     @classmethod
-#     def create(cls, fn: typing.Callable[[T], V]) -> Abstraction[T, V]:
-#         ...
-#         # variable = Box(Variable())
-#         # abstraction = Abstraction(variable, Box(fn(variable)))
-#         # return AbstractionWrapper(abstraction)
-
-#     @classmethod
-#     def const(cls, val: V) -> Abstraction[typing.Any, V]:
-#         return cls.create(lambda _: val)
-
-#     @classmethod
-#     def bottom(cls) -> Abstraction[typing.Any, typing.Any]:
-#         return cls.create(lambda _: bottom)
-
-#     def __call__(self, arg: T) -> V:
-#         ...
-
-
-# ?        return Box(Apply(self.abstraction, arg))

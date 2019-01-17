@@ -19,6 +19,14 @@ def _box_desc(box: Box):
 def _operation_desc(op: Operation):
     name = description(key(op))
     n_ports = len(children(op))
+    if n_ports == 0:
+        return f"""<
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+        <TR>
+            <TD>{name}</TD>
+        </TR>
+        </TABLE>
+    >"""
     return f"""<
         <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
         <TR>

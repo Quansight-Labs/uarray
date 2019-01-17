@@ -12,6 +12,10 @@ T_box = typing.TypeVar("T_box", bound=Box)
 
 
 class Nat(Box):
+    @property
+    def _concrete(self):
+        return isinstance(self.value, int)
+
     def lte(self, other: "Nat") -> Bool:
         op = Operation(Nat.lte, (self, other))
         return Bool(op)
