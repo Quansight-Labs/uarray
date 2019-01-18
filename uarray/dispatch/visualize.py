@@ -1,9 +1,10 @@
 import functools
 import typing
-from .core import *
 
 import graphviz
 
+from .core import *
+from ..core.abstractions import Variable
 
 __all__ = ["visualize_diff", "visualize_progress"]
 
@@ -69,6 +70,11 @@ def id_box(b: Box):
 
 @id_.register
 def id_operation(b: Operation):
+    return str(id(b))
+
+
+@id_.register
+def id_variable(b: Variable):
     return str(id(b))
 
 

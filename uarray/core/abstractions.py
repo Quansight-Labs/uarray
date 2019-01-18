@@ -26,6 +26,11 @@ U_box_contra = typing.TypeVar("U_box_contra", bound=Box, contravariant=True)
 BinaryAbstraction = "Abstraction[T_box, Abstraction[U_box, V_box]]"
 
 
+@dataclasses.dataclass(eq=False)
+class Variable:
+    pass
+
+
 @dataclasses.dataclass
 class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
     """
@@ -39,12 +44,19 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
     def _concrete(self) -> bool:
         return isinstance(self.value, Operation) and self.value.name == Abstraction
 
+    def __call__(self, arg: T_box_contra) -> T_box_cov:
+        return self.rettype._replace(Operation(Abstraction.__call__, (self, arg)))
+
     @classmethod
     def create(
-        cls, fn: typing.Callable[[T_box], U_box], variable: T_box
+        cls, fn: typing.Callable[[T_box], U_box], arg_type: T_box
     ) -> "Abstraction[T_box, U_box]":
-        body = fn(variable)
-        return cls(Operation(Abstraction, (variable, body)), body._replace(None))
+        var = Variable()
+        arg = arg_type._replace(var)
+        body = fn(arg)
+        return cls(
+            value=Operation(Abstraction, (Box(var), body)), rettype=body._replace()
+        )
 
     @classmethod
     def create_bin(
@@ -59,14 +71,11 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
 
     @classmethod
     def const(cls, value: T_box) -> "Abstraction[Box, T_box]":
-        return cls.create(lambda _: value, value._replace(None))
+        return cls.create(lambda _: value, value._replace(object()))
 
     @classmethod
     def identity(cls, arg: T_box) -> "Abstraction[T_box, T_box]":
         return cls.create(lambda v: v, arg)
-
-    def __call__(self, arg: T_box_contra) -> T_box_cov:
-        return self.rettype._replace(Operation(Abstraction.__call__, (self, arg)))
 
     def compose(
         self, other: "Abstraction[U_box_contra, T_box_contra]"
@@ -85,17 +94,21 @@ def __call__(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
 
 
 @register(ctx, "replace")
-def replace_(variable: T_box, body: U_box, arg: T_box) -> typing.Union[U_box, T_box]:
-    if variable is body:
+def replace_(
+    variable: Box[Variable], body: U_box, arg: T_box
+) -> typing.Union[U_box, T_box]:
+    bodyval = body.value
+    if variable.value is bodyval:
         return arg
-    if not children(body.value):
+    cs = children(bodyval)
+    if not cs:
         return body
     return body._replace(
         dataclasses.replace(
-            body.value,
+            bodyval,
             args=tuple(
                 child._replace(Operation("replace", (variable, child, arg)))
-                for child in body.value.args
+                for child in cs
             ),
         )
     )

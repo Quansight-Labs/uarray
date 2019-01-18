@@ -23,6 +23,7 @@ __all__ = [
     "MapChainCallable",
     "ChainCallableMap",
     "default_context",
+    "replace_inplace",
 ]
 
 T = typing.TypeVar("T")
@@ -36,7 +37,7 @@ T_box = typing.TypeVar("T_box", bound="Box")
 class Box(typing.Generic[T_cov]):
     value: T_cov
 
-    def _replace(self: T_box, value: typing.Any) -> "T_box":
+    def _replace(self: T_box, value: typing.Any = None) -> "T_box":
         return dataclasses.replace(self, value=value)
 
 
