@@ -11,7 +11,7 @@ T = typing.TypeVar("T")
 T_box = typing.TypeVar("T_box", bound=Box)
 
 
-class Nat(Box):
+class Nat(Box[typing.Any]):
     @property
     def _concrete(self):
         return isinstance(self.value, int)
@@ -58,7 +58,7 @@ class Nat(Box):
         return v
         """
         op = Operation(Nat.loop, (self, initial, fn))
-        return type(initial)(op)
+        return initial._replace(op)
 
 
 @register(ctx, Nat.equal)

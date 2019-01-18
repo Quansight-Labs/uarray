@@ -5,6 +5,9 @@ from .core import *
 import graphviz
 
 
+__all__ = ["visualize_diff", "visualize_progress"]
+
+
 @functools.singledispatch
 def description(expr):
     return str(expr)
@@ -102,7 +105,41 @@ def visualize(expr, dot: graphviz.Digraph, seen: typing.Set[str]) -> str:
     return expr_id
 
 
+def visualize_highlight(
+    expr, highlight_expr, dot: graphviz.Digraph, seen: typing.Set[str]
+) -> str:
+    expr_id = id_(expr)
+    if expr_id in seen:
+        return expr_id
+    if expr_id == id_(highlight_expr):
+        with dot.subgraph(name="cluster_0") as dot:
+            ret = visualize(expr, dot, seen)
+            dot.attr(label="replaced")
+            dot.attr(color="red")
+            return ret
+    else:
+        seen.add(expr_id)
+        dot.attr("node", **attributes(expr))
+        dot.node(expr_id, description(expr))
+        for i, child in enumerate(children_nodes(expr)):
+            child_id = visualize_highlight(child, highlight_expr, dot, seen)
+            dot.edge(f"{expr_id}:{i}", child_id)
+        return expr_id
+
+
+def visualize_diff(expr, highlight_expr):
+    d = graphviz.Digraph()
+    visualize_highlight(expr, highlight_expr, d, set())
+    return d
+
+
+def visualize_progress(expr):
+    raise NotImplementedError
+
+
 try:
+    from IPython.display import display
+
     svg_formatter = get_ipython().display_formatter.formatters["image/svg+xml"]
 except Exception:
     pass
@@ -112,5 +149,12 @@ else:
         d = graphviz.Digraph()
         visualize(expr, d, set())
         return d._repr_svg_()
+
+    def visualize_progress(expr):
+        d = graphviz.Digraph()
+        visualize(expr, d, set())
+        display(d)
+        for replaced, n in replace_generator(expr):
+            display(visualize_diff(n, replaced))
 
     svg_formatter.for_type(Box, svg)

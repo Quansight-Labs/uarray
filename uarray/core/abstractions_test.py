@@ -1,44 +1,39 @@
 import hypothesis
-import matchpy
 
-from ..machinery import replace, operation
+from ..dispatch import *
 from .abstractions import *
 
 
 @hypothesis.strategies.defines_strategy
 def expression():
-    return hypothesis.strategies.builds(object).map(matchpy.Symbol)
-
-
-@operation
-def DummyOp(x):
-    ...
-
-
-@operation
-def DummyOpBin(x, y):
-    ...
+    return hypothesis.strategies.builds(object).map(Box)
 
 
 class TestAbstraction:
     @hypothesis.given(expression(), expression())
     def test_apply_itself(self, x, y):
-        assert replace(Apply(abstraction(lambda _: x), y)) == x
+        res = Abstraction.create(lambda _: x, Box(None))(y)
+        assert replace(res) == x
 
     @hypothesis.given(expression())
     def test_apply_arg(self, y):
-        assert replace(Apply(abstraction(lambda x: x), y)) == y
+        assert replace(Abstraction.create(lambda x: x, Box(None))(y)) == y
 
     @hypothesis.given(expression())
     def test_apply_replaces_inner(self, y):
-        assert replace(Apply(abstraction(lambda x: DummyOp(x)), y)) == DummyOp(y)
+        assert replace(
+            Abstraction.create(lambda x: Box(Operation("dummy", (x,))), Box(None))(y)
+        ) == Box(Operation("dummy", (y,)))
 
     @hypothesis.given(expression(), expression())
     def test_applies_only_outer(self, x, y):
         """
         Verifies that variable is different each time
         """
-        abstr = abstraction(
-            lambda arg1: abstraction(lambda arg2: DummyOpBin(arg1, arg2))
+        abstr = Abstraction.create(
+            lambda arg1: Abstraction.create(
+                lambda arg2: Box(Operation("dummy", (arg1, arg2))), Box(None)
+            ),
+            Box(None),
         )
-        assert replace(Apply(Apply(abstr, x), y)) == DummyOpBin(x, y)
+        assert replace(abstr(x)(y)) == Box(Operation("dummy", (x, y)))

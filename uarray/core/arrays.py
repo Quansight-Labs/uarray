@@ -1,4 +1,5 @@
 import typing
+import dataclasses
 
 from ..dispatch import *
 from .context import *
@@ -9,82 +10,100 @@ from .lists import *
 from .vectors import *
 
 
-__all__ = []
+__all__ = ["Array"]
 
 T_box = typing.TypeVar("T_box", bound=Box)
 V_box = typing.TypeVar("V_box", bound=Box)
 
 
-Shape = Vec[Nat]
-Idxs = List[Nat]
-IdxAbstraction = Abstraction[Idxs, T_box]
-ArrayOperation = Operation[typing.Tuple[Shape, IdxAbstraction[T_box]]]
+@dataclasses.dataclass
+class Array(Box[typing.Any], typing.Generic[T_box]):
+    value: typing.Any
+    dtype: T_box
 
+    @property
+    def _concrete(self):
+        return isinstance(self.value, Operation) and self.value.name == Array
 
-class Array(Box[ArrayOperation[T_box]], typing.Generic[T_box]):
+    def get_shape(self) -> Vec[Nat]:
+        return Vec(Operation(Array.get_shape, (self,)), Nat(None))
+
+    def get_idx_abs(self) -> Abstraction[List[Nat], T_box]:
+        return Abstraction(Operation(Array.get_idx_abs, (self,)), self.dtype)
+
     @classmethod
-    def create(cls, shape: Shape, idx_abs: IdxAbstraction[T_box]) -> "Array[T_box]":
-        return cls(Operation(Array, (shape, idx_abs)))
+    def create(
+        cls, shape: Vec[Nat], idx_abs: Abstraction[List[Nat], T_box]
+    ) -> "Array[T_box]":
+        return cls(Operation(Array, (shape, idx_abs)), idx_abs.rettype)
 
     @classmethod
     def create_0d(cls, x: T_box) -> "Array[T_box]":
         """
         Returns a scalar array of `x`.
         """
-        return cls.create(Vec.create_args(Nat), Abstraction.const(x))
+        return cls.create(Vec.create_args(Nat(None)), Abstraction.const(x))
+
+    @classmethod
+    def create_1d(cls, x: T_box, *xs: T_box) -> "Array[T_box]":
+        """
+        Returns a vector array of `xs`.
+        """
+        return cls.from_vec(Vec.create_args(x, *xs))
+
+    @classmethod
+    def create_1d_infer(cls, x: T_box, *xs: T_box) -> "Array[T_box]":
+        """
+        Returns a vector array of `xs`.
+        """
+        return cls.create_1d(x._replace(None), x, *xs)
 
     @classmethod
     def from_vec(cls, vec: Vec[T_box]) -> "Array[T_box]":
-        def idx_fn(idxs: Idxs) -> T_box:
+        def idx_fn(idxs: List[Nat]) -> T_box:
             return vec[idxs.first()]
 
         return Array.create(
-            shape=Vec.create_infer(vec._length),
-            idx_abs=Abstraction.create(
-                idx_fn, lambda v: List.create(Nat, ListContents(v))
-            ),
+            shape=Vec.create_infer(vec.get_length()),
+            idx_abs=Abstraction.create(idx_fn, List(None, Nat(None))),
+        )
+
+    def to_list(self) -> List[T_box]:
+        idx_abs = self.get_idx_abs()
+
+        def fn(value: List[T_box], i: Nat) -> List[T_box]:
+            return value.append(idx_abs(List.create(Nat(None), i)))
+
+        return self.get_shape()[Nat(0)].loop(
+            List.create(self.dtype),
+            Abstraction.create_bin(fn, List(None, self.dtype), Nat(None)),
+        )
+
+    def to_vec(self) -> Vec[T_box]:
+        idx_abs = self.get_idx_abs()
+
+        def fn(value: Vec[T_box], i: Nat) -> Vec[T_box]:
+            return value.append(idx_abs(List.create(Nat(None), i)))
+
+        length = self.get_shape()[Nat(0)]
+        return length.loop(
+            Vec.create(length, List.create(self.dtype)),
+            Abstraction.create_bin(fn, Vec(None, self.dtype), Nat(None)),
         )
 
 
-# def array_1d(*xs: T) -> ArrayType[T]:
-#     """
-#     Returns a vector array of `xs`.
-#     """
-#     return VecToArray1D(vec(*xs))
+@register(ctx, Array.get_shape)
+def get_shape(self: Array[T_box]) -> Vec[Nat]:
+    if not self._concrete:
+        return NotImplemented
+    return self.value.args[0]
 
 
-# @operation_and_replacement
-# def VecToArray1D(v: VecType[T]) -> ArrayType[T]:
-#     """
-#     Returns a 1D array that has contents of the vector.
-#     """
-
-#     @abstraction
-#     def idx_abstraction(idx: IdxsType) -> T:
-#         return Apply(Exr(v), ListFirst(idx))
-
-#     return Pair(vec(Exl(v)), idx_abstraction)
-
-
-# @operation_and_replacement
-# def Array1DToList(a: ArrayType[T]) -> ListType[T]:
-#     """
-#     Returns a vector from a 1D array
-#     """
-
-#     @abstraction
-#     def content(vec_idx: NatType) -> T:
-#         return Apply(Exr(a), list_(vec_idx))
-
-#     return content
-
-
-# @operation_and_replacement
-# def Array1DToVec(a: ArrayType[T]) -> VecType[T]:
-#     """
-#     Returns a vector from a 1D array
-#     """
-#     return Pair(VecFirst(Exl(a)), Array1DToList(a))
+@register(ctx, Array.get_idx_abs)
+def get_idx_abs(self: Array[T_box]) -> Abstraction[List[Nat], T_box]:
+    if not self._concrete:
+        return NotImplemented
+    return self.value.args[1]
 
 
 # @operation_and_replacement

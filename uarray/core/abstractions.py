@@ -2,10 +2,11 @@
 Lambda calculus
 """
 import typing
-import copy
+import dataclasses
 
 from ..dispatch import *
 from .context import *
+from .pairs import *
 
 __all__ = ["Abstraction"]
 
@@ -22,56 +23,50 @@ T_box_contra = typing.TypeVar("T_box_contra", bound=Box, contravariant=True)
 U_box_contra = typing.TypeVar("U_box_contra", bound=Box, contravariant=True)
 
 
-VariableType = Box[object]
-
-
-AbstractionOperation = Operation[typing.Tuple[VariableType, T_box]]
-
 BinaryAbstraction = "Abstraction[T_box, Abstraction[U_box, V_box]]"
 
 
-class Abstraction(
-    Box[AbstractionOperation[T_box_cov]], typing.Generic[T_box_contra, T_box_cov]
-):
+@dataclasses.dataclass
+class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
     """
     Abstraction from type T_box_contra to type T_box_cov.
     """
 
+    value: typing.Any
+    rettype: T_box_cov
+
+    @property
+    def _concrete(self) -> bool:
+        return isinstance(self.value, Operation) and self.value.name == Abstraction
+
     @classmethod
     def create(
-        cls,
-        fn: typing.Callable[[T_box], U_box],
-        create_variable: typing.Callable[[object], T_box],
+        cls, fn: typing.Callable[[T_box], U_box], variable: T_box
     ) -> "Abstraction[T_box, U_box]":
-        variable: T_box = create_variable(None)
-        return cls(Operation(Abstraction, (variable, fn(variable))))
+        body = fn(variable)
+        return cls(Operation(Abstraction, (variable, body)), body._replace(None))
 
     @classmethod
     def create_bin(
         cls,
         fn: typing.Callable[[T_box, U_box], V_box],
-        create_variable_1: typing.Callable[[object], T_box],
-        create_variable_2: typing.Callable[[object], U_box],
+        variable1: T_box,
+        variable2: U_box,
     ) -> "Abstraction[T_box, Abstraction[U_box, V_box]]":
         return cls.create(
-            lambda arg1: cls.create(lambda arg2: fn(arg1, arg2), create_variable_2),
-            create_variable_1,
+            lambda arg1: cls.create(lambda arg2: fn(arg1, arg2), variable2), variable1
         )
 
     @classmethod
     def const(cls, value: T_box) -> "Abstraction[Box, T_box]":
-        return cls.create(lambda _: value, type(value))
+        return cls.create(lambda _: value, value._replace(None))
 
     @classmethod
-    def identity(cls, arg_type: typing.Type[T_box]) -> "Abstraction[T_box, T_box]":
-        return cls.create(lambda v: v, arg_type)
+    def identity(cls, arg: T_box) -> "Abstraction[T_box, T_box]":
+        return cls.create(lambda v: v, arg)
 
     def __call__(self, arg: T_box_contra) -> T_box_cov:
-        # copy so that we can replace without replacing original abstraction
-        variable, body = copy.deepcopy(self.value.args)
-
-        variable.value = arg.value
-        return body
+        return self.rettype._replace(Operation(Abstraction.__call__, (self, arg)))
 
     def compose(
         self, other: "Abstraction[U_box_contra, T_box_contra]"
@@ -79,5 +74,42 @@ class Abstraction(
         """
         self.compose(other)(v) == self(other(v))
         """
-        other_variable, other_body = other.value.args
-        return Abstraction(Operation(Abstraction, (other_variable, self(other_body))))
+        return self._replace(Operation(Abstraction.compose, (self, other)))
+
+
+@register(ctx, Abstraction.__call__)
+def __call__(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
+    if not self._concrete:
+        return NotImplemented
+    return self.rettype._replace(Operation("replace", (*self.value.args, arg)))
+
+
+@register(ctx, "replace")
+def replace_(variable: T_box, body: U_box, arg: T_box) -> typing.Union[U_box, T_box]:
+    if variable is body:
+        return arg
+    if not children(body.value):
+        return body
+    return body._replace(
+        dataclasses.replace(
+            body.value,
+            args=tuple(
+                child._replace(Operation("replace", (variable, child, arg)))
+                for child in body.value.args
+            ),
+        )
+    )
+
+
+@register(ctx, Abstraction.compose)
+def compose(
+    self: Abstraction[T_box_contra, T_box_cov],
+    other: Abstraction[U_box_contra, T_box_contra],
+) -> Abstraction[U_box_contra, T_box_cov]:
+    if not self._concrete or not other._concrete:
+        return NotImplemented
+
+    other_variable, other_body = other.value.args
+    return Abstraction(
+        Operation(Abstraction, (other_variable, self(other_body))), self.rettype
+    )

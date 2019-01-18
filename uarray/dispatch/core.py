@@ -4,11 +4,11 @@ import contextvars
 import dataclasses
 import functools
 import typing
-import copy
 
 __all__ = [
     "Operation",
     "Box",
+    "copy",
     "global_context",
     "ReplacementType",
     "ContextType",
@@ -29,11 +29,15 @@ T = typing.TypeVar("T")
 
 
 T_cov = typing.TypeVar("T_cov", covariant=True)
+T_box = typing.TypeVar("T_box", bound="Box")
 
 
 @dataclasses.dataclass
 class Box(typing.Generic[T_cov]):
     value: T_cov
+
+    def _replace(self: T_box, value: typing.Any) -> "T_box":
+        return dataclasses.replace(self, value=value)
 
 
 ReplacementType = typing.Callable[[Box], Box]
@@ -55,6 +59,20 @@ def key(node: T) -> KeyType:
     return type(node)
 
 
+@functools.singledispatch
+def copy(v: T, already_copied: typing.MutableMapping) -> T:
+    return v
+
+
+@copy.register
+def copy_box(v: Box, already_copied: typing.MutableMapping) -> Box:
+    if id(v) in already_copied:
+        return already_copied[id(v)]
+    new = v._replace(copy(v.value, already_copied))
+    already_copied[id(v)] = new
+    return new
+
+
 T_args = typing.TypeVar("T_args", bound=ChildrenType)
 
 
@@ -72,6 +90,15 @@ def operation_children(op: Operation[T_args]) -> T_args:
 @key.register
 def operation_key(op: Operation) -> object:
     return op.name
+
+
+@copy.register
+def operation_copy(v: Operation, already_copied: typing.MutableMapping) -> Operation:
+    if id(v) in already_copied:
+        return already_copied[id(v)]
+    new = dataclasses.replace(v, args=tuple(copy(a, already_copied) for a in v.args))
+    already_copied[id(v)] = new
+    return new
 
 
 ContextType = typing.Mapping[KeyType, ReplacementType]
@@ -167,21 +194,21 @@ def replace_inplace(box: Box) -> None:
         pass
 
 
-def replace(box: Box) -> Box:
-    box = copy.deepcopy(box)
+def replace(box: T_box) -> T_box:
+    box = copy(box, {})
     while replace_inplace_once(box) is not None:
-        box = copy.deepcopy(box)
+        box = copy(box, {})
     return box
 
 
-def replace_generator(box: Box) -> typing.Iterator[typing.Tuple[Box, Box]]:
-    box = copy.deepcopy(box)
+def replace_generator(box: T_box) -> typing.Iterator[typing.Tuple[Box, T_box]]:
+    box = copy(box, {})
     while True:
         replaced_box = replace_inplace_once(box)
         if replaced_box is None:
             return
         yield replaced_box, box
-        box = copy.deepcopy(box)
+        box = copy(box, {})
 
 
 def replace_inplace_generator(box: Box) -> typing.Iterator[Box]:

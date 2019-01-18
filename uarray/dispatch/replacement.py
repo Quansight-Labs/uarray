@@ -9,8 +9,22 @@ __all__ = ["register"]
 T_call = typing.TypeVar("T_call", bound=typing.Callable)
 
 
+@typing.overload
 def register(
     context: MutableContextType, target: T_call
+) -> typing.Callable[[T_call], T_call]:
+    ...
+
+
+@typing.overload
+def register(
+    context: MutableContextType, target: str
+) -> typing.Callable[[T_call], T_call]:
+    ...
+
+
+def register(
+    context: MutableContextType, target: typing.Union[T_call, str]
 ) -> typing.Callable[[T_call], T_call]:
     def inner(fn: T_call, context=context) -> T_call:
         def replacement(op: Box) -> Box:
