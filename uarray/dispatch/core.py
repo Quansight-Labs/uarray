@@ -40,6 +40,15 @@ class Box(typing.Generic[T_cov]):
     def _replace(self: T_box, value: typing.Any = None) -> "T_box":
         return dataclasses.replace(self, value=value)
 
+    @classmethod
+    def _tuple_fields(cls) -> typing.Tuple[str, ...]:
+        return tuple(
+            f.name for f in dataclasses.fields(cls) if f.init and f.name != "value"
+        )
+
+    def _str_without_value(self) -> str:
+        return f"{type(self).__qualname__}({', '.join(f'{f}={getattr(self, f)._str_without_value()}' for f in self._tuple_fields())})"
+
 
 ReplacementType = typing.Callable[[Box], Box]
 

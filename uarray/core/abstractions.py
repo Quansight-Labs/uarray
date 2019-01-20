@@ -27,6 +27,9 @@ U_box_contra = typing.TypeVar("U_box_contra", bound=Box, contravariant=True)
 class Variable:
     name: typing.Optional[str] = None
 
+    def __str__(self):
+        return self.name or ""
+
 
 @dataclasses.dataclass
 class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):

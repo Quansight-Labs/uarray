@@ -1,5 +1,6 @@
 import functools
 import typing
+import dataclasses
 
 import graphviz
 
@@ -16,7 +17,23 @@ def description(expr):
 
 @description.register
 def _box_desc(box: Box):
-    return type(box).__qualname__
+    return box._str_without_value()
+    # name = type(box).__qualname__
+    # other_fields = [
+    #     f.name for f in dataclasses.fields(box) if f.init and f.name != "value"
+    # ]
+    # n_ports = len(other_fields) + 1
+    # return f"""<
+    #     <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+    #     <TR>
+    #         <TD COLSPAN="{n_ports}">{name}</TD>
+    #     </TR>
+    #     <TR>
+    #         <TD PORT="0">value</TD>
+    #         {' '.join(f'<TD>{field}={getattr(box, field)}</TD>' for field in other_fields)}
+    #     </TR>
+    #     </TABLE>
+    # >"""
 
 
 @description.register
@@ -88,6 +105,11 @@ def attributes_box(expr: Box):
     return {"shape": "box", "style": "filled"}
 
 
+@attributes.register
+def attributes_var(expr: Variable):
+    return {"shape": "circle", "style": "dashed"}
+
+
 @functools.singledispatch
 def children_nodes(expr):
     return children(expr)
@@ -95,7 +117,8 @@ def children_nodes(expr):
 
 @children_nodes.register
 def _box_children(box: Box):
-    return [box.value]
+    return (box.value,)
+    # return (getattr(box, f.name) for f in dataclasses.fields(box) if f.init)
 
 
 def visualize(expr, dot: graphviz.Digraph, seen: typing.Set[str]) -> str:
@@ -146,7 +169,9 @@ def visualize_progress(expr):
 try:
     from IPython.display import display
 
-    svg_formatter = get_ipython().display_formatter.formatters["image/svg+xml"]
+    svg_formatter = get_ipython().display_formatter.formatters[  # type: ignore
+        "image/svg+xml"
+    ]
 except Exception:
     pass
 else:
