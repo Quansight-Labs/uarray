@@ -19,10 +19,9 @@ def list_of_naturals(min_size=0, max_size=5):
 
 def assert_vector_is_list(v: Vec[T_box], xs: typing.Sequence[T]):
     v = replace(v)
-    assert replace(v.get_length()) == Nat(len(xs))
-    l = v.get_list()
+    assert replace(v.length) == Nat(len(xs))
     for i, x in enumerate(xs):
-        assert replace(l[Nat(i)]) == x
+        assert replace(v.list[Nat(i)]) == x
 
 
 @hypothesis.given(list_of_naturals())
@@ -61,9 +60,7 @@ def test_vec_concat(ls, rs):
 )
 def test_vec_drop(i_and_xs):
     i, xs = i_and_xs
-    assert_vector_is_list(
-        Vec.create_args(Nat(None), *xs).drop(Nat(i)), xs[: len(xs) - i]
-    )
+    assert_vector_is_list(Vec.create_args(Nat(None), *xs).drop(Nat(i)), xs[i:])
 
 
 @hypothesis.given(

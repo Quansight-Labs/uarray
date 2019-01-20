@@ -68,7 +68,9 @@ class List(Box[typing.Any], typing.Generic[T_box]):
 
     def drop(self, n: Nat) -> "List[T_box]":
         """
-        x[:-n]
+        Drops the first n items from the list.
+
+        x[n:]
         """
         return self._replace(Operation(List.drop, (self, n)))
 
@@ -91,6 +93,14 @@ class List(Box[typing.Any], typing.Generic[T_box]):
         op: Abstraction[V_box, Abstraction[T_box, V_box]],
     ) -> V_box:
         return initial._replace(Operation(List.reduce, (self, length, initial, op)))
+
+    def reduce_fn(
+        self, length: Nat, initial: V_box, op: typing.Callable[[V_box, V_box], V_box]
+    ) -> V_box:
+        abs_: Abstraction[V_box, Abstraction[V_box, V_box]] = Abstraction.create_bin(
+            op, initial._replace(None), initial._replace(None)
+        )
+        return self.reduce(length, initial, abs_)
 
 
 @register(ctx, List.__getitem__)
@@ -133,7 +143,7 @@ def concat(self: List[T_box], other: List[T_box]) -> List[T_box]:
 def drop(self: List[T_box], n: Nat) -> List[T_box]:
     if not self._concrete or not n._concrete:
         return NotImplemented
-    return self._replace_args(*self._args[: len(self._args) - n.value])
+    return self._replace_args(*self._args[n.value :])
 
 
 @register(ctx, List.take)

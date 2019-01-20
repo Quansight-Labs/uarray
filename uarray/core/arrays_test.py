@@ -16,14 +16,17 @@ T_box = typing.TypeVar("T_box", bound=Box)
 
 
 def assert_arrays_eql(array: Array[T_box], shape: typing.List[int], content):
+    """
+    Asserts that the `array` has a certain shape and content, where the contentt
+    is nested python lists.
+    """
     array = replace(array)
-    assert_vector_is_list(replace(array.get_shape()), list(map(Nat, shape)))
-    idx_abs = array.get_idx_abs()
+    assert_vector_is_list(replace(array.shape), list(map(Nat, shape)))
     for indxs in itertools.product(*map(range, shape)):
         x = content
         for i in indxs:
             x = x[i]
-        assert replace(idx_abs(List.create(Nat(None), *map(Nat, indxs)))) == x
+        assert replace(array[List.create(Nat(None), *map(Nat, indxs))]) == x
 
 
 @hypothesis.given(naturals())

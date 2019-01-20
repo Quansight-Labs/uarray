@@ -8,7 +8,7 @@ from ..dispatch import *
 from .context import *
 from .pairs import *
 
-__all__ = ["Abstraction"]
+__all__ = ["Abstraction", "Variable"]
 
 T_box = typing.TypeVar("T_box", bound=Box)
 U_box = typing.TypeVar("U_box", bound=Box)
@@ -23,12 +23,9 @@ T_box_contra = typing.TypeVar("T_box_contra", bound=Box, contravariant=True)
 U_box_contra = typing.TypeVar("U_box_contra", bound=Box, contravariant=True)
 
 
-BinaryAbstraction = "Abstraction[T_box, Abstraction[U_box, V_box]]"
-
-
 @dataclasses.dataclass(eq=False)
 class Variable:
-    pass
+    name: typing.Optional[str] = None
 
 
 @dataclasses.dataclass
