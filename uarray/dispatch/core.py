@@ -5,6 +5,8 @@ import dataclasses
 import functools
 import typing
 
+from .singleton import Singleton
+
 __all__ = [
     "Operation",
     "Box",
@@ -34,7 +36,7 @@ T_box = typing.TypeVar("T_box", bound="Box")
 
 
 @dataclasses.dataclass
-class Box(typing.Generic[T_cov]):
+class Box(Singleton, typing.Generic[T_cov]):
     value: T_cov
 
     def _replace(self: T_box, value: typing.Any = None) -> "T_box":
@@ -45,6 +47,9 @@ class Box(typing.Generic[T_cov]):
         return tuple(
             f.name for f in dataclasses.fields(cls) if f.init and f.name != "value"
         )
+
+    def __hash__(self):
+        return hash((type(self), self.value))
 
     def _str_without_value(self) -> str:
         return f"{type(self).__qualname__}({', '.join(f'{f}={getattr(self, f)._str_without_value()}' for f in self._tuple_fields())})"
@@ -87,7 +92,7 @@ T_args = typing.TypeVar("T_args", bound=ChildrenType)
 
 
 @dataclasses.dataclass(frozen=True)
-class Operation(typing.Generic[T_args]):
+class Operation(Singleton, typing.Generic[T_args]):
     name: object
     args: T_args
 

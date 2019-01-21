@@ -23,7 +23,7 @@ T_box_contra = typing.TypeVar("T_box_contra", bound=Box, contravariant=True)
 U_box_contra = typing.TypeVar("U_box_contra", bound=Box, contravariant=True)
 
 
-@dataclasses.dataclass(eq=False)
+@dataclasses.dataclass(eq=False, frozen=True)
 class Variable:
     name: typing.Optional[str] = None
 
@@ -40,6 +40,9 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
     value: typing.Any
     rettype: T_box_cov
 
+    def __hash__(self):
+        return hash((type(self), self.value, self.rettype))
+
     @property
     def _concrete(self) -> bool:
         return isinstance(self.value, Operation) and self.value.name == Abstraction
@@ -54,9 +57,7 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
         var = Variable()
         arg = arg_type._replace(var)
         body = fn(arg)
-        return cls(
-            value=Operation(Abstraction, (Box(var), body)), rettype=body._replace()
-        )
+        return cls(value=Operation(Abstraction, (arg, body)), rettype=body._replace())
 
     @classmethod
     def create_bin(

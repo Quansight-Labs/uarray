@@ -14,6 +14,11 @@ __all__ = [
     "array_from_list_nd",
 ]
 
+
+ctx = MapChainCallable()
+
+default_context.append(ctx)
+
 T_box = typing.TypeVar("T_box", bound=Box)
 U_box = typing.TypeVar("U_box", bound=Box)
 V_box = typing.TypeVar("V_box", bound=Box)

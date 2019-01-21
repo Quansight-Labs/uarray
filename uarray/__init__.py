@@ -2,10 +2,10 @@
 
 # from . import ast_higher  # NOQA
 
-from .dispatch import *  # type: ignore # NOQA
+from .dispatch import *  # NOQA
 
 from .core import *  # NOQA
-from .moa import *  # type: ignore # NOQA
+from .moa import *  # NOQA
 
 # from .machinery import *  # NOQA
 

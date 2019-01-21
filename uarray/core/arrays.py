@@ -24,6 +24,9 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
     shape: Vec[Nat] = dataclasses.field(init=False)
     idx_abs: Abstraction[List[Nat], T_box] = dataclasses.field(init=False)
 
+    def __hash__(self):
+        return hash((type(self), self.value, self.dtype))
+
     @property
     def _concrete(self):
         return isinstance(self.value, Operation) and self.value.name == Array

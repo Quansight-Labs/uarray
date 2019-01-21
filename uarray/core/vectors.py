@@ -37,6 +37,9 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
         self.length = self._get_length()
         self.list = self._get_list()
 
+    def __hash__(self):
+        return hash((type(self), self.value, self.dtype))
+
     @classmethod
     def create(cls, length: Nat, lst: List[T_box]) -> "Vec[T_box]":
         return cls(Operation(Vec, (length, lst)), lst.dtype)
