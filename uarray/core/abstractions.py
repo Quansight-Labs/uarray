@@ -6,7 +6,6 @@ import dataclasses
 
 from ..dispatch import *
 from .context import *
-from .pairs import *
 
 __all__ = ["Abstraction", "Variable"]
 

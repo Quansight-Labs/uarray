@@ -21,9 +21,6 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
     value: typing.Any
     dtype: T_box
 
-    shape: Vec[Nat] = dataclasses.field(init=False)
-    idx_abs: Abstraction[List[Nat], T_box] = dataclasses.field(init=False)
-
     def __hash__(self):
         return hash((type(self), self.value, self.dtype))
 
@@ -31,9 +28,13 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
     def _concrete(self):
         return isinstance(self.value, Operation) and self.value.name == Array
 
-    def __post_init__(self):
-        self.shape = self._get_shape()
-        self.idx_abs = self._get_idx_abs()
+    @property
+    def shape(self) -> Vec[Nat]:
+        return self._get_shape()
+
+    @property
+    def idx_abs(self) -> Abstraction[List[Nat], T_box]:
+        return self._get_idx_abs()
 
     def _get_shape(self) -> Vec[Nat]:
         return Vec(Operation(Array._get_shape, (self,)), Nat(None))

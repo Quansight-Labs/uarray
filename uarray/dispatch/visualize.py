@@ -162,7 +162,7 @@ def visualize_diff(expr, highlight_expr):
     return d
 
 
-def visualize_progress(expr):
+def visualize_progress(expr, max_n=200):
     raise NotImplementedError
 
 
@@ -181,11 +181,14 @@ else:
         visualize(expr, d, set())
         return d._repr_svg_()
 
-    def visualize_progress(expr):
+    def visualize_progress(expr, max_n=50):
         d = graphviz.Digraph()
         visualize(expr, d, set())
         display(d)
-        for replaced, n in replace_generator(expr):
-            display(visualize_diff(n, replaced))
+        e = copy(expr, {})
+        for i, replaced in enumerate(replace_inplace_generator(e)):
+            if i > max_n:
+                raise Exception(f"Over {max_n} replacements")
+            display(visualize_diff(e, replaced))
 
     svg_formatter.for_type(Box, svg)

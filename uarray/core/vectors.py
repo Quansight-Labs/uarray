@@ -26,16 +26,17 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
     value: typing.Any
     dtype: T_box
 
-    length: Nat = dataclasses.field(init=False)
-    list: List[T_box] = dataclasses.field(init=False)
-
     @property
     def _concrete(self):
         return isinstance(self.value, Operation) and self.value.name == Vec
 
-    def __post_init__(self):
-        self.length = self._get_length()
-        self.list = self._get_list()
+    @property
+    def list(self) -> List[T_box]:
+        return self._get_list()
+
+    @property
+    def length(self) -> Nat:
+        return self._get_length()
 
     def __hash__(self):
         return hash((type(self), self.value, self.dtype))

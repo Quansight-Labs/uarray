@@ -32,7 +32,9 @@ def register(
             try:
                 resulting_box = fn(*args)
             except Exception:
-                raise Exception(f"Trying to replace {op} by calling {fn} with {args}")
+                raise Exception(
+                    f"Trying to replace {type(op)} by calling {fn} with {tuple(map(type, args))}"
+                )
             return resulting_box
 
         context[target] = replacement

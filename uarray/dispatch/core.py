@@ -17,7 +17,7 @@ __all__ = [
     "MutableContextType",
     "KeyType",
     "children",
-    "replace_generator",
+    "replace_inplace_generator",
     "key",
     "ChildrenType",
     "replace",
@@ -25,7 +25,6 @@ __all__ = [
     "MapChainCallable",
     "ChainCallableMap",
     "default_context",
-    "replace_inplace",
 ]
 
 T = typing.TypeVar("T")
@@ -204,50 +203,43 @@ global_context: contextvars.ContextVar[ContextType] = contextvars.ContextVar(
 )
 
 
-def replace_inplace(box: Box) -> None:
-    while replace_inplace_once(box) is not None:
-        pass
-
-
 def replace(box: T_box) -> T_box:
     box = copy(box, {})
-    while replace_inplace_once(box) is not None:
-        box = copy(box, {})
+    for _ in replace_inplace_generator(box):
+        pass
     return box
-
-
-def replace_generator(box: T_box) -> typing.Iterator[typing.Tuple[Box, T_box]]:
-    box = copy(box, {})
-    while True:
-        replaced_box = replace_inplace_once(box)
-        if replaced_box is None:
-            return
-        yield replaced_box, box
-        box = copy(box, {})
 
 
 def replace_inplace_generator(box: Box) -> typing.Iterator[Box]:
     """
     Keeps calling replacemnts on the node, or it's children, until no more match.
 
-    Returns a sequence of the boxes that are mutated during each replacement.
+    Returns a sequence of the just replaced box.
     """
     while True:
-        replaced_box = replace_inplace_once(box)
+        replaced_box = replace_once_inplace(box)
         if replaced_box is None:
             return
         yield replaced_box
 
 
-def replace_inplace_once(box: Box) -> typing.Optional[Box]:
+class NotBox(Exception):
+    pass
+
+
+def replace_once_inplace(box: Box) -> typing.Optional[Box]:
     """
-    Tries to replace the box and it's children,
-    returning the box that was replaced or None if no replacement could be matched.
+    Returns the replaced box, or None if no boxes could be found to replace.
     """
+    if not isinstance(box, Box):
+        raise NotBox(f"Can only replace boxes, not {type(box)}")
     for child in children(box.value):
-        replaced_child = replace_inplace_once(child)
-        if replaced_child:
-            return replaced_child
+        try:
+            replaced_box = replace_once_inplace(child)
+        except NotBox:
+            raise NotBox(f"Not box on child {child}")
+        if replaced_box:
+            return replaced_box
 
     context = global_context.get()
     try:
@@ -255,8 +247,6 @@ def replace_inplace_once(box: Box) -> typing.Optional[Box]:
     except KeyError:
         # no replacements registered for node
         return None
-
-    # computes the new node and copies it over
     new_box = replacement(box)
 
     if new_box == NotImplemented:
