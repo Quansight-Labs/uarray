@@ -20,7 +20,6 @@ class PythonScalar(Box[typing.Any]):
     pass
 
 
-# Add box around thes
 def create_python_array(shape: typing.Tuple[int, ...], data: typing.Any) -> Array:
     return Array(Operation("python-array", (Box(shape), Box(data))), PythonScalar(None))
 

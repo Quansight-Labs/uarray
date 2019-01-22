@@ -4,17 +4,22 @@ import weakref
 
 __all__ = ["Singleton"]
 
-
+# TODO: Use my own hash fn which returns ID for all objects not under
+# my control i.e.
 class SingletonType(type):
     _instances: typing.MutableMapping[int, object] = weakref.WeakValueDictionary()
 
     def __call__(cls, *args, **kw):
-        h = hash((cls, *args, *kw.items()))
+        try:
+            h = hash((cls, *args, *kw.items()))
+        except TypeError:
+            h = None
         if h in SingletonType._instances:
             res = SingletonType._instances[h]
             return res
         new_instance = super().__call__(*args, **kw)
-        SingletonType._instances[h] = new_instance
+        if h is not None:
+            SingletonType._instances[h] = new_instance
         return new_instance
 
 

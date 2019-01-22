@@ -12,6 +12,7 @@ __all__ = [
     "reduce",
     "gamma",
     "array_from_list_nd",
+    "unary_operation_abstraction",
 ]
 
 
@@ -59,6 +60,23 @@ def _index(idxs: "Array[Nat]", a: Array[T_box]) -> "Array[T_box]":
     return Array.create(new_shape, new_idx_abs)
 
 
+def unary_operation_abstraction(
+    op: Abstraction[T_box, V_box], a: Array[T_box]
+) -> Array[V_box]:
+    return Array(Operation(unary_operation_abstraction, (op, a)), op.rettype)
+
+
+@register(ctx, unary_operation_abstraction)
+def _unary_operation_abstraction(
+    op: Abstraction[T_box, V_box], a: Array[T_box]
+) -> Array[V_box]:
+    @Array.create_idx_abs
+    def new_idx_abs(idx: List[Nat]) -> V_box:
+        return op(a[idx])
+
+    return Array.create(a.shape, new_idx_abs)
+
+
 # TODO: Implement broadcasting
 def binary_operation_abstraction(
     left: Array[T_box],
@@ -70,17 +88,25 @@ def binary_operation_abstraction(
     )
 
 
+# NOTE: This is MoA broadcasting not NumPy broadcasting so dimensions of 1 are not broadcast
 @register(ctx, binary_operation_abstraction)
 def _binary_operation_abstraction(
     left: Array[T_box],
     op: Abstraction[T_box, Abstraction[U_box, V_box]],
     right: Array[U_box],
 ) -> Array[V_box]:
+    dim_difference = left.shape.length - right.shape.length
+    left_shorter = dim_difference.lt(Nat(0))
+    res_shape = left_shorter.if_(right.shape, left.shape)
+
     @Array.create_idx_abs
     def new_idx_abs(idx: List[Nat]) -> V_box:
-        return op(left[idx])(right[idx])
+        return left_shorter.if_(
+            op(left[idx.drop(dim_difference * Nat(-1))])(right[idx]),
+            op(left[idx])(right[idx.drop(dim_difference)]),
+        )
 
-    return Array.create(left.shape, new_idx_abs)
+    return Array.create(res_shape, new_idx_abs)
 
 
 def binary_op(

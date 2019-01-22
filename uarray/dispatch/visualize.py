@@ -1,11 +1,12 @@
 import functools
 import typing
-import dataclasses
+import numpy
 
 import graphviz
 
 from .core import *
 from ..core.abstractions import Variable
+from ..numpy import LazyNDArray
 
 __all__ = ["visualize_diff", "visualize_progress"]
 
@@ -68,6 +69,11 @@ def _operation_func(op):
 @description.register
 def description_type(op: type):
     return op.__qualname__
+
+
+@description.register
+def description_ufunc(op: numpy.ufunc):
+    return f"ufunc: {op.__name__}"
 
 
 _id = 0
@@ -192,3 +198,4 @@ else:
             display(visualize_diff(e, replaced))
 
     svg_formatter.for_type(Box, svg)
+    svg_formatter.for_type(LazyNDArray, lambda a: svg(a.box))
