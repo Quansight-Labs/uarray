@@ -68,19 +68,22 @@ def register_backend(backend, types=None):
 
 
 class Method(object):
-    def __init__(self, name, doc):
+    def __init__(self, name, doc, arg_converter):
         self.__name__ = name
         self.__doc__ = doc
+        self.arg_converter = arg_converter
 
     def __str__(self):
         return f"uarray Method: {self.__name__}"
 
     __repr__ = __str__
 
-    def __call__(self, arr_args, opts):
+    def __call__(self, *args, **kwargs):
         current_backend = _current_backend.get()
         usable_backends = [current_backend] if current_backend is not None else \
             _backends.values()
+
+        arr_args, opts = self.arg_converter(*args, **kwargs)
 
         for backend in usable_backends:
             result = NotImplemented
