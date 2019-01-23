@@ -10,6 +10,7 @@ __all__ = [
     "binary_op",
     "transpose",
     "reduce",
+    "outer_product",
     "gamma",
     "array_from_list_nd",
     "unary_operation_abstraction",
@@ -55,7 +56,7 @@ def _index(idxs: "Array[Nat]", a: Array[T_box]) -> "Array[T_box]":
 
     @Array.create_idx_abs
     def new_idx_abs(idx: List[Nat]) -> T_box:
-        return a[idxs.to_list().concat(idx)]
+        return a[idxs.to_list_abs().concat(idx)]
 
     return Array.create(new_shape, new_idx_abs)
 
@@ -132,6 +133,26 @@ def _transpose(a: Array[T_box]) -> Array[T_box]:
         return a[idx.reverse()]
 
     return Array.create(new_shape, new_idx_abs)
+
+
+def outer_product(
+    l: Array[T_box], op: Abstraction[T_box, Abstraction[U_box, V_box]], r: Array[U_box]
+) -> Array[V_box]:
+    return Array(Operation(outer_product, (l, op, r)), op.rettype.rettype)
+
+
+@register(ctx, outer_product)
+def _outer_product(
+    l: Array[T_box], op: Abstraction[T_box, Abstraction[U_box, V_box]], r: Array[U_box]
+) -> Array[V_box]:
+
+    l_dim = l.shape.length
+
+    @Array.create_idx_abs
+    def new_idx_abs(idx: List[Nat]) -> V_box:
+        return op(l[idx.take(l_dim)])(r[idx.drop(l_dim)])
+
+    return Array.create(l.shape, new_idx_abs)
 
 
 def reduce(

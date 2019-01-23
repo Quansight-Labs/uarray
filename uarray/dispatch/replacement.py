@@ -1,12 +1,18 @@
 import typing
 
-from .spec import *
-
 from .core import *
 
-__all__ = ["register"]
-
+__all__ = ["register", "register_type"]
+T = typing.TypeVar("T")
+V = typing.TypeVar("V")
 T_call = typing.TypeVar("T_call", bound=typing.Callable)
+
+
+@typing.overload
+def register(
+    context: MutableContextType, target: typing.Type
+) -> typing.Callable[[T_call], T_call]:
+    ...
 
 
 @typing.overload
@@ -24,7 +30,7 @@ def register(
 
 
 def register(
-    context: MutableContextType, target: typing.Union[T_call, str]
+    context: MutableContextType, target: typing.Union[T_call, typing.Type, str]
 ) -> typing.Callable[[T_call], T_call]:
     def inner(fn: T_call, context=context) -> T_call:
         def replacement(op: Box) -> Box:
@@ -33,9 +39,28 @@ def register(
                 resulting_box = fn(*args)
             except Exception:
                 raise Exception(
-                    f"Trying to replace {type(op)} by calling {fn} with {tuple(map(type, args))}"
+                    f"Trying to replace {type(op)} by calling {fn} with {tuple(map(type, args))}: {repr(op)}"
                 )
             return resulting_box
+
+        context[target] = replacement
+        return fn
+
+    return inner
+
+
+def register_type(
+    context: MutableContextType, target: typing.Type[T]
+) -> typing.Callable[[typing.Callable[[T], V]], typing.Callable[[T], V]]:
+    def inner(fn: typing.Callable[[T], V], context=context) -> typing.Callable[[T], V]:
+        def replacement(b: Box[T]) -> Box[V]:
+            v = b.value
+            if not isinstance(v, target):
+                return NotImplemented
+            resulting_val = fn(v)
+            return typing.cast(  # need cast b/c mypy cant have generic of bound var
+                Box[V], b._replace(resulting_val)
+            )
 
         context[target] = replacement
         return fn

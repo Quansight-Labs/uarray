@@ -59,6 +59,9 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
     def _get_list(self) -> List[T_box]:
         return List(Operation(Vec._get_list, (self,)), self.dtype)
 
+    def with_length(self, length: Nat) -> "Vec[T_box]":
+        return Vec.create(length, self.list)
+
     def __getitem__(self, index: Nat) -> T_box:
         return self.list[index]
 

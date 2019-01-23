@@ -14,9 +14,9 @@ class SingletonType(type):
             h = hash((cls, *args, *kw.items()))
         except TypeError:
             h = None
-        if h in SingletonType._instances:
-            res = SingletonType._instances[h]
-            return res
+        # if h in SingletonType._instances:
+        #     res = SingletonType._instances[h]
+        #     return res
         new_instance = super().__call__(*args, **kw)
         if h is not None:
             SingletonType._instances[h] = new_instance

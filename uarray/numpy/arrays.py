@@ -4,7 +4,9 @@ from ..core import *
 from ..dispatch import *
 import dataclasses
 
-__all__ = ["create_numpy_array"]
+from .lazy_ndarray import to_array
+
+__all__: typing.List[str] = []
 T_box = typing.TypeVar("T_box", bound=Box)
 ctx = MapChainCallable()
 default_context.append(ctx)
@@ -20,12 +22,15 @@ class NumpyScalar(Box[typing.Any]):
     dtype: NumpyDataType
 
 
-def is_numpy_array(a: Array) -> bool:
+def is_numpy_array(a: Box) -> bool:
     return isinstance(a.value, numpy.ndarray)
 
 
-def create_numpy_array(a: numpy.ndarray) -> Array:
-    return Array(a, NumpyScalar(None, NumpyDataType(a.dtype)))
+@register(ctx, to_array)
+def to_array(b: Box) -> Array:
+    if not is_numpy_array(b):
+        return NotImplemented
+    return Array(b.value, NumpyScalar(None, NumpyDataType(b.value.dtype)))
 
 
 @register(ctx, Array._get_shape)

@@ -1,12 +1,13 @@
+import ast
 import functools
 import typing
-import numpy
 
 import graphviz
+import numpy
 
-from .core import *
 from ..core.abstractions import Variable
-from ..numpy import LazyNDArray
+from ..numpy.ast import AST
+from .core import *
 
 __all__ = ["visualize_diff", "visualize_progress"]
 
@@ -63,6 +64,29 @@ def _operation_desc(op: Operation):
 
 @description.register(type(lambda: None))
 def _operation_func(op):
+    return op.__qualname__
+
+
+@description.register(AST)
+def _ast_description(op):
+    comma = ", "
+    init = f"({comma.join(map(description, op.init))})"
+    return f"AST({comma.join((description(op.get),init))})"
+
+
+@description.register(ast.AST)
+def _ast_ast_description(op):
+    return ast.dump(op, annotate_fields=False)
+
+
+class _Cls:
+    @classmethod
+    def _(cls):
+        pass
+
+
+@description.register(type(_Cls._))
+def _operation_method(op):
     return op.__qualname__
 
 
@@ -173,7 +197,7 @@ def visualize_progress(expr, max_n=200):
 
 
 try:
-    from IPython.display import display
+    from IPython.display import display, SVG, clear_output
 
     svg_formatter = get_ipython().display_formatter.formatters[  # type: ignore
         "image/svg+xml"
@@ -187,15 +211,18 @@ else:
         visualize(expr, d, set())
         return d._repr_svg_()
 
-    def visualize_progress(expr, max_n=50):
+    def visualize_progress(expr, max_n=1000):
         d = graphviz.Digraph()
         visualize(expr, d, set())
-        display(d)
+        display(SVG(d._repr_svg_()))
+
         e = copy(expr, {})
         for i, replaced in enumerate(replace_inplace_generator(e)):
             if i > max_n:
                 raise Exception(f"Over {max_n} replacements")
-            display(visualize_diff(e, replaced))
+            new_svg = SVG(visualize_diff(e, replaced)._repr_svg_())
+            clear_output(wait=True)
+            display(new_svg)
 
     svg_formatter.for_type(Box, svg)
-    svg_formatter.for_type(LazyNDArray, lambda a: svg(a.box))
+    # svg_formatter.for_type(LazyNDArray, lambda a: svg(a.box))

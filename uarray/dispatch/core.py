@@ -5,7 +5,7 @@ import dataclasses
 import functools
 import typing
 
-from .singleton import Singleton
+from .singleton import *
 
 __all__ = [
     "Operation",
@@ -253,5 +253,4 @@ def replace_once_inplace(box: Box) -> typing.Optional[Box]:
         return None
 
     box.value = new_box.value
-
     return box

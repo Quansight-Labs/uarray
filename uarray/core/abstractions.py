@@ -3,7 +3,7 @@ Lambda calculus
 """
 import typing
 import dataclasses
-
+import functools
 from ..dispatch import *
 from .context import *
 
@@ -30,6 +30,8 @@ class Variable:
         return self.name or ""
 
 
+# TODO: Rewrite all functions as native callables
+# with special case for variable callables
 @dataclasses.dataclass
 class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
     """
@@ -50,13 +52,32 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
         return self.rettype._replace(Operation(Abstraction.__call__, (self, arg)))
 
     @classmethod
+    def from_variable(cls, arg: T_box, body: U_box) -> "Abstraction[T_box, U_box]":
+        return cls(Operation(Abstraction, (arg, body)), rettype=body._replace())
+
+    @classmethod
+    def from_variables(cls, body: Box, *args: Box) -> "Box":
+        for a in args:
+            body = cls.from_variable(a, body)
+        return body
+
+    @classmethod
     def create(
         cls, fn: typing.Callable[[T_box], U_box], arg_type: T_box
     ) -> "Abstraction[T_box, U_box]":
-        var = Variable()
-        arg = arg_type._replace(var)
+        arg = arg_type._replace(Variable())
         body = fn(arg)
-        return cls(value=Operation(Abstraction, (arg, body)), rettype=body._replace())
+        return cls.from_variable(arg, body)
+
+    @classmethod
+    def create_nary(cls, fn: typing.Callable[..., T_box], *arg_types: Box) -> "Box":
+        if not arg_types:
+            return fn()
+        arg_type, *new_arg_types = arg_types
+        return Abstraction.create(
+            lambda x: cls.create_nary(functools.partial(fn, x), *new_arg_types),
+            arg_type,
+        )
 
     @classmethod
     def create_bin(
@@ -70,8 +91,21 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
         )
 
     @classmethod
+    def create_native(
+        cls, fn: typing.Callable[[T_box], U_box], rettype: U_box
+    ) -> "Abstraction[T_box, U_box]":
+        """
+        Used to create an abstraction that is only replaced
+        when the fn that is called doesn't return NotImplemented.
+
+        Only use when neccesary, it means that the body of the function won't appear
+        in the graph, only as a python function.
+        """
+        return cls(fn, rettype)
+
+    @classmethod
     def const(cls, value: T_box) -> "Abstraction[Box, T_box]":
-        return cls.create(lambda _: value, value._replace(object()))
+        return cls(Operation(Abstraction.const, (value,)), rettype=value)
 
     @classmethod
     def identity(cls, arg: T_box) -> "Abstraction[T_box, T_box]":
@@ -91,6 +125,23 @@ def __call__(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
     if not self._concrete:
         return NotImplemented
     return self.rettype._replace(Operation("replace", (*self.value.args, arg)))
+
+
+@register(ctx, Abstraction.__call__)
+def __call___const(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
+    if (
+        not isinstance(self.value, Operation)
+        or not self.value.name == Abstraction.const
+    ):
+        return NotImplemented
+    return self.value.args[0]
+
+
+@register(ctx, Abstraction.__call__)
+def __call___native(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
+    if not isinstance(self.value, typing.cast(typing.Type, typing.Callable)):
+        return NotImplemented
+    return self.value(arg)
 
 
 @register(ctx, "replace")

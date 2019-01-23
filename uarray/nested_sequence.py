@@ -1,5 +1,6 @@
 import typing
 import itertools
+import functools
 from .core import *
 from .dispatch import *
 
@@ -7,13 +8,7 @@ T_box = typing.TypeVar("T_box", bound=Box)
 ctx = MapChainCallable()
 default_context.append(ctx)
 
-__all__ = [
-    "create_python_array",
-    "to_python_array",
-    "create_python_bin_abs",
-    "create_function_abs",
-    "create_bin_function_abs",
-]
+__all__ = ["create_python_array", "to_python_array", "create_python_bin_abs"]
 
 
 class PythonScalar(Box[typing.Any]):
@@ -144,43 +139,23 @@ def _to_python_array_expanded(shape: Vec[Nat], contents: List[T_box]) -> Array[T
     return create_python_array(shape_items_ints, inner(shape_items_ints, ()))
 
 
-T = typing.TypeVar("T")
-V = typing.TypeVar("V")
-U_box = typing.TypeVar("U_box", bound=Box)
-V_box = typing.TypeVar("V_box", bound=Box)
-
-
-def create_function_abs(
-    fn: typing.Callable[[T_box], U_box], rettype: U_box
-) -> Abstraction[T_box, U_box]:
-    return Abstraction(Operation("fn-abs", (Box(fn),)), rettype)
-
-
-@register(ctx, Abstraction.__call__)
-def fn___call__(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
-    if (
-        not isinstance(self.value, Operation)
-        or not self.value.name == "fn-abs"
-        or isinstance(arg.value, Operation)
-    ):
-        return NotImplemented
-    fn: typing.Callable[[T_box], U_box] = self.value.args[0].value
-    retvalue = fn(arg)
-    return self.rettype._replace(retvalue.value)
-
-
-def create_bin_function_abs(
-    fn: typing.Callable[[T_box, U_box], V_box], rettype: V_box
-) -> Abstraction[T_box, Abstraction[U_box, V_box]]:
-    curried: typing.Callable[
-        [T_box], Abstraction[U_box, V_box]
-    ] = lambda a: create_function_abs(lambda b: fn(a, b), rettype)
-    return create_function_abs(curried, Abstraction(None, rettype))
-
-
 def create_python_bin_abs(
     fn: typing.Callable[[typing.Any, typing.Any], typing.Any]
 ) -> Abstraction[PythonScalar, Abstraction[PythonScalar, PythonScalar]]:
-    return create_bin_function_abs(
-        lambda a, b: PythonScalar(fn(a.value, b.value)), PythonScalar(None)
-    )
+    disallowed_types = Operation, Variable
+
+    def inner(a, fn=fn):
+        aval = a.value
+        if isinstance(aval, disallowed_types):
+            return NotImplemented
+        fn = functools.partial(fn, aval)
+
+        def inner(b, fn=fn):
+            bval = b.value
+            if isinstance(bval, disallowed_types):
+                return NotImplemented
+            return PythonScalar(fn(bval))
+
+        return Abstraction.create_native(inner, PythonScalar(None))
+
+    return Abstraction.create_native(inner, Abstraction(None, PythonScalar(None)))

@@ -103,11 +103,20 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
             Abstraction.create_bin(fn, List(None, self.dtype), Nat(None)),
         )
 
+    def to_list_abs(self) -> List[T_box]:
+        def fn(i: Nat) -> T_box:
+            return self[List.create(Nat(None), i)]
+
+        return List.from_abs(Abstraction.create(fn, Nat(None)))
+
     def to_vec(self) -> Vec[T_box]:
-        return Vec.create(self.shape[Nat(0)], self.to_list())
+        return Vec.create(self.shape[Nat(0)], self.to_list_abs())
 
     def to_value(self) -> T_box:
         return self[self.create_idx()]
+
+    def with_dim(self, ndim: Nat) -> "Array[T_box]":
+        return Array.create(self.shape.with_length(ndim), self.idx_abs)
 
 
 @register(ctx, Array._get_shape)
