@@ -45,14 +45,14 @@ def index_ndarray(array: Array[T_box], *idx: Nat) -> T_box:
 
 
 @register(ctx, Array._get_idx_abs)
-def _get_idx_abs(self: Array[T_box]) -> Abstraction[List[Nat], T_box]:
+def _get_idx_abs(self: Array[T_box]) -> Abstraction[Vec[Nat], T_box]:
     if not is_numpy_array(self):
         return NotImplemented
 
     dim = self.value.ndim
 
     @Array.create_idx_abs
-    def idx_abs(idx: List[Nat]) -> T_box:
+    def idx_abs(idx: Vec[Nat]) -> T_box:
         return self.dtype._replace(
             Operation(index_ndarray, (self, *(idx[Nat(d)] for d in range(dim))))
         )

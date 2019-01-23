@@ -29,6 +29,10 @@ class List(Box[typing.Any], typing.Generic[T_box]):
         return isinstance(self.value, Operation) and self.value.name == List
 
     @property
+    def _concrete_abs(self) -> bool:
+        return isinstance(self.value, Operation) and self.value.name == List.from_abs
+
+    @property
     def _args(self) -> typing.Tuple[T_box, ...]:
         return self.value.args
 
@@ -121,7 +125,7 @@ def __getitem__(self: List[T_box], index: Nat) -> T_box:
 
 @register(ctx, List.__getitem__)
 def __getitem___abs(self: List[T_box], index: Nat) -> T_box:
-    if not isinstance(self.value, Operation) or self.value.name != List.from_abs:
+    if not self._concrete_abs:
         return NotImplemented
 
     return self.value.args[0](index)

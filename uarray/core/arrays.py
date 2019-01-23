@@ -33,18 +33,18 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
         return self._get_shape()
 
     @property
-    def idx_abs(self) -> Abstraction[List[Nat], T_box]:
+    def idx_abs(self) -> Abstraction[Vec[Nat], T_box]:
         return self._get_idx_abs()
 
     def _get_shape(self) -> Vec[Nat]:
         return Vec(Operation(Array._get_shape, (self,)), Nat(None))
 
-    def _get_idx_abs(self) -> Abstraction[List[Nat], T_box]:
+    def _get_idx_abs(self) -> Abstraction[Vec[Nat], T_box]:
         return Abstraction(Operation(Array._get_idx_abs, (self,)), self.dtype)
 
     @classmethod
     def create(
-        cls, shape: Vec[Nat], idx_abs: Abstraction[List[Nat], T_box]
+        cls, shape: Vec[Nat], idx_abs: Abstraction[Vec[Nat], T_box]
     ) -> "Array[T_box]":
         return cls(Operation(Array, (shape, idx_abs)), idx_abs.rettype)
 
@@ -72,31 +72,27 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
     @classmethod
     def from_vec(cls, vec: Vec[T_box]) -> "Array[T_box]":
         @cls.create_idx_abs
-        def idx_fn(idxs: List[Nat]) -> T_box:
+        def idx_fn(idxs: Vec[Nat]) -> T_box:
             return vec[idxs.first()]
 
         return Array.create(shape=Vec.create_infer(vec.length), idx_abs=idx_fn)
 
     @classmethod
     def create_idx_abs(
-        cls, fn: typing.Callable[[List[Nat]], T_box]
-    ) -> Abstraction[List[Nat], T_box]:
-        return Abstraction.create(fn, List(None, Nat(None)))
+        cls, fn: typing.Callable[[Vec[Nat]], T_box]
+    ) -> Abstraction[Vec[Nat], T_box]:
+        return Abstraction.create(fn, Vec(None, Nat(None)))
 
     @classmethod
     def create_shape(cls, *xs: Nat) -> Vec[Nat]:
         return Vec.create_args(Nat(None), *xs)
 
-    @classmethod
-    def create_idx(cls, *xs: Nat) -> List[Nat]:
-        return List.create(Nat(None), *xs)
-
-    def __getitem__(self, idx: List[Nat]) -> T_box:
+    def __getitem__(self, idx: Vec[Nat]) -> T_box:
         return self.idx_abs(idx)
 
     def to_list(self) -> List[T_box]:
         def fn(value: List[T_box], i: Nat) -> List[T_box]:
-            return value.append(self[List.create(Nat(None), i)])
+            return value.append(self[Array.create_shape(i)])
 
         return self.shape[Nat(0)].loop(
             List.create(self.dtype),
@@ -105,7 +101,7 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
 
     def to_list_abs(self) -> List[T_box]:
         def fn(i: Nat) -> T_box:
-            return self[List.create(Nat(None), i)]
+            return self[Array.create_shape(i)]
 
         return List.from_abs(Abstraction.create(fn, Nat(None)))
 
@@ -113,7 +109,7 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
         return Vec.create(self.shape[Nat(0)], self.to_list_abs())
 
     def to_value(self) -> T_box:
-        return self[self.create_idx()]
+        return self[self.create_shape()]
 
     def with_dim(self, ndim: Nat) -> "Array[T_box]":
         return Array.create(self.shape.with_length(ndim), self.idx_abs)
@@ -127,7 +123,7 @@ def _get_shape(self: Array[T_box]) -> Vec[Nat]:
 
 
 @register(ctx, Array._get_idx_abs)
-def _get_idx_abs(self: Array[T_box]) -> Abstraction[List[Nat], T_box]:
+def _get_idx_abs(self: Array[T_box]) -> Abstraction[Vec[Nat], T_box]:
     if not self._concrete:
         return NotImplemented
     return self.value.args[1]

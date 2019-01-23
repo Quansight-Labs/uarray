@@ -69,6 +69,13 @@ def _list(*args: T_box) -> List[Box]:
     )
 
 
+@register(ast_replace_ctx, Vec)
+def _vec(length: Nat, lst: List[Box]) -> Vec[Box]:
+    if not is_ast(lst):
+        return NotImplemented
+    return Vec(lst.value, lst.dtype)
+
+
 @register(ast_replace_ctx, numpy_ufunc)
 def _ufunc(ufunc: Box[numpy.ufunc], *args: Box) -> Box:
     if not all(map(is_ast, args)):

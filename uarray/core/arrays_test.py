@@ -26,7 +26,7 @@ def assert_arrays_eql(array: Array[T_box], shape: typing.List[int], content):
         x = content
         for i in indxs:
             x = x[i]
-        assert replace(array[List.create(Nat(None), *map(Nat, indxs))]) == x
+        assert replace(array[Array.create_shape(*map(Nat, indxs))]) == x
 
 
 @hypothesis.given(naturals())

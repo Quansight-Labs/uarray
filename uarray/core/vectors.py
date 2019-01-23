@@ -109,6 +109,14 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
     ) -> V_box:
         return self.list.reduce(self.length, initial, op)
 
+    def reduce_fn(
+        self, initial: V_box, op: typing.Callable[[V_box, V_box], V_box]
+    ) -> V_box:
+        abs_: Abstraction[V_box, Abstraction[V_box, V_box]] = Abstraction.create_bin(
+            op, initial._replace(None), initial._replace(None)
+        )
+        return self.reduce(initial, abs_)
+
 
 @register(ctx, Vec._get_length)
 def _get_length(self: Vec[T_box]) -> Nat:
@@ -122,3 +130,15 @@ def _get_list(self: Vec[T_box]) -> List[T_box]:
     if not self._concrete:
         return NotImplemented
     return self.value.args[1]
+
+
+@register(ctx, Vec)
+def _convert_list(length: Nat, lst: List[T_box]) -> Vec[T_box]:
+    """
+    When we know length, convert abstraction list to exact list
+    """
+    if not length._concrete or not lst._concrete_abs:
+        return NotImplemented
+    return Vec.create(
+        length, List.create(lst.dtype, *(lst[Nat(i)] for i in range(length.value)))
+    )

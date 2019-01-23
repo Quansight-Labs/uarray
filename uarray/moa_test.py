@@ -14,8 +14,8 @@ def sum_array(shape: Vec[Nat]):
     """
 
     @Array.create_idx_abs
-    def idx_abs(idx: List[Nat]) -> Nat:
-        return idx.reduce_fn(shape.length, Nat(0), operator.add)
+    def idx_abs(idx: Vec[Nat]) -> Nat:
+        return idx.reduce_fn(Nat(0), operator.add)
 
     return Array.create(shape, idx_abs)
 

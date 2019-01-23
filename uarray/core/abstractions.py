@@ -30,8 +30,10 @@ class Variable:
         return self.name or ""
 
 
-# TODO: Rewrite all functions as native callables
-# with special case for variable callables
+# def list_(*args: T_box) -> "Abstraction[Nat, T_box]":
+#     ...
+
+
 @dataclasses.dataclass
 class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
     """
@@ -103,6 +105,10 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
         """
         return cls(fn, rettype)
 
+    # @classmethod
+    # def create_list(cls, dtype: T_box, *args: T_box) -> "Abstraction[Nat, T_box]":
+    #     return Abstraction(Operation(list_, args), dtype)
+
     @classmethod
     def const(cls, value: T_box) -> "Abstraction[Box, T_box]":
         return cls(Operation(Abstraction.const, (value,)), rettype=value)
@@ -142,6 +148,13 @@ def __call___native(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
     if not isinstance(self.value, typing.cast(typing.Type, typing.Callable)):
         return NotImplemented
     return self.value(arg)
+
+
+# @register(ctx, Abstraction.__call__)
+# def __call___native(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
+#     if not isinstance(self.value, typing.cast(typing.Type, typing.Callable)):
+#         return NotImplemented
+#     return self.value(arg)
 
 
 @register(ctx, "replace")

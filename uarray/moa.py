@@ -55,8 +55,8 @@ def _index(idxs: "Array[Nat]", a: Array[T_box]) -> "Array[T_box]":
     new_shape = a.shape.drop(n_idxs)
 
     @Array.create_idx_abs
-    def new_idx_abs(idx: List[Nat]) -> T_box:
-        return a[idxs.to_list_abs().concat(idx)]
+    def new_idx_abs(idx: Vec[Nat]) -> T_box:
+        return a[idxs.to_vec().concat(idx)]
 
     return Array.create(new_shape, new_idx_abs)
 
@@ -72,7 +72,7 @@ def _unary_operation_abstraction(
     op: Abstraction[T_box, V_box], a: Array[T_box]
 ) -> Array[V_box]:
     @Array.create_idx_abs
-    def new_idx_abs(idx: List[Nat]) -> V_box:
+    def new_idx_abs(idx: Vec[Nat]) -> V_box:
         return op(a[idx])
 
     return Array.create(a.shape, new_idx_abs)
@@ -101,7 +101,7 @@ def _binary_operation_abstraction(
     res_shape = left_shorter.if_(right.shape, left.shape)
 
     @Array.create_idx_abs
-    def new_idx_abs(idx: List[Nat]) -> V_box:
+    def new_idx_abs(idx: Vec[Nat]) -> V_box:
         return left_shorter.if_(
             op(left[idx.drop(dim_difference * Nat(-1))])(right[idx]),
             op(left[idx])(right[idx.drop(dim_difference)]),
@@ -129,7 +129,7 @@ def _transpose(a: Array[T_box]) -> Array[T_box]:
     new_shape = a.shape.reverse()
 
     @Array.create_idx_abs
-    def new_idx_abs(idx: List[Nat]) -> T_box:
+    def new_idx_abs(idx: Vec[Nat]) -> T_box:
         return a[idx.reverse()]
 
     return Array.create(new_shape, new_idx_abs)
@@ -149,7 +149,7 @@ def _outer_product(
     l_dim = l.shape.length
 
     @Array.create_idx_abs
-    def new_idx_abs(idx: List[Nat]) -> V_box:
+    def new_idx_abs(idx: Vec[Nat]) -> V_box:
         return op(l[idx.take(l_dim)])(r[idx.drop(l_dim)])
 
     return Array.create(l.shape, new_idx_abs)
@@ -168,14 +168,14 @@ def _reduce(
     return Array.create_0d(a.to_vec().reduce(initial, op))
 
 
-def gamma(idx: List[Nat], shape: Vec[Nat]) -> Nat:
+def gamma(idx: Vec[Nat], shape: Vec[Nat]) -> Nat:
     return Nat(Operation(gamma, (idx, shape)))
 
 
 @register(ctx, gamma)
-def _gamma(idx: List[Nat], shape: Vec[Nat]) -> Nat:
+def _gamma(idx: Vec[Nat], shape: Vec[Nat]) -> Nat:
     def loop_abs(val: Nat, i: Nat) -> Nat:
-        return idx[i] + (shape.list[i] * val)
+        return idx[i] + (shape[i] * val)
 
     return shape.length.loop(
         Nat(0), Abstraction.create_bin(loop_abs, Nat(None), Nat(None))
@@ -192,7 +192,7 @@ def array_from_list_nd(lst: List[T_box], shape: Vec[Nat]) -> Array[T_box]:
 @register(ctx, array_from_list_nd)
 def _array_from_list_nd(lst: List[T_box], shape: Vec[Nat]) -> Array[T_box]:
     @Array.create_idx_abs
-    def idx_abs(idx: List[Nat]) -> T_box:
+    def idx_abs(idx: Vec[Nat]) -> T_box:
         return lst[gamma(idx, shape)]
 
     return Array.create(shape, idx_abs)

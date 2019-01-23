@@ -42,7 +42,7 @@ def _get_idx_abs(self: Array[T_box]) -> Abstraction[List[Nat], T_box]:
     dim = len(self.value.args[0].value)
 
     @Array.create_idx_abs
-    def idx_abs(idx: List[Nat]) -> T_box:
+    def idx_abs(idx: Vec[Nat]) -> T_box:
         return self.dtype._replace(
             Operation(index_python_array, (self, *(idx[Nat(d)] for d in range(dim))))
         )
@@ -72,7 +72,7 @@ def _to_python_array(a: Array[T_box]) -> Array[T_box]:
 
 
 def to_python_array_expanded_first(
-    shape: Vec[Nat], idx_abs: Abstraction[List[Nat], T_box]
+    shape: Vec[Nat], idx_abs: Abstraction[Vec[Nat], T_box]
 ) -> Array[T_box]:
     return Array(
         Operation(to_python_array_expanded_first, (shape, idx_abs)), idx_abs.rettype
@@ -81,7 +81,7 @@ def to_python_array_expanded_first(
 
 @register(ctx, to_python_array_expanded_first)
 def _to_python_array_expanded_first(
-    shape: Vec[Nat], idx_abs: Abstraction[List[Nat], T_box]
+    shape: Vec[Nat], idx_abs: Abstraction[Vec[Nat], T_box]
 ) -> Array[T_box]:
     if not shape._concrete:
         return NotImplemented
@@ -99,7 +99,7 @@ def _to_python_array_expanded_first(
 
     contents = List.create(
         idx_abs.rettype,
-        *(idx_abs(List.create(Nat(None), *map(Nat, idx))) for idx in all_possible_idxs)
+        *(idx_abs(Array.create_shape(*map(Nat, idx))) for idx in all_possible_idxs)
     )
 
     return to_python_array_expanded(shape, contents)

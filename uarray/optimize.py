@@ -35,14 +35,14 @@ def jit(*dims: int) -> typing.Callable[[T_call], T_call]:
         res = replace(
             Abstraction.create_nary(wrapper_fn, *([Array(None, Box(None))] * nargs))
         )
-        return res
+
         new_res = res
         for arg_name in arg_names:
             new_res = new_res(Box(AST(ast.Name(arg_name, ast.Load()))))
 
         with includecontext(ast_replace_ctx):
             replaced = replace(new_res)
-        return replaced
+
         res_ast = replaced.value
         assert isinstance(res_ast, AST)
         args_ = ast.arguments(
