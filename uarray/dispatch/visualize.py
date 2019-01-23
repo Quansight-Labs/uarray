@@ -9,7 +9,7 @@ from ..core.abstractions import Variable
 from ..numpy.ast import AST
 from .core import *
 
-__all__ = ["visualize_diff", "visualize_progress"]
+__all__ = ["visualize_diff", "visualize_progress", "display_ops"]
 
 
 @functools.singledispatch
@@ -164,6 +164,20 @@ def visualize(expr, dot: graphviz.Digraph, seen: typing.Set[str]) -> str:
     return expr_id
 
 
+def visualize_ops(expr, dot: graphviz.Digraph, seen: typing.Set[str]) -> str:
+    expr = expr.value
+    expr_id = id_(expr)
+    if expr_id in seen:
+        return expr_id
+    seen.add(expr_id)
+    dot.attr("node", **attributes(expr))
+    dot.node(expr_id, description(expr))
+    for i, child in enumerate(children_nodes(expr)):
+        child_id = visualize_ops(child, dot, seen)
+        dot.edge(f"{expr_id}:{i}", child_id)
+    return expr_id
+
+
 def visualize_highlight(
     expr, highlight_expr, dot: graphviz.Digraph, seen: typing.Set[str]
 ) -> str:
@@ -210,6 +224,11 @@ else:
         d = graphviz.Digraph()
         visualize(expr, d, set())
         return d._repr_svg_()
+
+    def display_ops(expr):
+        d = graphviz.Digraph()
+        visualize_ops(expr, d, set())
+        return d
 
     def visualize_progress(expr, max_n=1000):
         d = graphviz.Digraph()
