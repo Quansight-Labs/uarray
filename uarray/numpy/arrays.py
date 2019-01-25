@@ -1,3 +1,7 @@
+"""
+Support reading from NumPy arrays.
+"""
+
 import numpy
 import typing
 from ..core import *

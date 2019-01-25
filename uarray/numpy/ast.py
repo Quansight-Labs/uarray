@@ -1,3 +1,7 @@
+"""
+Support reading and compiling to python AST of NumPy API
+"""
+
 import typing
 import ast
 import dataclasses

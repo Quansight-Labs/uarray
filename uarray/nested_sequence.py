@@ -1,3 +1,7 @@
+"""
+Support compiling to, and reading from, nested python tuples as arrays.
+"""
+
 import typing
 import itertools
 import functools
