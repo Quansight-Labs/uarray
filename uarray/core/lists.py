@@ -75,8 +75,8 @@ class List(Box[typing.Any], typing.Generic[T_box]):
     def append(self, item: T_box) -> "List[T_box]":
         return self._replace(Operation(List.append, (self, item)))
 
-    def concat(self, other: "List[T_box]") -> "List[T_box]":
-        return self._replace(Operation(List.concat, (self, other)))
+    def concat(self, length: Nat, other: "List[T_box]") -> "List[T_box]":
+        return self._replace(Operation(List.concat, (self, length, other)))
 
     def drop(self, n: Nat) -> "List[T_box]":
         """
@@ -153,24 +153,41 @@ def append(self: List[T_box], item: T_box) -> List[T_box]:
 
 
 @register(ctx, List.concat)
-def concat(self: List[T_box], other: List[T_box]) -> List[T_box]:
+def concat(self: List[T_box], length: Nat, other: List[T_box]) -> List[T_box]:
     if not self._concrete or not other._concrete:
         return NotImplemented
     return self._replace_args(*self._args, *other._args)
 
 
 @register(ctx, List.concat)
-def concat_empty_left(self: List[T_box], other: List[T_box]) -> List[T_box]:
+def concat_empty_left(
+    self: List[T_box], length: Nat, other: List[T_box]
+) -> List[T_box]:
     if not self._concrete or self.value.args:
         return NotImplemented
     return other
 
 
 @register(ctx, List.concat)
-def concat_empty_right(self: List[T_box], other: List[T_box]) -> List[T_box]:
+def concat_empty_right(
+    self: List[T_box], length: Nat, other: List[T_box]
+) -> List[T_box]:
     if not other._concrete or other.value.args:
         return NotImplemented
     return self
+
+
+@register(ctx, List.concat)
+def concat_abs(self: List[T_box], length: Nat, other: List[T_box]) -> List[T_box]:
+    if not self._concrete_abs or not other._concrete_abs:
+        return NotImplemented
+
+    l, r = self.value.args[0], other.value.args[0]
+
+    def new_list(idx: Nat) -> T_box:
+        return idx.lt(length).if_(l(idx), r(idx - length))
+
+    return List.from_abs(Abstraction.create(new_list, Nat(None)))
 
 
 @register(ctx, List.drop)
@@ -241,3 +258,37 @@ def reduce(
 
     abstraction = Abstraction.create_bin(fn, initial._replace(None), Nat(None))
     return length.loop(initial, abstraction)
+
+
+@register(ctx, List.take)
+def take_of_concat(self: List[T_box], n: Nat) -> List[T_box]:
+    """
+    When taking less than concat, just take left side
+    """
+
+    if (
+        not n._concrete
+        or not isinstance(self.value, Operation)
+        or self.value.name != List.concat
+        or not self.value.args[1]._concrete
+        or n.value > self.value.args[1].value
+    ):
+        return NotImplemented
+    return self.value.args[0]
+
+
+@register(ctx, List.drop)
+def drop_of_concat(self: List[T_box], n: Nat) -> List[T_box]:
+    """
+    When dropping first part of concat, just take right side
+    """
+
+    if (
+        not n._concrete
+        or not isinstance(self.value, Operation)
+        or self.value.name != List.concat
+        or not self.value.args[1]._concrete
+        or n.value != self.value.args[1].value
+    ):
+        return NotImplemented
+    return self.value.args[2]

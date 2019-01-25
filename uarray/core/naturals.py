@@ -155,3 +155,16 @@ def __mul__0_right(self: Nat, other: Nat) -> Nat:
     if other.value == 0:
         return other
     return NotImplemented
+
+
+@register(ctx, Nat.__sub__)
+def __sub__add(self: Nat, other: Nat) -> Nat:
+    if (
+        not isinstance(self.value, Operation)
+        or self.value.name != Nat.__add__
+        or not other._concrete
+        or not self.value.args[0]._concrete
+    ):
+        return NotImplemented
+    self_l, self_r = self.value.args
+    return (self_l - other) + self_r

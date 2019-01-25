@@ -6,7 +6,7 @@ from ..dispatch import *
 from .lazy_ndarray import to_array, numpy_ufunc
 import numpy
 
-__all__ = ["AST", "ast_replace_ctx"]
+__all__ = ["AST", "ast_replace_ctx", "materialize"]
 T_box = typing.TypeVar("T_box", bound=Box)
 ctx = MapChainCallable()
 default_context.append(ctx)
@@ -187,3 +187,53 @@ def _get_idx_abs(self: Array[T_box]) -> Abstraction[List[Nat], T_box]:
         )
 
     return create_ast_abs(idx_abs, self.dtype)
+
+
+def materialize(a: Vec) -> Vec:
+    return Vec(Operation(materialize, (a,)), a.dtype)
+
+
+@register(ctx, materialize)
+def _materialize(a: Vec) -> Vec:
+    if not a._concrete:
+        return NotImplemented
+    length, lst = a.value.args
+    if not is_ast(length):
+        return NotImplemented
+
+    idx_store, idx_load = create_id()
+    array_store, array_load = create_id()
+
+    def create_for(val: AST, length_ast=length.value) -> AST:
+        return AST(
+            array_load,
+            [
+                ast.Assign(
+                    [array_store],
+                    ast.Call(
+                        ast.Attribute(
+                            ast.Name("numpy", ast.Load()), "empty", ast.Load()
+                        ),
+                        [length_ast.get],
+                        [ast.keyword(arg="dtype", value=ast.Str("int64"))],
+                    ),
+                ),
+                ast.For(
+                    idx_store,
+                    ast.Call(ast.Name("range", ast.Load()), [length_ast.get], []),
+                    [
+                        ast.Assign(
+                            [
+                                ast.Subscript(
+                                    array_load, ast.Index(idx_load), ast.Store()
+                                )
+                            ],
+                            val.get,
+                        )
+                    ],
+                    [],
+                ),
+            ],
+        ).includes(length_ast)
+
+    return create_ast_abs(create_for, a.dtype)(lst[Nat(AST(idx_load))])

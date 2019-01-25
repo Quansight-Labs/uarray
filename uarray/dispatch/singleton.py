@@ -14,6 +14,10 @@ class SingletonType(type):
             h = hash((cls, *args, *kw.items()))
         except TypeError:
             h = None
+        # We are disabling singleton for now, since it leads to weird results.
+        # the intent is that this reduces duplicate nodes, by having the node
+        # creator be memoized essentially
+
         # if h in SingletonType._instances:
         #     res = SingletonType._instances[h]
         #     return res

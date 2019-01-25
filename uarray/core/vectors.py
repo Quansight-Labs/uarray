@@ -84,7 +84,9 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
         return self.create(self.length + Nat(1), self.list.append(item))
 
     def concat(self, other: "Vec[T_box]") -> "Vec[T_box]":
-        return self.create(self.length + other.length, self.list.concat(other.list))
+        return self.create(
+            self.length + other.length, self.list.concat(self.length, other.list)
+        )
 
     def drop(self, n: Nat) -> "Vec[T_box]":
         """

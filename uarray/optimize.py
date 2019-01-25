@@ -30,19 +30,22 @@ def jit(*dims: int) -> typing.Callable[[T_call], T_call]:
                     LazyNDArray.create(to_array(arg)).with_dim(Nat(dim))
                     for (arg, dim) in zip(args, dims)
                 )
-            ).array.to_value()
+            ).array
 
-        res = replace(
-            Abstraction.create_nary(wrapper_fn, *([Array(None, Box(None))] * nargs))
+        orig_res = Abstraction.create_nary(
+            wrapper_fn, arg_names, *([Array(None, Box(None))] * nargs)
         )
-
+        res = replace(orig_res)
+        # return res
         new_res = res
         for arg_name in arg_names:
             new_res = new_res(Box(AST(ast.Name(arg_name, ast.Load()))))
 
+        new_res = replace(materialize(new_res.to_vec()))
+        # return new_res
         with includecontext(ast_replace_ctx):
             replaced = replace(new_res)
-
+        # return replaced
         res_ast = replaced.value
         assert isinstance(res_ast, AST)
         args_ = ast.arguments(
@@ -75,6 +78,7 @@ def jit(*dims: int) -> typing.Callable[[T_call], T_call]:
         wrapped_fn = functools.wraps(fn)(locals_["fn"])
         wrapped_fn.source = source
         wrapped_fn.res = res
+        wrapped_fn.orig_res = orig_res
         return wrapped_fn
 
     return inner

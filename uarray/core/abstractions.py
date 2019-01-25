@@ -65,20 +65,26 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
 
     @classmethod
     def create(
-        cls, fn: typing.Callable[[T_box], U_box], arg_type: T_box
+        cls, fn: typing.Callable[[T_box], U_box], arg_type: T_box, vname: str = None
     ) -> "Abstraction[T_box, U_box]":
-        arg = arg_type._replace(Variable())
+        arg = arg_type._replace(Variable(vname))
         body = fn(arg)
         return cls.from_variable(arg, body)
 
     @classmethod
-    def create_nary(cls, fn: typing.Callable[..., T_box], *arg_types: Box) -> "Box":
+    def create_nary(
+        cls, fn: typing.Callable[..., T_box], vnames: typing.List[str], *arg_types: Box
+    ) -> "Box":
         if not arg_types:
             return fn()
         arg_type, *new_arg_types = arg_types
+        vname, *new_vnames = vnames
         return Abstraction.create(
-            lambda x: cls.create_nary(functools.partial(fn, x), *new_arg_types),
+            lambda x: cls.create_nary(
+                functools.partial(fn, x), new_vnames, *new_arg_types
+            ),
             arg_type,
+            vname,
         )
 
     @classmethod

@@ -145,14 +145,13 @@ def outer_product(
 def _outer_product(
     l: Array[T_box], op: Abstraction[T_box, Abstraction[U_box, V_box]], r: Array[U_box]
 ) -> Array[V_box]:
-
     l_dim = l.shape.length
 
     @Array.create_idx_abs
     def new_idx_abs(idx: Vec[Nat]) -> V_box:
         return op(l[idx.take(l_dim)])(r[idx.drop(l_dim)])
 
-    return Array.create(l.shape, new_idx_abs)
+    return Array.create(l.shape.concat(r.shape), new_idx_abs)
 
 
 def reduce(
