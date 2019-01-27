@@ -193,3 +193,31 @@ def test_array_from_list_nd(
 #         assert replace(Index(vector(*old_idx), array)) == replace(
 #             Index(vector(*new_idx), reshaped)
 #         )
+
+
+def test_paper_example():
+    """
+    Verifies example from paper
+    """
+
+    # We start with two arrays, `A` and `B`.
+    A_rav = List(Variable("A_rav"), Nat(None))
+    B_rav = List(Variable("B_rav"), Nat(None))
+
+    A_shape = B_shape = Array.create_shape(Nat(3), Nat(4))
+
+    A = array_from_list_nd(A_rav, A_shape)
+    B = array_from_list_nd(B_rav, B_shape)
+
+    expr = index(
+        Array.create_1d_infer(Nat(0)), transpose(binary_op(A, operator.add, B))
+    )
+
+    # Verify shape is what it should be
+    assert_vector_is_list(expr.shape, [Nat(3)])
+
+    # Verify contents is equal by indexing with `i`.
+    i = Nat(Variable("i"))
+    idxed = expr[Array.create_shape(i)]
+    correct_idxed = A_rav[Nat(4) * i] + B_rav[Nat(4) * i]
+    assert replace(correct_idxed) == replace(idxed)
