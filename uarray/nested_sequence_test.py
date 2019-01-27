@@ -1,4 +1,6 @@
 from .dispatch import *
+from .moa import *
+from .core import *
 from .nested_sequence import *
 
 
@@ -7,3 +9,16 @@ def test_isomoprhic():
     values = (1, 2), (3, 4)
     python_array = create_python_array(shape, values)
     assert python_array == replace(to_python_array(python_array))
+
+
+def test_binary_operation():
+    a = create_python_array((2, 2), ((1, 2), (3, 4)))
+    assert (
+        replace(
+            binary_operation_abstraction(
+                a, create_python_bin_abs(lambda l, r: l + r), a
+            )[Array.create_shape(Nat(0), Nat(0))]
+        ).value
+        == 2
+    )
+
