@@ -5,8 +5,6 @@ import dataclasses
 import functools
 import typing
 
-from .singleton import *
-
 __all__ = [
     "Operation",
     "Box",
@@ -35,7 +33,7 @@ T_box = typing.TypeVar("T_box", bound="Box")
 
 
 @dataclasses.dataclass
-class Box(Singleton, typing.Generic[T_cov]):
+class Box(typing.Generic[T_cov]):
     value: T_cov
 
     def _replace(self: T_box, value: typing.Any = None) -> "T_box":
@@ -91,7 +89,7 @@ T_args = typing.TypeVar("T_args", bound=ChildrenType)
 
 
 @dataclasses.dataclass(frozen=True)
-class Operation(Singleton, typing.Generic[T_args]):
+class Operation(typing.Generic[T_args]):
     name: object
     args: T_args
 
