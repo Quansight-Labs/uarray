@@ -1,7 +1,6 @@
-# import pytest
-# import numpy as np
+import numpy
 
-# from .optimize import *
+from .optimize import *
 
 
 # @pytest.mark.parametrize(
@@ -19,3 +18,12 @@
 
 #     optimized = optimize(arr.shape)(fn)
 #     assert np.array_equal(optimized(arr), fn(arr))
+
+
+def test_outer_index():
+    def outer_index(a, b):
+        return numpy.multiply.outer(a, b)[5]
+
+    args = [numpy.arange(10000), numpy.arange(10000)]
+    jitted = jit(1, 1)(outer_index)
+    assert numpy.array_equal(outer_index(*args), jitted(*args))
