@@ -210,6 +210,10 @@ def visualize_progress(expr, max_n=200):
     raise NotImplementedError
 
 
+def display_ops(expr):
+    raise NotImplementedError
+
+
 try:
     from IPython.display import display, SVG, clear_output
 
