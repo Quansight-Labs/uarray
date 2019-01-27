@@ -166,7 +166,7 @@ def create_tuple_list_ast(a: AST, dtype: T_box) -> List[T_box]:
     def inner(i: AST, a=a) -> AST:
         return AST(ast.Subscript(a.get, ast.Index(i.get), ast.Load())).include(a)
 
-    return List.from_abs(create_ast_abs(inner, dtype))
+    return List.from_abstraction(create_ast_abs(inner, dtype))
 
 
 @register(ctx, Array._get_shape)

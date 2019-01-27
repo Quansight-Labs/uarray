@@ -30,10 +30,6 @@ class Variable:
         return self.name or ""
 
 
-# def list_(*args: T_box) -> "Abstraction[Nat, T_box]":
-#     ...
-
-
 @dataclasses.dataclass
 class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
     """

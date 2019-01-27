@@ -100,7 +100,7 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
         def fn(i: Nat) -> T_box:
             return self[Array.create_shape(i)]
 
-        return List.from_abs(Abstraction.create(fn, Nat(None)))
+        return List.from_abstraction(Abstraction.create(fn, Nat(None)))
 
     def to_vec(self) -> Vec[T_box]:
         return Vec.create(self.shape[Nat(0)], self.to_list_abs())

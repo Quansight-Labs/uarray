@@ -47,7 +47,8 @@ def jit(*dims: int) -> typing.Callable[[T_call], T_call]:
             replaced = replace(new_res)
         # return replaced
         res_ast = replaced.value
-        assert isinstance(res_ast, AST)
+        if not isinstance(res_ast, AST):
+            raise NotImplementedError("Couldn't compile to AST")
         args_ = ast.arguments(
             args=[ast.arg(arg=a, annotation=None) for a in arg_names],
             vararg=None,

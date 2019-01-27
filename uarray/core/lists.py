@@ -21,12 +21,25 @@ class List(Box[typing.Any], typing.Generic[T_box]):
     dtype: T_box
 
     @property
+    def abstraction(self):
+        return Abstraction(self.value, self.dtype)
+
+    @classmethod
+    def from_abstraction(cls, a: Abstraction[Nat, T_box]) -> "List[T_box]":
+        return cls(a.value, a.rettype)
+
+    @property
     def _concrete(self) -> bool:
         return isinstance(self.value, Operation) and self.value.name == List
 
+    # TODO: Figure out if turning into abstraction makes sense!
+    # i.e. if underlying value has __call__ implemented, we should use that.
     @property
-    def _concrete_abs(self) -> bool:
-        return isinstance(self.value, Operation) and self.value.name == List.from_abs
+    def _concrete_abstraction(self) -> bool:
+        return (
+            isinstance(self.value, Operation)
+            and (self.value.name == Abstraction or self.value.name == Abstraction.const)
+        ) or isinstance(self.value, typing.cast(typing.Type, typing.Callable))
 
     @property
     def _args(self) -> typing.Tuple[T_box, ...]:
@@ -39,10 +52,6 @@ class List(Box[typing.Any], typing.Generic[T_box]):
     @classmethod
     def create_infer(cls, arg: T_box, *args: T_box) -> "List[T_box]":
         return cls.create(arg._replace(None), arg, *args)
-
-    @classmethod
-    def from_abs(cls, a: Abstraction[Nat, T_box]) -> "List[T_box]":
-        return cls(Operation(List.from_abs, (a,)), a.rettype)
 
     def _replace_args(self, *args: T_box) -> "List[T_box]":
         return self._replace(Operation(List, args))
@@ -121,10 +130,10 @@ def __getitem__(self: List[T_box], index: Nat) -> T_box:
 
 @register(ctx, List.__getitem__)
 def __getitem___abs(self: List[T_box], index: Nat) -> T_box:
-    if not self._concrete_abs:
+    if not self._concrete_abstraction:
         return NotImplemented
 
-    return self.value.args[0](index)
+    return self.abstraction(index)
 
 
 @register(ctx, List.rest)
@@ -175,15 +184,15 @@ def concat_empty_right(
 
 @register(ctx, List.concat)
 def concat_abs(self: List[T_box], length: Nat, other: List[T_box]) -> List[T_box]:
-    if not self._concrete_abs or not other._concrete_abs:
+    if not self._concrete_abstraction or not other._concrete_abstraction:
         return NotImplemented
 
-    l, r = self.value.args[0], other.value.args[0]
-
     def new_list(idx: Nat) -> T_box:
-        return idx.lt(length).if_(l(idx), r(idx - length))
+        return idx.lt(length).if_(
+            self.abstraction(idx), other.abstraction(idx - length)
+        )
 
-    return List.from_abs(Abstraction.create(new_list, Nat(None)))
+    return List.from_abstraction(Abstraction.create(new_list, Nat(None)))
 
 
 @register(ctx, List.drop)
@@ -195,15 +204,13 @@ def drop(self: List[T_box], n: Nat) -> List[T_box]:
 
 @register(ctx, List.drop)
 def drop_abs(self: List[T_box], n: Nat) -> List[T_box]:
-    if not isinstance(self.value, Operation) or self.value.name != List.from_abs:
+    if not self._concrete_abstraction:
         return NotImplemented
 
-    old_abs = self.value.args[0]
-
     def new_list(idx: Nat) -> T_box:
-        return old_abs(idx + n)
+        return self.abstraction(idx + n)
 
-    return List.from_abs(Abstraction.create(new_list, old_abs.rettype))
+    return List.from_abstraction(Abstraction.create(new_list, Nat(None)))
 
 
 @register(ctx, List.drop)
@@ -222,7 +229,7 @@ def take(self: List[T_box], n: Nat) -> List[T_box]:
 
 @register(ctx, List.take)
 def take_abs(self: List[T_box], n: Nat) -> List[T_box]:
-    if not isinstance(self.value, Operation) or self.value.name != List.from_abs:
+    if not self._concrete_abstraction:
         return NotImplemented
 
     return self

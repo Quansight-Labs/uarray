@@ -136,7 +136,7 @@ def _convert_list(length: Nat, lst: List[T_box]) -> Vec[T_box]:
     """
     When we know length, convert abstraction list to exact list
     """
-    if not length._concrete or not lst._concrete_abs:
+    if not length._concrete or not lst._concrete_abstraction:
         return NotImplemented
     return Vec.create(
         length, List.create(lst.dtype, *(lst[Nat(i)] for i in range(length.value)))
