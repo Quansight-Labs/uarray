@@ -43,9 +43,6 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
     value: typing.Any
     rettype: T_box_cov
 
-    def __hash__(self):
-        return hash((type(self), self.value, self.rettype))
-
     @property
     def _concrete(self) -> bool:
         return isinstance(self.value, Operation) and self.value.name == Abstraction

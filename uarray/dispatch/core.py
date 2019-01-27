@@ -45,9 +45,6 @@ class Box(typing.Generic[T_cov]):
             f.name for f in dataclasses.fields(cls) if f.init and f.name != "value"
         )
 
-    def __hash__(self):
-        return hash((type(self), self.value))
-
     def _str_without_value(self) -> str:
         return f"{type(self).__qualname__}({', '.join(f'{f}={getattr(self, f)._str_without_value()}' for f in self._tuple_fields())})"
 

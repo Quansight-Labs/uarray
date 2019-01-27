@@ -20,10 +20,6 @@ class List(Box[typing.Any], typing.Generic[T_box]):
     value: typing.Any
     dtype: T_box
 
-    def __hash__(self):
-        # print("hashing", self.value, self.dtype)
-        return hash((List, self.value, self.dtype))
-
     @property
     def _concrete(self) -> bool:
         return isinstance(self.value, Operation) and self.value.name == List

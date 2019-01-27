@@ -21,9 +21,6 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
     value: typing.Any
     dtype: T_box
 
-    def __hash__(self):
-        return hash((type(self), self.value, self.dtype))
-
     @property
     def _concrete(self):
         return isinstance(self.value, Operation) and self.value.name == Array
