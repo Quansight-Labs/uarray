@@ -1,25 +1,23 @@
 """
 Support reading and compiling to python AST of NumPy API
-"""
 
+Array -> AST of numpy.ndarray
+Vector -> tuple
+Natural -> number
+"""
 import typing
 import ast
 import dataclasses
+
 from ..core import *
 from ..dispatch import *
 from .lazy_ndarray import to_array, numpy_ufunc
 import numpy
 
-__all__ = ["AST", "ast_replace_ctx", "materialize"]
+__all__ = ["AST", "to_ast"]
 T_box = typing.TypeVar("T_box", bound=Box)
 ctx = MapChainCallable()
 default_context.append(ctx)
-
-ast_replace_ctx = MapChainCallable()
-
-# Automatic casting would be helpful here...
-# Look at that book for casting rules
-# Graph of all types -> casting between them?
 
 
 @dataclasses.dataclass(frozen=True)
@@ -49,58 +47,94 @@ def to_array(b: Box) -> Array:
     return Array(b.value, Box(None))
 
 
-@register_type(ast_replace_ctx, int)
-def _int(v: int) -> AST:
-    return AST(ast.Num(v))
+def to_ast(b: T_box) -> T_box:
+    return b._replace(Operation(to_ast, (b,)))
 
 
-@register_type(ast_replace_ctx, float)
-def _float(v: float) -> AST:
-    return AST(ast.Num(v))
+def _ast_abstraction_inner(
+    fn: typing.Callable[..., AST], rettype: T_box, *args: Box[AST]
+) -> T_box:
+    asts: typing.List[AST] = [a.value for a in args]
+    return rettype._replace(fn(*asts))
 
 
-@register(ast_replace_ctx, List)
-def _list(*args: T_box) -> List[Box]:
-    if not all(is_ast(a) for a in args):
-        return NotImplemented
-    args_ast: typing.Tuple[AST, ...] = tuple(a.value for a in args)
-    # dtype of returned list doesn't matter, only value will be used in replacement
-    return List(
-        AST(ast.Tuple(elts=[a.get for a in args_ast], ctx=ast.Load())).includes(
-            *args_ast
-        ),
-        Box(None),
+def create_ast_abstraction(
+    fn: typing.Callable[..., AST], rettype: Box, n_args: int
+) -> T_box:
+    return Abstraction.create_nary_native(
+        Partial(_ast_abstraction_inner, (fn, rettype)), rettype, *[is_ast] * n_args
     )
 
 
-@register(ast_replace_ctx, Vec)
-def _vec(length: Nat, lst: List[Box]) -> Vec[Box]:
-    if not is_ast(lst):
-        return NotImplemented
-    return Vec(lst.value, lst.dtype)
+def as_ast(fn: typing.Callable[..., AST], rettype: T_box, *args: Box) -> T_box:
+    """
+    Takes in a function mapping arguments of type AST to an AST 
+    """
+    res: typing.Any = create_ast_abstraction(fn, rettype, len(args))
+    for a in args:
+        res = res(to_ast(a))
+    return typing.cast(T_box, res)
 
 
-@register(ast_replace_ctx, numpy_ufunc)
-def _ufunc(ufunc: Box[numpy.ufunc], *args: Box) -> Box:
-    if not all(map(is_ast, args)):
+@register(ctx, to_ast)
+def to_ast_numbers(b: T_box) -> T_box:
+    if not isinstance(b.value, (int, float)):
         return NotImplemented
-    args_ast: typing.List[AST] = [a.value for a in args]
-    return Box(
-        AST(
+    return b._replace(AST(ast.Num(b.value)))
+
+
+@register(ctx, to_ast)
+def to_ast_tuple(b: T_box) -> T_box:
+    if not isinstance(b, Vec) or not isinstance(b.value, VecData):
+        return NotImplemented
+
+    length, lst = b.value.length, b.value.list
+    if not isinstance(length.value, int):
+        return NotImplemented
+
+    def inner(*args: AST) -> AST:
+        return AST(ast.Tuple([a.get for a in args], ast.Load())).includes(*args)
+
+    return as_ast(inner, b, *(lst[Nat(i)] for i in range(length.value)))
+
+
+# @register(ctx, Vec)
+# def _convert_list(length: Nat, lst: List[T_box]) -> Vec[T_box]:
+#     """
+#     When we know length, convert abstraction list to exact list
+#     """
+#     if not isinstance(length.value, int) or not concrete(lst):
+#         return NotImplemented
+#     return Vec.create(
+#         length, List.create(lst.dtype, *(lst[Nat(i)] for i in range(length.value)))
+#     )
+
+
+@register(ctx, to_ast)
+def to_ast__ufunc(b: T_box) -> T_box:
+    if not isinstance(b.value, Operation) or b.value.name != numpy_ufunc:
+        return NotImplemented
+    ufunc, *args = b.value.args
+    if not isinstance(ufunc.value, numpy.ufunc):
+        return NotImplemented
+
+    def _call_ufunc(*args: AST, name: str = ufunc.value.__name__) -> AST:
+        return AST(
             ast.Call(
                 ast.Attribute(
                     value=ast.Name(
-                        id="numpy",  # TODO: Maybe don't get off global numpy?
-                        ctx=ast.Load(),
+                        id="numpy",
+                        ctx=ast.Load(),  # TODO: Maybe don't get off global numpy?
                     ),
-                    attr=ufunc.value.__name__,
+                    attr=name,
                     ctx=ast.Load(),
                 ),
-                args=[a.get for a in args_ast],
+                args=[a.get for a in args],
                 keywords=[],
             )
-        ).includes(*args_ast)
-    )
+        ).includes(*args)
+
+    return as_ast(_call_ufunc, b, *args)
 
 
 _i = 0
@@ -121,94 +155,104 @@ def create_id() -> typing.Tuple[ast.AST, ast.AST]:
     return ast.Name(i, ast.Store()), ast.Name(i, ast.Load())
 
 
-@register(ast_replace_ctx, Nat.loop)
-def _loop(
-    self: Nat, initial: T_box, fn: Abstraction[T_box, Abstraction["Nat", T_box]]
-) -> T_box:
-    if not is_ast(self) or not is_ast(initial):
+def create_for(
+    store_index: ast.AST,
+    store_result: ast.AST,
+    load_result: ast.AST,
+    n_ast: AST,
+    initial_ast: AST,
+    load_loop_result: AST,
+) -> AST:
+    return AST(
+        load_result,
+        [
+            ast.Assign([store_result], initial_ast.get),
+            ast.For(
+                store_index,
+                ast.Call(ast.Name("range", ast.Load()), [n_ast.get], []),
+                [
+                    *load_loop_result.init,
+                    ast.Assign([store_result], load_loop_result.get),
+                ],
+                [],
+            ),
+        ],
+    ).includes(initial_ast, n_ast)
+
+
+@register(ctx, to_ast)
+def to_ast_loop(b: T_box) -> T_box:
+    if not isinstance(b.value, Operation) or b.value.name != Nat.loop:
         return NotImplemented
-    idx_store, idx_load = create_id()
-    res_store, res_load = create_id()
-
-    def create_for(res: AST, initial_ast=initial.value, self_ast=self.value) -> AST:
-        return AST(
-            res_load,
-            [
-                ast.Assign([res_store], initial_ast.get),
-                ast.For(
-                    idx_store,
-                    ast.Call(ast.Name("range", ast.Load()), [self_ast.get], []),
-                    [ast.Assign([res_store], res.get)],
-                    [],
-                ),
-            ],
-        ).includes(initial_ast, self_ast)
-
-    return create_ast_abs(create_for, fn.rettype.rettype)(
-        fn(initial._replace(AST(res_load)))(Nat(AST(idx_load)))
+    n, initial, fn = typing.cast(
+        typing.Tuple[Nat, T_box, Abstraction[T_box, Abstraction["Nat", T_box]]],
+        b.value.args,
     )
 
+    store_index, load_index = create_id()
+    store_result, load_result = create_id()
 
-def create_ast_abs(
-    fn: typing.Callable[[AST], AST], rettype: T_box
-) -> Abstraction[Box, T_box]:
-    def inner(b_ast: Box) -> T_box:
-        if not is_ast(b_ast):
-            return NotImplemented
-        b_val = b_ast.value
-        return rettype._replace(fn(b_val).include(b_val))
-
-    inner.__name__ = f"wrapped:{fn.__name__}"
-    return Abstraction.create_native(inner, rettype)
-
-
-def create_tuple_list_ast(a: AST, dtype: T_box) -> List[T_box]:
-    def inner(i: AST, a=a) -> AST:
-        return AST(ast.Subscript(a.get, ast.Index(i.get), ast.Load())).include(a)
-
-    return List.from_abstraction(create_ast_abs(inner, dtype))
+    return as_ast(
+        Partial(create_for, (store_index, store_result, load_result)),
+        b,
+        n,
+        initial,
+        fn(initial._replace(AST(load_result)))(Nat(AST(load_index))),
+    )
 
 
 @register(ctx, Array._get_shape)
 def _get_shape(self: Array[T_box]) -> Vec[Nat]:
     if not is_ast(self):
         return NotImplemented
-    ndim = AST(ast.Attribute(self.value.get, "ndim", ast.Load()))
-    shape = AST(ast.Attribute(self.value.get, "shape", ast.Load()))
-    return Vec.create(length=Nat(ndim), lst=create_tuple_list_ast(shape, Nat(None)))
+    ndim = Nat(
+        AST(ast.Attribute(self.value.get, "ndim", ast.Load())).include(self.value)
+    )
+
+    @List.from_function
+    def list_fn(idx: Nat, self_ast=self.value) -> Nat:
+        def inner(idx_ast: AST, self_ast=self_ast) -> AST:
+            return AST(
+                ast.Subscript(
+                    ast.Attribute(self_ast.get, "shape", ast.Load()),
+                    ast.Index(idx_ast.get),
+                    ast.Load(),
+                )
+            ).includes(self_ast, idx_ast)
+
+        return as_ast(inner, Nat(None), idx)
+
+    return Vec.create(ndim, list_fn)
 
 
 @register(ctx, Array._get_idx_abs)
-def _get_idx_abs(self: Array[T_box]) -> Abstraction[List[Nat], T_box]:
+def _get_idx_abs(self: Array[T_box]) -> Abstraction[Vec[Nat], T_box]:
     if not is_ast(self):
         return NotImplemented
 
-    def idx_abs(idx: AST, self_val=self.value) -> AST:
-        if not idx.get.elts:
-            return self_val
-        return AST(ast.Subscript(self_val.get, ast.Index(idx.get), ast.Load())).include(
-            self_val
-        )
+    @Array.create_idx_abs
+    def idx_abs(idx: Vec[Nat], self_ast=self.value) -> T_box:
+        def inner(idx_ast: AST, self_ast=self_ast) -> AST:
+            if not idx_ast.get.elts:  # type: ignore
+                return self_ast
+            return AST(
+                ast.Subscript(self_ast.get, ast.Index(idx_ast.get), ast.Load())
+            ).includes(self_ast, idx_ast)
 
-    return create_ast_abs(idx_abs, self.dtype)
+        return as_ast(inner, self.dtype, idx)
+
+    return idx_abs
 
 
-def materialize(a: Vec) -> Vec:
-    return Vec(Operation(materialize, (a,)), a.dtype)
-
-
-@register(ctx, materialize)
-def _materialize(a: Vec) -> Vec:
-    if not a._concrete:
-        return NotImplemented
-    length, lst = a.value.args
-    if not is_ast(length):
+@register(ctx, to_ast)
+def to_ast__array(b: T_box) -> T_box:
+    if not isinstance(b, Array):
         return NotImplemented
 
     idx_store, idx_load = create_id()
     array_store, array_load = create_id()
 
-    def create_for(val: AST, length_ast=length.value) -> AST:
+    def array_fn(length: AST, val: AST) -> AST:
         return AST(
             array_load,
             [
@@ -218,14 +262,15 @@ def _materialize(a: Vec) -> Vec:
                         ast.Attribute(
                             ast.Name("numpy", ast.Load()), "empty", ast.Load()
                         ),
-                        [length_ast.get],
+                        [length.get],
                         [ast.keyword(arg="dtype", value=ast.Str("int64"))],
                     ),
                 ),
                 ast.For(
                     idx_store,
-                    ast.Call(ast.Name("range", ast.Load()), [length_ast.get], []),
+                    ast.Call(ast.Name("range", ast.Load()), [length.get], []),
                     [
+                        *val.init,
                         ast.Assign(
                             [
                                 ast.Subscript(
@@ -233,11 +278,20 @@ def _materialize(a: Vec) -> Vec:
                                 )
                             ],
                             val.get,
-                        )
+                        ),
                     ],
                     [],
                 ),
             ],
-        ).includes(length_ast)
+        ).includes(length)
 
-    return create_ast_abs(create_for, a.dtype)(lst[Nat(AST(idx_load))])
+    # for now assume 1d array. In future, add ravel.
+    vec = b.to_vec()
+    return as_ast(array_fn, b, vec.length, vec.list[Nat(AST(idx_load))])
+
+
+@register(ctx, to_ast)
+def to_ast_already_ast(b: T_box) -> T_box:
+    if not is_ast(b):
+        return NotImplemented
+    return b

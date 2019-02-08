@@ -41,7 +41,7 @@ T_box = typing.TypeVar("T_box", bound=Box)
 
 
 def numpy_ufunc(ufunc: Box[numpy.ufunc], *args: Box) -> Box:
-    ...
+    return Box(Operation(numpy_ufunc, (ufunc, *args)))
 
 
 class LazyNDArray(
@@ -64,7 +64,7 @@ class LazyNDArray(
             reduce(
                 self.array,
                 Abstraction.create_bin(
-                    lambda l, r: Box(Operation(numpy_ufunc, (Box(numpy.add), l, r))),
+                    lambda l, r: numpy_ufunc(Box(numpy.add), l, r),
                     self.array.dtype._replace(None),
                     self.array.dtype._replace(None),
                 ),
@@ -83,7 +83,7 @@ class LazyNDArray(
             res = outer_product(
                 a,
                 Abstraction.create_bin(
-                    lambda l, r: Box(Operation(numpy_ufunc, (Box(ufunc), l, r))),
+                    lambda l, r: numpy_ufunc(Box(ufunc), l, r),
                     a.dtype._replace(None),
                     b.dtype._replace(None),
                 ),
@@ -94,8 +94,7 @@ class LazyNDArray(
             a, = array_inputs
             res = unary_operation_abstraction(
                 Abstraction.create(
-                    lambda v: Box(Operation(numpy_ufunc, (Box(ufunc), v))),
-                    a.dtype._replace(None),
+                    lambda v: numpy_ufunc(Box(ufunc), v), a.dtype._replace(None)
                 ),
                 a,
             )
@@ -104,7 +103,7 @@ class LazyNDArray(
             res = binary_operation_abstraction(
                 a,
                 Abstraction.create_bin(
-                    lambda l, r: Box(Operation(numpy_ufunc, (Box(ufunc), l, r))),
+                    lambda l, r: numpy_ufunc(Box(ufunc), l, r),
                     a.dtype._replace(None),
                     b.dtype._replace(None),
                 ),

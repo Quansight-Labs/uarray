@@ -9,7 +9,7 @@ from .naturals import *
 from .lists import *
 
 
-__all__ = ["Vec"]
+__all__ = ["Vec", "VecData"]
 
 T_box = typing.TypeVar("T_box", bound=Box)
 V_box = typing.TypeVar("V_box", bound=Box)
@@ -22,13 +22,15 @@ VecOperation = Operation[typing.Tuple[Nat, List[T_box]]]
 
 
 @dataclasses.dataclass
+class VecData(Data, typing.Generic[T_box]):
+    length: Nat
+    list: List[T_box]
+
+
+@dataclasses.dataclass
 class Vec(Box[typing.Any], typing.Generic[T_box]):
     value: typing.Any
     dtype: T_box
-
-    @property
-    def _concrete(self):
-        return isinstance(self.value, Operation) and self.value.name == Vec
 
     @property
     def list(self) -> List[T_box]:
@@ -40,7 +42,7 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
 
     @classmethod
     def create(cls, length: Nat, lst: List[T_box]) -> "Vec[T_box]":
-        return cls(Operation(Vec, (length, lst)), lst.dtype)
+        return cls(VecData(length, lst), lst.dtype)
 
     @classmethod
     def create_args(cls, dtype: T_box, *args: T_box) -> "Vec[T_box]":
@@ -78,7 +80,7 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
         return self.create(self.length + Nat(1), self.list.push(item))
 
     def append(self, item: T_box) -> "Vec[T_box]":
-        return self.create(self.length + Nat(1), self.list.append(item))
+        return self.create(self.length + Nat(1), self.list.append(self.length, item))
 
     def concat(self, other: "Vec[T_box]") -> "Vec[T_box]":
         return self.create(
@@ -101,7 +103,7 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
         """
         x[::-1]
         """
-        return self.create(self.length, self.list.reverse())
+        return self.create(self.length, self.list.reverse(self.length))
 
     def reduce(
         self, initial: V_box, op: Abstraction[V_box, Abstraction[T_box, V_box]]
@@ -119,25 +121,13 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
 
 @register(ctx, Vec._get_length)
 def _get_length(self: Vec[T_box]) -> Nat:
-    if not self._concrete:
+    if not isinstance(self.value, VecData):
         return NotImplemented
-    return self.value.args[0]
+    return self.value.length
 
 
 @register(ctx, Vec._get_list)
 def _get_list(self: Vec[T_box]) -> List[T_box]:
-    if not self._concrete:
+    if not isinstance(self.value, VecData):
         return NotImplemented
-    return self.value.args[1]
-
-
-@register(ctx, Vec)
-def _convert_list(length: Nat, lst: List[T_box]) -> Vec[T_box]:
-    """
-    When we know length, convert abstraction list to exact list
-    """
-    if not length._concrete or not lst._concrete_abstraction:
-        return NotImplemented
-    return Vec.create(
-        length, List.create(lst.dtype, *(lst[Nat(i)] for i in range(length.value)))
-    )
+    return self.value.list

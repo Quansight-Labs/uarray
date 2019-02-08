@@ -9,10 +9,21 @@ from .naturals import *
 
 T = typing.TypeVar("T")
 T_box = typing.TypeVar("T_box", bound=Box)
+U_box = typing.TypeVar("U_box", bound=Box)
 V_box = typing.TypeVar("V_box", bound=Box)
 
 
 __all__ = ["List"]
+
+
+@children.register
+def tuple_children(a: tuple):
+    return a
+
+
+@map_children.register
+def tuple_map_children(a: tuple, b: typing.Callable):
+    return tuple(map(b, a))
 
 
 @dataclasses.dataclass
@@ -28,33 +39,17 @@ class List(Box[typing.Any], typing.Generic[T_box]):
     def from_abstraction(cls, a: Abstraction[Nat, T_box]) -> "List[T_box]":
         return cls(a.value, a.rettype)
 
-    @property
-    def _concrete(self) -> bool:
-        return isinstance(self.value, Operation) and self.value.name == List
-
-    # TODO: Figure out if turning into abstraction makes sense!
-    # i.e. if underlying value has __call__ implemented, we should use that.
-    @property
-    def _concrete_abstraction(self) -> bool:
-        return (
-            isinstance(self.value, Operation)
-            and (self.value.name == Abstraction or self.value.name == Abstraction.const)
-        ) or isinstance(self.value, typing.cast(typing.Type, typing.Callable))
-
-    @property
-    def _args(self) -> typing.Tuple[T_box, ...]:
-        return self.value.args
-
     @classmethod
     def create(cls, dtype: T_box, *args: T_box) -> "List[T_box]":
-        return cls(Operation(List, args), dtype)
+        return cls(tuple(args), dtype)
 
     @classmethod
     def create_infer(cls, arg: T_box, *args: T_box) -> "List[T_box]":
         return cls.create(arg._replace(None), arg, *args)
 
-    def _replace_args(self, *args: T_box) -> "List[T_box]":
-        return self._replace(Operation(List, args))
+    @classmethod
+    def from_function(cls, fn: typing.Callable[[Nat], T_box]) -> "List[T_box]":
+        return cls.from_abstraction(Abstraction.create(fn, Nat(None)))
 
     def __getitem__(self, index: Nat) -> T_box:
         op = Operation(List.__getitem__, (self, index))
@@ -77,8 +72,8 @@ class List(Box[typing.Any], typing.Generic[T_box]):
     def push(self, item: T_box) -> "List[T_box]":
         return self._replace(Operation(List.push, (self, item)))
 
-    def append(self, item: T_box) -> "List[T_box]":
-        return self._replace(Operation(List.append, (self, item)))
+    def append(self, length: Nat, item: T_box) -> "List[T_box]":
+        return self._replace(Operation(List.append, (self, length, item)))
 
     def concat(self, length: Nat, other: "List[T_box]") -> "List[T_box]":
         return self._replace(Operation(List.concat, (self, length, other)))
@@ -97,11 +92,11 @@ class List(Box[typing.Any], typing.Generic[T_box]):
         """
         return self._replace(Operation(List.take, (self, n)))
 
-    def reverse(self) -> "List[T_box]":
+    def reverse(self, length: Nat) -> "List[T_box]":
         """
         x[::-1]
         """
-        return self._replace(Operation(List.reverse, (self,)))
+        return self._replace(Operation(List.reverse, (self, length)))
 
     def reduce(
         self,
@@ -122,53 +117,74 @@ class List(Box[typing.Any], typing.Generic[T_box]):
 
 @register(ctx, List.__getitem__)
 def __getitem__(self: List[T_box], index: Nat) -> T_box:
-    if not self._concrete or not index._concrete:
-        return NotImplemented
-
-    return self._args[index.value]
-
-
-@register(ctx, List.__getitem__)
-def __getitem___abs(self: List[T_box], index: Nat) -> T_box:
-    if not self._concrete_abstraction:
-        return NotImplemented
-
+    """
+    Getitem translates into an abstraction.
+    """
     return self.abstraction(index)
+
+
+@register(ctx, Abstraction.__call__)
+def __call___list(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
+    if isinstance(self.value, tuple) and isinstance(arg.value, int):
+        # We normally shouldn't get invalid indices
+        # but sometimes we do, for example if we have a conditional  and two paths,
+        # one might lead to invalid indices, but that's OK if it is never reached, i.e.
+        # if conditional is always true.
+        #
+        # Alternative way would be to not evaluate conditional paths until we know which branch to take
+        # but this hides part of the try and means we can't compile unknown conditionals
+        try:
+            return self.value[arg.value]
+        except IndexError:
+            # TODO: Return bottom type here, to show that this path is impossible.
+            return NotImplemented
+    return NotImplemented
 
 
 @register(ctx, List.rest)
 def rest(self: List[T_box]) -> List[T_box]:
-    if not self._concrete:
-        return NotImplemented
-    return self._replace_args(*self._args[1:])
+    if isinstance(self.value, tuple):
+        return self._replace(self.value[1:])
+    # If we know the result is not going to be a tuple, implement with abstractions
+    if concrete(self.value):
+        return List.from_function(lambda i: self[i + Nat(1)])
+    return NotImplemented
 
 
 @register(ctx, List.push)
 def push(self: List[T_box], item: T_box) -> List[T_box]:
-    if not self._concrete:
-        return NotImplemented
-    return self._replace_args(item, *self._args)
+    if isinstance(self.value, tuple):
+        return self._replace((item,) + self.value)
+    if concrete(self.value):
+        return List.from_function(lambda i: i.equal(Nat(0)).if_(item, self[i - Nat(1)]))
+    return NotImplemented
 
 
 @register(ctx, List.append)
-def append(self: List[T_box], item: T_box) -> List[T_box]:
-    if not self._concrete:
-        return NotImplemented
-    return self._replace_args(*self._args, item)
+def append(self: List[T_box], length: Nat, item: T_box) -> List[T_box]:
+    if isinstance(self.value, tuple):
+        return self._replace(self.value + (item,))
+    if concrete(self.value):
+        return List.from_function(lambda i: i.equal(length).if_(item, self[i]))
+    return NotImplemented
 
 
 @register(ctx, List.concat)
 def concat(self: List[T_box], length: Nat, other: List[T_box]) -> List[T_box]:
-    if not self._concrete or not other._concrete:
-        return NotImplemented
-    return self._replace_args(*self._args, *other._args)
+    if isinstance(self.value, tuple) and isinstance(other.value, tuple):
+        return self._replace(self.value + other.value)
+    if concrete(self.value) and concrete(other.value):
+        return List.from_function(
+            lambda i: i.lt(length).if_(self[i], other[i - length])
+        )
+    return NotImplemented
 
 
 @register(ctx, List.concat)
 def concat_empty_left(
     self: List[T_box], length: Nat, other: List[T_box]
 ) -> List[T_box]:
-    if not self._concrete or self.value.args:
+    if not isinstance(self.value, tuple) or self.value:
         return NotImplemented
     return other
 
@@ -177,40 +193,33 @@ def concat_empty_left(
 def concat_empty_right(
     self: List[T_box], length: Nat, other: List[T_box]
 ) -> List[T_box]:
-    if not other._concrete or other.value.args:
+    if not isinstance(other.value, tuple) or other.value:
         return NotImplemented
     return self
 
 
-@register(ctx, List.concat)
-def concat_abs(self: List[T_box], length: Nat, other: List[T_box]) -> List[T_box]:
-    if not self._concrete_abstraction or not other._concrete_abstraction:
-        return NotImplemented
+# @register(ctx, List.concat)
+# def concat_abs(self: List[T_box], length: Nat, other: List[T_box]) -> List[T_box]:
+#     if not concrete(self.value) or not concrete(other.value):
+#         return NotImplemented
 
-    def new_list(idx: Nat) -> T_box:
-        return idx.lt(length).if_(
-            self.abstraction(idx), other.abstraction(idx - length)
-        )
+#     def new_list(idx: Nat) -> T_box:
+#         return idx.lt(length).if_(
+#             self.abstraction(idx), other.abstraction(idx - length)
+#         )
 
-    return List.from_abstraction(Abstraction.create(new_list, Nat(None)))
+#     return List.from_abstraction(Abstraction.create(new_list, Nat(None)))
 
 
 @register(ctx, List.drop)
 def drop(self: List[T_box], n: Nat) -> List[T_box]:
-    if not self._concrete or not n._concrete:
-        return NotImplemented
-    return self._replace_args(*self._args[n.value :])
-
-
-@register(ctx, List.drop)
-def drop_abs(self: List[T_box], n: Nat) -> List[T_box]:
-    if not self._concrete_abstraction:
-        return NotImplemented
-
-    def new_list(idx: Nat) -> T_box:
-        return self.abstraction(idx + n)
-
-    return List.from_abstraction(Abstraction.create(new_list, Nat(None)))
+    if isinstance(self.value, tuple) and isinstance(n.value, int):
+        return self._replace(self.value[n.value :])
+    # TODO: make this a bit more permissive. If either self or n are concrete and not the right types
+    # we can use general definition.
+    if concrete(self) and concrete(n):
+        return List.from_function(lambda i: self[i + n])
+    return NotImplemented
 
 
 @register(ctx, List.drop)
@@ -222,31 +231,25 @@ def drop_zero(self: List[T_box], n: Nat) -> List[T_box]:
 
 @register(ctx, List.take)
 def take(self: List[T_box], n: Nat) -> List[T_box]:
-    if not self._concrete or not n._concrete:
-        return NotImplemented
-    return self._replace_args(*self._args[: n.value])
-
-
-@register(ctx, List.take)
-def take_abs(self: List[T_box], n: Nat) -> List[T_box]:
-    if not self._concrete_abstraction:
-        return NotImplemented
-
-    return self
+    if isinstance(self.value, tuple) and isinstance(n.value, int):
+        return self._replace(self.value[: n.value])
+    if concrete(self) and concrete(n):
+        return self
+    return NotImplemented
 
 
 @register(ctx, List.reverse)
-def reverse(self: List[T_box]) -> List[T_box]:
-    if not self._concrete:
-        return NotImplemented
-    return self._replace_args(*self._args[::-1])
+def reverse(self: List[T_box], length: Nat) -> List[T_box]:
+    if isinstance(self.value, tuple):
+        return self._replace(self.value[::-1])
+    if concrete(self):
+        return self.from_function(lambda i: self[(length - Nat(1)) - i])
+    return NotImplemented
 
 
 @register(ctx, List.first)
 def first(self: List[T_box]) -> T_box:
-    if not self._concrete:
-        return NotImplemented
-    return self._args[0]
+    return self[Nat(0)]
 
 
 @register(ctx, List.reduce)
@@ -270,10 +273,10 @@ def take_of_concat(self: List[T_box], n: Nat) -> List[T_box]:
     """
 
     if (
-        not n._concrete
+        not isinstance(n.value, int)
         or not isinstance(self.value, Operation)
         or self.value.name != List.concat
-        or not self.value.args[1]._concrete
+        or not isinstance(self.value.args[1].value, int)
         or n.value > self.value.args[1].value
     ):
         return NotImplemented
@@ -287,10 +290,10 @@ def drop_of_concat(self: List[T_box], n: Nat) -> List[T_box]:
     """
 
     if (
-        not n._concrete
+        not isinstance(n.value, int)
         or not isinstance(self.value, Operation)
         or self.value.name != List.concat
-        or not self.value.args[1]._concrete
+        or not isinstance(self.value.args[1].value, int)
         or n.value != self.value.args[1].value
     ):
         return NotImplemented

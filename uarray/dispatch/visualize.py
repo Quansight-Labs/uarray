@@ -1,7 +1,6 @@
 import ast
 import functools
 import typing
-
 import graphviz
 import numpy
 
@@ -14,42 +13,17 @@ __all__ = ["visualize_diff", "visualize_progress", "display_ops"]
 
 @functools.singledispatch
 def description(expr):
-    return str(expr)
-
-
-@description.register
-def _box_desc(box: Box):
-    return box._str_without_value()
-    # name = type(box).__qualname__
-    # other_fields = [
-    #     f.name for f in dataclasses.fields(box) if f.init and f.name != "value"
-    # ]
-    # n_ports = len(other_fields) + 1
-    # return f"""<
+    name = description(key(expr))
+    n_ports = len(children(expr))
+    if n_ports == 0:
+        return str(expr)[:10]
+    #     return f"""<
     #     <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
     #     <TR>
-    #         <TD COLSPAN="{n_ports}">{name}</TD>
-    #     </TR>
-    #     <TR>
-    #         <TD PORT="0">value</TD>
-    #         {' '.join(f'<TD>{field}={getattr(box, field)}</TD>' for field in other_fields)}
+    #         <TD>{str(expr)}</TD>
     #     </TR>
     #     </TABLE>
     # >"""
-
-
-@description.register
-def _operation_desc(op: Operation):
-    name = description(key(op))
-    n_ports = len(children(op))
-    if n_ports == 0:
-        return f"""<
-        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
-        <TR>
-            <TD>{name}</TD>
-        </TR>
-        </TABLE>
-    >"""
     return f"""<
         <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
         <TR>
@@ -60,6 +34,11 @@ def _operation_desc(op: Operation):
         </TR>
         </TABLE>
     >"""
+
+
+@description.register
+def _box_desc(box: Box):
+    return box._str_without_value()
 
 
 @description.register(type(lambda: None))
@@ -122,6 +101,11 @@ def id_operation(b: Operation):
 
 @id_.register
 def id_variable(b: Variable):
+    return str(id(b))
+
+
+@id_.register
+def id_data(b: Data):
     return str(id(b))
 
 
@@ -206,7 +190,7 @@ def visualize_diff(expr, highlight_expr):
     return d
 
 
-def visualize_progress(expr, max_n=200):
+def visualize_progress(expr, clear=True, max_n=1000):
     raise NotImplementedError
 
 
@@ -234,7 +218,7 @@ else:
         visualize_ops(expr, d, set())
         return d
 
-    def visualize_progress(expr, max_n=1000):
+    def visualize_progress(expr, clear=True, max_n=1000):
         d = graphviz.Digraph()
         visualize(expr, d, set())
         display(SVG(d._repr_svg_()))
@@ -244,7 +228,8 @@ else:
             if i > max_n:
                 raise Exception(f"Over {max_n} replacements")
             new_svg = SVG(visualize_diff(e, replaced)._repr_svg_())
-            clear_output(wait=True)
+            if clear:
+                clear_output(wait=True)
             display(new_svg)
 
     svg_formatter.for_type(Box, svg)

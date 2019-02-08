@@ -66,50 +66,7 @@ def _get_idx_abs(self: Array[T_box]) -> Abstraction[Vec[Nat], T_box]:
 
 @register(ctx, index_ndarray)
 def _index_ndarray(array: Array[T_box], *idx: Nat) -> T_box:
-    if not is_numpy_array(array) or not all(i._concrete for i in idx):
+    if not is_numpy_array(array) or not all(isinstance(i.value, int) for i in idx):
         return NotImplemented
 
     return array.dtype._replace(array.value[tuple(i.value for i in idx)])
-
-
-# def to_numpy_array(a: Array[NumpyScalar]) -> Array[NumpyScalar]:
-#     return Array(Operation(to_numpy_array, (a,)), a.dtype)
-
-
-# @register(ctx, to_numpy_array)
-# def _to_numpy_array(a: Array[NumpyScalar]) -> Array[NumpyScalar]:
-#     return to_numpy_array_expanded_first(a.shape, a.idx_abs)
-
-
-# def to_numpy_array_expanded_first(
-#     shape: Vec[Nat], idx_abs: Abstraction[List[Nat], NumpyScalar]
-# ) -> Array[NumpyScalar]:
-#     return Array(
-#         Operation(to_numpy_array_expanded_first, (shape, idx_abs)), idx_abs.rettype
-#     )
-
-
-# @register(ctx, to_numpy_array_expanded_first)
-# def _to_numpy_array_expanded_first(
-#     shape: Vec[Nat], idx_abs: Abstraction[List[Nat], NumpyScalar]
-# ) -> Array[NumpyScalar]:
-#     if not shape._concrete:
-#         return NotImplemented
-#     shape_length, shape_list = shape.value.args
-#     if not shape_list._concrete:
-#         return NotImplemented
-#     shape_items: typing.Tuple[Nat, ...] = shape_list.value.args
-#     if not all(i._concrete for i in shape_items):
-#         return NotImplemented
-#     shape_items_ints: typing.Tuple[int, ...] = tuple(i.value for i in shape_items)
-
-#     # iterate through all combinations of shape list
-#     # create list that has all of these
-#     all_possible_idxs = list(itertools.product(*(range(i) for i in shape_items_ints)))
-
-#     contents = List.create(
-#         idx_abs.rettype,
-#         *(idx_abs(List.create(Nat(None), *map(Nat, idx))) for idx in all_possible_idxs)
-#     )
-
-#     return to_python_array_expanded(shape, contents)

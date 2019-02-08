@@ -6,8 +6,7 @@
 - [Future Meetings](https://calendar.google.com/calendar/embed?src=quansight.com_cg7sf4usbcn18gdhdb3l2c6v1g%40group.calendar.google.com&ctz=America%2FNew_York)
 - [Meeting Notes](https://github.com/Quansight-Labs/uarray/wiki/Meeting-Notes)
 - [References](https://github.com/Quansight-Labs/uarray/wiki/References)
-- [Papers](https://paperpile.com/shared/fHftX5) 
-
+- [Papers](https://paperpile.com/shared/fHftX5)
 
 ## Background
 
@@ -70,6 +69,15 @@ pip install uarray
 conda install -c conda-forge -c uarray uarray
 ```
 
+## Usage
+
+Debugging tips:
+
+- Call `visualize_progress(expr)` see all the replacement steps in order. Useful if you hit an exception
+  to see the last computed state of the expression. You can also call `visualize_progress(expr, clear=False)`
+  to see every stage in it's own output, although this uses a lot of screen space and will slow down your browser.
+- In the tests, if you er
+
 ## Development
 
 ```bash
@@ -83,8 +91,8 @@ flit install --symlink
 
 ```bash
 mypy uarray
-python extract_readme_tests.py
-py.test
+# python extract_readme_tests.py
+py.test uarray/
 ```
 
 To re-run notebooks (their outputs are checked in the tests):

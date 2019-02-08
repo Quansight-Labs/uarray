@@ -13,12 +13,8 @@ def test_isomoprhic():
 
 def test_binary_operation():
     a = create_python_array((2, 2), ((1, 2), (3, 4)))
-    assert (
-        replace(
-            binary_operation_abstraction(
-                a, create_python_bin_abs(lambda l, r: l + r), a
-            )[Array.create_shape(Nat(0), Nat(0))]
-        ).value
-        == 2
-    )
-
+    assert replace(
+        binary_operation_abstraction(
+            a, create_python_bin_abs(lambda l, r: l + r, int, int), a
+        )[Array.create_shape(Nat(0), Nat(0))]
+    ) == Box(2)

@@ -12,10 +12,6 @@ T_box = typing.TypeVar("T_box", bound=Box)
 
 
 class Nat(Box[typing.Any]):
-    @property
-    def _concrete(self):
-        return isinstance(self.value, int)
-
     def lte(self, other: "Nat") -> Bool:
         op = Operation(Nat.lte, (self, other))
         return Bool(op)
@@ -162,8 +158,8 @@ def __sub__add(self: Nat, other: Nat) -> Nat:
     if (
         not isinstance(self.value, Operation)
         or self.value.name != Nat.__add__
-        or not other._concrete
-        or not self.value.args[0]._concrete
+        or not isinstance(other.value, int)
+        or not isinstance(self.value.args[0].value, int)
     ):
         return NotImplemented
     self_l, self_r = self.value.args
