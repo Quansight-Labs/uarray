@@ -54,7 +54,7 @@ def jit(*dims: int) -> typing.Callable[[T_call], T_call]:
             kwarg=None,
             defaults=[],
         )
-        fn = ast.Module(
+        fn_ast = ast.Module(
             body=[
                 ast.FunctionDef(
                     name="fn",
@@ -65,17 +65,19 @@ def jit(*dims: int) -> typing.Callable[[T_call], T_call]:
                 )
             ]
         )
-        source = astunparse.unparse(fn)
-        locals_ = {}
+        source = astunparse.unparse(fn_ast)
+        locals_: typing.Dict[str, typing.Any] = {}
         exec(
-            compile(ast.fix_missing_locations(fn), filename="<ast>", mode="exec"),
+            compile(  # type: ignore
+                ast.fix_missing_locations(fn_ast), filename="<ast>", mode="exec"
+            ),
             {"numpy": numpy},
             locals_,
         )
         wrapped_fn = functools.wraps(fn)(locals_["fn"])
-        wrapped_fn.source = source
-        wrapped_fn.res = res
-        wrapped_fn.orig_res = orig_res
-        return wrapped_fn
+        wrapped_fn.source = source  # type: ignore
+        wrapped_fn.res = res  # type: ignore
+        wrapped_fn.orig_res = orig_res  # type: ignore
+        return typing.cast(T_call, wrapped_fn)
 
     return inner
