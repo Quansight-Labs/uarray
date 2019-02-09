@@ -8,7 +8,7 @@ from .dispatch import *
 from .moa import *
 
 
-def sum_array(shape: Vec[Nat]):
+def sum_array(shape: Vec[Nat]) -> MoA[Nat]:
     """
     Returns an array whose contents are the sum of those indices.
     """
@@ -17,13 +17,13 @@ def sum_array(shape: Vec[Nat]):
     def idx_abs(idx: Vec[Nat]) -> Nat:
         return idx.reduce_fn(Nat(0), operator.add)
 
-    return Array.create(shape, idx_abs)
+    return MoA.from_array(Array.create(shape, idx_abs))
 
 
 def test_sum_array():
     a = sum_array(Vec.create_infer(Nat(1), Nat(2), Nat(3)))
     assert_arrays_eql(
-        a, (1, 2, 3), (((Nat(0), Nat(1), Nat(2)), (Nat(1), Nat(2), Nat(3))),)
+        a.array, (1, 2, 3), (((Nat(0), Nat(1), Nat(2)), (Nat(1), Nat(2), Nat(3))),)
     )
 
 
@@ -32,8 +32,8 @@ def test_index():
     idx = (0, 1)
 
     a = sum_array(Vec.create_infer(*map(Nat, shape)))
-    idx_array = Array.create_1d(Nat(None), *map(Nat, idx))
-    assert_arrays_eql(index(idx_array, a), (3,), (Nat(1), Nat(2), Nat(3)))
+    idx_array = MoA.from_array(Array.create_1d(Nat(None), *map(Nat, idx)))
+    assert_arrays_eql(a[idx_array].array, (3,), (Nat(1), Nat(2), Nat(3)))
 
 
 def vector(*xs: int) -> Vec[Nat]:
@@ -146,12 +146,12 @@ def test_array_from_list_nd(
     value: int,
 ):
     new_s = Array.create_shape(*map(Nat, new_shape))
-    reshaped = array_from_list_nd(List.create(Nat(None), *map(Nat, vec)), new_s)
-    assert_vector_is_list(replace(reshaped.shape), list(map(Nat, new_shape)))
+    reshaped = MoA.from_list_nd(List.create(Nat(None), *map(Nat, vec)), new_s)
+    assert_vector_is_list(replace(reshaped.array.shape), list(map(Nat, new_shape)))
 
-    i = Array.create_1d(Nat(None), *map(Nat, idx))
-    idxed = index(i, reshaped)
-    assert replace(idxed.to_value()) == Nat(value)
+    i = MoA.from_array(Array.create_1d(Nat(None), *map(Nat, idx)))
+    idxed = reshaped[i]
+    assert replace(idxed.array.to_value()) == Nat(value)
 
 
 # def all_indices(shape: typing.Tuple[int, ...]) -> typing.Iterable[typing.Iterable[int]]:
@@ -206,18 +206,18 @@ def test_paper_example():
 
     A_shape = B_shape = Array.create_shape(Nat(3), Nat(4))
 
-    A = array_from_list_nd(A_rav, A_shape)
-    B = array_from_list_nd(B_rav, B_shape)
+    A = MoA.from_list_nd(A_rav, A_shape)
+    B = MoA.from_list_nd(B_rav, B_shape)
 
-    expr = index(
-        Array.create_1d_infer(Nat(0)), transpose(binary_op(A, operator.add, B))
-    )
+    idx = MoA.from_array(Array.create_1d_infer(Nat(0)))
+
+    expr = (A + B).transpose()[idx]
 
     # Verify shape is what it should be
-    assert_vector_is_list(expr.shape, [Nat(3)])
+    assert_vector_is_list(expr.array.shape, [Nat(3)])
 
     # Verify contents is equal by indexing with `i`.
     i = Nat(Variable("i"))
-    idxed = expr[Array.create_shape(i)]
+    idxed = expr.array[Array.create_shape(i)]
     correct_idxed = A_rav[Nat(4) * i] + B_rav[Nat(4) * i]
     assert replace(correct_idxed) == replace(idxed)

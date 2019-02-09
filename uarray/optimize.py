@@ -37,9 +37,11 @@ def jit(*dims: int) -> typing.Callable[[T_call], T_call]:
         for arg_name in arg_names:
             new_res = new_res(Box(AST(ast.Name(arg_name, ast.Load()))))
 
+        # return new_res
         new_res = replace(new_res)
         # return new_res
         replaced = replace(to_ast(new_res))
+        # return replaced
         res_ast = replaced.value
         if not isinstance(res_ast, AST):
             raise NotImplementedError("Couldn't compile to AST")

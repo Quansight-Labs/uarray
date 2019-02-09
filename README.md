@@ -78,6 +78,18 @@ Debugging tips:
   to see every stage in it's own output, although this uses a lot of screen space and will slow down your browser.
 - In the tests, if you er
 
+## Design FAQ
+
+Q: Why do we use classes for things like MoA or List instead of just functions>
+A: In an earlier iteration of this project, everything was just a function and we didn't have any classes that combined functionality. It started this way because it's simpler to understand how multi dispatching works on functions with arguments, instead of methods. However, conceptually we still had to think about the "types" of data, meaning what functions are allowed on them. Python represents this concept with classes, so we use them. Practically, it provides a bunch of benefits:
+
+- Allows better UX by using more of Python's syntax. We can override dunder methods to allow
+  calling objects, getitem, or addition. This makes the usage less verbose and easier to read.
+- Allows namespacing related functionality under one roof. For example, Mathematics of Arrays
+  defines a number of functions. We would like to be able to "work in this world", which
+  is easy if all the methods are accessible from a `MoA` class. We can use modules for the same purpose, but I find it easier to deal with importing a class and using it's methods
+  instead of importing a module.
+
 ## Development
 
 ```bash

@@ -1,5 +1,6 @@
 import typing
 import functools
+import dataclasses
 
 import numpy
 from ..dispatch import *
@@ -44,77 +45,58 @@ def numpy_ufunc(ufunc: Box[numpy.ufunc], *args: Box) -> Box:
     return Box(Operation(numpy_ufunc, (ufunc, *args)))
 
 
+@dataclasses.dataclass
 class LazyNDArray(
-    Box[Operation[typing.Tuple[Array[T_box]]]],
-    typing.Generic[T_box],
-    numpy.lib.mixins.NDArrayOperatorsMixin,
+    Box[typing.Any], typing.Generic[T_box], numpy.lib.mixins.NDArrayOperatorsMixin
 ):
+    value: typing.Any
+    dtype: T_box
+
     @classmethod
     def create(cls, a: Array[T_box]) -> "LazyNDArray[T_box]":
-        if not isinstance(a, Array):
-            raise TypeError
-        return cls(Operation(LazyNDArray, (a,)))
+        return cls(a.value, a.dtype)
 
     @property
     def array(self) -> Array[T_box]:
-        return self.value.args[0]
+        return Array(self.value, self.dtype)
 
     def sum(self):
         return LazyNDArray.create(
-            reduce(
-                self.array,
-                Abstraction.create_bin(
-                    lambda l, r: numpy_ufunc(Box(numpy.add), l, r),
-                    self.array.dtype._replace(None),
-                    self.array.dtype._replace(None),
-                ),
+            MoA.from_array(self.array)
+            .reduce_abstraction(
+                functoools.partial(numpy_ufunc, Box(numpy.add)),
                 self.array.dtype._replace(0),
             )
+            .array
         )
 
     def __array_ufunc__(self, ufunc: numpy.ufunc, method: str, *inputs, **kwargs):
         out, = kwargs.pop("out", (None,))
         if kwargs or len(inputs) not in (1, 2) or method not in ("__call__", "outer"):
             return NotImplemented
-        array_inputs = map(to_array, map(to_box, inputs))
-        res: Array
+        array_inputs = map(MoA.from_array, map(to_array, map(to_box, inputs)))
+        res: MoA
+        op = functools.partial(numpy_ufunc, Box(ufunc))
         if method == "outer":
             a, b = array_inputs
-            res = outer_product(
-                a,
-                Abstraction.create_bin(
-                    lambda l, r: numpy_ufunc(Box(ufunc), l, r),
-                    a.dtype._replace(None),
-                    b.dtype._replace(None),
-                ),
-                b,
-            )
+            res = a.outer_product_abstraction(op, b)
 
         elif len(inputs) == 1:
             a, = array_inputs
-            res = unary_operation_abstraction(
-                Abstraction.create(
-                    lambda v: numpy_ufunc(Box(ufunc), v), a.dtype._replace(None)
-                ),
-                a,
-            )
+            res = a.unary_operation_abstraction(op)
         else:
             a, b = array_inputs
-            res = binary_operation_abstraction(
-                a,
-                Abstraction.create_bin(
-                    lambda l, r: numpy_ufunc(Box(ufunc), l, r),
-                    a.dtype._replace(None),
-                    b.dtype._replace(None),
-                ),
-                b,
-            )
+            res = a.binary_operation_abstraction(op, b)
         if out:
-            out.box = res
-        return out or LazyNDArray.create(res)
+            out.box = res.array
+        return out or LazyNDArray.create(res.array)
 
     def __getitem__(self, i: int):
-        return LazyNDArray.create(index(Array.create_1d_infer(Nat(i)), self.array))
+        return LazyNDArray.create(
+            MoA.from_array(self.array)[
+                MoA.from_array(Array.create_1d_infer(Nat(i)))
+            ].array
+        )
 
     @property
     def shape(self) -> typing.Tuple[int, ...]:
