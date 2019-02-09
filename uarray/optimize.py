@@ -1,3 +1,4 @@
+import ast
 import functools
 import inspect
 import typing
@@ -9,8 +10,6 @@ from .core import *
 from .dispatch import *
 from .numpy import *
 
-# needs to come after
-import ast
 
 # indices will have length now for arrays
 __all__ = ["jit"]
