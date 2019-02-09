@@ -4,12 +4,12 @@ from .abstractions import *
 from ..dispatch import *
 
 
-@hypothesis.strategies.defines_strategy
+@hypothesis._strategies.defines_strategy
 def box():
     return hypothesis.strategies.builds(str).map(lambda s: type(s, (Box,), {}))
 
 
-@hypothesis.strategies.defines_strategy
+@hypothesis._strategies.defines_strategy
 def expression():
     return hypothesis.strategies.builds(object).map(Box)
 

@@ -12,7 +12,7 @@ T = typing.TypeVar("T")
 T_box = typing.TypeVar("T_box", bound=Box)
 
 
-@hypothesis.strategies.defines_strategy
+@hypothesis._strategies.defines_strategy
 def list_of_naturals(min_size=0, max_size=5):
     return hypothesis.strategies.lists(
         elements=naturals(), min_size=min_size, max_size=max_size

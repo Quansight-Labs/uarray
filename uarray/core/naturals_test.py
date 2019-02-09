@@ -8,12 +8,12 @@ from .naturals import *
 from ..dispatch import replace
 
 
-@hypothesis.strategies.defines_strategy
+@hypothesis._strategies.defines_strategy
 def natural_ints(min_value=0, max_value=5):
     return hypothesis.strategies.integers(min_value, max_value)
 
 
-@hypothesis.strategies.defines_strategy
+@hypothesis._strategies.defines_strategy
 def naturals():
     return natural_ints().map(Nat)
 
