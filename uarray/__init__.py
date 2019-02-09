@@ -1,8 +1,8 @@
 """Universal array library"""
 
 
-from .core import *  # NOQA
 from .dispatch import *  # NOQA
+from .core import *  # NOQA
 from .moa import *  # NOQA
 from .nested_sequence import *  # NOQA
 from .numpy import *  # NOQA
