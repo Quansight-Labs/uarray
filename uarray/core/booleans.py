@@ -1,7 +1,7 @@
 import typing
 
-from ..dispatch import *
 from .context import *
+from ..dispatch import *
 
 __all__ = ["Bool"]
 

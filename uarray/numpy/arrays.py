@@ -2,13 +2,14 @@
 Support reading from NumPy arrays.
 """
 
-import numpy
-import typing
-from ..core import *
-from ..dispatch import *
 import dataclasses
+import typing
+
+import numpy
 
 from .lazy_ndarray import to_array
+from ..core import *
+from ..dispatch import *
 
 __all__: typing.List[str] = []
 T_box = typing.TypeVar("T_box", bound=Box)

@@ -1,9 +1,8 @@
 import numpy as np
 
+from .lazy_ndarray import to_array
 from ..core import *
 from ..dispatch import *
-from .arrays import *
-from .lazy_ndarray import to_array
 
 
 def test_create_numpy_array():

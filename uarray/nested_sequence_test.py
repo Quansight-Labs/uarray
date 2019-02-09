@@ -1,6 +1,6 @@
+from .core import *
 from .dispatch import *
 from .moa import *
-from .core import *
 from .nested_sequence import *
 
 

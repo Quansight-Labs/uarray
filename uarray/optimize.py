@@ -1,14 +1,14 @@
+import ast
+import functools
 import inspect
 import typing
-import functools
 
 import astunparse
+import numpy
+
 from .core import *
 from .dispatch import *
 from .numpy import *
-import ast
-import numpy
-
 
 # indices will have length now for arrays
 __all__ = ["jit"]

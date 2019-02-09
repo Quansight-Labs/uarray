@@ -1,9 +1,9 @@
-import typing
 import dataclasses
 import operator
+import typing
 
-from .dispatch import *
 from .core import *
+from .dispatch import *
 
 __all__ = ["MoA"]
 

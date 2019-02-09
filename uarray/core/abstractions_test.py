@@ -1,7 +1,7 @@
 import hypothesis
 
-from ..dispatch import *
 from .abstractions import *
+from ..dispatch import *
 
 
 @hypothesis.strategies.defines_strategy

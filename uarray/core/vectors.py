@@ -1,13 +1,11 @@
-import typing
 import dataclasses
+import typing
 
-from ..dispatch import *
-from .context import *
-from .booleans import *
 from .abstractions import *
-from .naturals import *
+from .context import *
 from .lists import *
-
+from .naturals import *
+from ..dispatch import *
 
 __all__ = ["Vec", "VecData"]
 

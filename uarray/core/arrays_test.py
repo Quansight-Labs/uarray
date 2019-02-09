@@ -3,14 +3,12 @@ import typing
 
 import hypothesis
 
-from ..dispatch import *
-from .abstractions import *
 from .arrays import *
-from .lists import *
 from .naturals import *
 from .naturals_test import naturals
 from .vectors import *
 from .vectors_test import assert_vector_is_list, list_of_naturals
+from ..dispatch import *
 
 T_box = typing.TypeVar("T_box", bound=Box)
 

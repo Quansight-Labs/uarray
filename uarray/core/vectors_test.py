@@ -1,10 +1,12 @@
-import hypothesis
 import typing
-from ..dispatch import *
-from .vectors import *
+
+import hypothesis
+
+from .abstractions import *
 from .naturals import *
 from .naturals_test import naturals, natural_ints
-from .abstractions import *
+from .vectors import *
+from ..dispatch import *
 
 T = typing.TypeVar("T")
 T_box = typing.TypeVar("T_box", bound=Box)

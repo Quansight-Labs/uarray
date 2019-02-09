@@ -1,7 +1,7 @@
 import ast
+import typing
 
 import astunparse
-import typing
 import numpy
 
 from uarray import Box, replace, to_ast, AST, Nat, Vec, numpy_ufunc

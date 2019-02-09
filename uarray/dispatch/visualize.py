@@ -1,12 +1,13 @@
 import ast
 import functools
 import typing
+
 import graphviz
 import numpy
 
+from .core import *
 from ..core.abstractions import Variable
 from ..numpy.ast import AST
-from .core import *
 
 __all__ = ["visualize_diff", "visualize_progress", "display_ops"]
 

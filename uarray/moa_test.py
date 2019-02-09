@@ -1,9 +1,11 @@
-import typing
-import pytest
 import operator
+import typing
+
+import pytest
+
 from .core import *
-from .core.vectors_test import assert_vector_is_list
 from .core.arrays_test import assert_arrays_eql
+from .core.vectors_test import assert_vector_is_list
 from .dispatch import *
 from .moa import *
 

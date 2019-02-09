@@ -5,14 +5,15 @@ Array -> AST of numpy.ndarray
 Vector -> tuple
 Natural -> number
 """
-import typing
 import ast
 import dataclasses
+import typing
 
+import numpy
+
+from .lazy_ndarray import to_array, numpy_ufunc
 from ..core import *
 from ..dispatch import *
-from .lazy_ndarray import to_array, numpy_ufunc
-import numpy
 
 __all__ = ["AST", "to_ast"]
 T_box = typing.TypeVar("T_box", bound=Box)

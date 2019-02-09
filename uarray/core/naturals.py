@@ -1,9 +1,9 @@
 import typing
 
-from ..dispatch import *
-from .context import *
-from .booleans import *
 from .abstractions import *
+from .booleans import *
+from .context import *
+from ..dispatch import *
 
 __all__ = ["Nat"]
 

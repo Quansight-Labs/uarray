@@ -2,9 +2,9 @@
 Support compiling to, and reading from, nested python tuples as arrays.
 """
 import dataclasses
-import typing
 import itertools
-import functools
+import typing
+
 from .core import *
 from .dispatch import *
 
@@ -102,16 +102,18 @@ def to_python_array_expanded(shape: Vec[Nat], contents: List[T_box]) -> Array[T_
 
 @register(ctx, to_python_array_expanded)
 def _to_python_array_expanded(shape: Vec[Nat], contents: List[T_box]) -> Array[T_box]:
-    if not shape._concrete:
+    if not isinstance(shape.value, VecData):
         return NotImplemented
     shape_length, shape_list = shape.value.args
-    if not shape_length._concrete or not shape_list._concrete:
+    if not isinstance(shape_length.value, int) or not isinstance(
+        shape_list.value, tuple
+    ):
         return NotImplemented
-    shape_items: typing.Tuple[Nat, ...] = shape_list.value.args
-    if not all(i._concrete for i in shape_items):
+    shape_items: typing.Tuple[Nat, ...] = shape_list.value
+    if not all(isinstance(i.value, int) for i in shape_items):
         return NotImplemented
 
-    if not contents._concrete:
+    if not isinstance(contents.value, tuple):
         return NotImplemented
     shape_items_ints: typing.Tuple[int, ...] = tuple(i.value for i in shape_items)
 
@@ -122,7 +124,7 @@ def _to_python_array_expanded(shape: Vec[Nat], contents: List[T_box]) -> Array[T
             return tuple(inner(s[1:], i + (idx,)) for idx in range(s[0]))
 
         flattened_idx = all_possible_idxs.index(i)
-        content = contents.value.args[flattened_idx]
+        content = contents.value[flattened_idx]
         if not isinstance(content, PythonScalar):
             return NotImplemented
         return content.value
@@ -136,7 +138,7 @@ def create_python_bin_abs(
 
     return Abstraction.create_nary_native(
         lambda a, b: Box(fn(a.value, b.value)),
-        Box(None),
+        Box(typing.cast(V, None)),
         lambda a: isinstance(a.value, l_type),
         lambda b: isinstance(b.value, r_type),
     )

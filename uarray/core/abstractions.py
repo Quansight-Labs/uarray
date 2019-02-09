@@ -1,11 +1,11 @@
 """
 Lambda calculus
 """
-import typing
 import dataclasses
-import functools
-from ..dispatch import *
+import typing
+
 from .context import *
+from ..dispatch import *
 
 __all__ = ["Abstraction", "Variable", "rename_variables", "Partial"]
 

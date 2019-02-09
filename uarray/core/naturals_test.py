@@ -1,10 +1,11 @@
-import hypothesis
 import math
 
-from ..dispatch import replace
-from .naturals import *
-from .booleans import *
+import hypothesis
+
 from .abstractions import *
+from .booleans import *
+from .naturals import *
+from ..dispatch import replace
 
 
 @hypothesis.strategies.defines_strategy

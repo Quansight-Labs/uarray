@@ -1,10 +1,11 @@
-import typing
-import functools
 import dataclasses
+import functools
+import typing
 
 import numpy
-from ..dispatch import *
+
 from ..core import *
+from ..dispatch import *
 from ..moa import *
 
 __all__ = ["LazyNDArray", "to_box", "to_array", "numpy_ufunc"]

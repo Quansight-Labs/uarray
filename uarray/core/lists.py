@@ -1,11 +1,10 @@
-import typing
 import dataclasses
+import typing
 
-from ..dispatch import *
 from .abstractions import *
-from .booleans import *
 from .context import *
 from .naturals import *
+from ..dispatch import *
 
 T = typing.TypeVar("T")
 T_box = typing.TypeVar("T_box", bound=Box)
