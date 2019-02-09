@@ -87,16 +87,13 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
         return Vec.create_args(Nat(None), *xs)
 
     def __getitem__(self, idx: Vec[Nat]) -> T_box:
-        return self.idx_abs(idx)
+        """
+        Use the shape to know the length of the indices.
 
-    # def to_list(self) -> List[T_box]:
-    #     def fn(value: List[T_box], i: Nat) -> List[T_box]:
-    #         return value.append(self[Array.create_shape(i)])
-
-    #     return self.shape[Nat(0)].loop(
-    #         List.create(self.dtype),
-    #         Abstraction.create_bin(fn, List(None, self.dtype), Nat(None)),
-    #     )
+        Instead we could have users pass in list instead of vector.
+        But this causes some assymetry in creating and use the index abstraction.
+        """
+        return self.idx_abs(Vec.create(self.shape.length, idx.list))
 
     def to_list(self) -> List[T_box]:
         def fn(i: Nat) -> T_box:

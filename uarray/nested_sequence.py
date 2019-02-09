@@ -71,7 +71,7 @@ def to_python_array_expanded_first(
 def _to_python_array_expanded_first(
     shape: Vec[Nat], idx_abs: Abstraction[Vec[Nat], T_box]
 ) -> Array[T_box]:
-    # If contentst is already nested tuples, we can stop now.
+    # If contents are already nested tuples, we can stop now.
     if isinstance(idx_abs.value, NestedTuples):
         return Array.create(shape, idx_abs)
     if not isinstance(shape.value, VecData):
