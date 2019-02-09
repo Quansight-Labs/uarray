@@ -59,7 +59,7 @@ def register_type(
                 return NotImplemented
             resulting_val = fn(v)
             return typing.cast(  # need cast b/c mypy cant have generic of bound var
-                Box[V], b._replace(resulting_val)
+                Box[V], b.replace(resulting_val)
             )
 
         context[target] = replacement

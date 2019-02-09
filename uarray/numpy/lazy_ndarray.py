@@ -65,7 +65,7 @@ class LazyNDArray(
             MoA.from_array(self.array)
             .reduce_abstraction(
                 functoools.partial(numpy_ufunc, Box(numpy.add)),
-                self.array.dtype._replace(0),
+                self.array.dtype.replace(0),
             )
             .array
         )

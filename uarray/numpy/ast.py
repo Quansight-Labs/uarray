@@ -48,14 +48,14 @@ def to_array(b: Box) -> Array:
 
 
 def to_ast(b: T_box) -> T_box:
-    return b._replace(Operation(to_ast, (b,)))
+    return b.replace(Operation(to_ast, (b,)))
 
 
 def _ast_abstraction_inner(
     fn: typing.Callable[..., AST], rettype: T_box, *args: Box[AST]
 ) -> T_box:
     asts: typing.List[AST] = [a.value for a in args]
-    return rettype._replace(fn(*asts))
+    return rettype.replace(fn(*asts))
 
 
 def create_ast_abstraction(
@@ -80,7 +80,7 @@ def as_ast(fn: typing.Callable[..., AST], rettype: T_box, *args: Box) -> T_box:
 def to_ast_numbers(b: T_box) -> T_box:
     if not isinstance(b.value, (int, float)):
         return NotImplemented
-    return b._replace(AST(ast.Num(b.value)))
+    return b.replace(AST(ast.Num(b.value)))
 
 
 @register(ctx, to_ast)
@@ -197,7 +197,7 @@ def to_ast_loop(b: T_box) -> T_box:
         b,
         n,
         initial,
-        fn(initial._replace(AST(load_result)))(Nat(AST(load_index))),
+        fn(initial.replace(AST(load_result)))(Nat(AST(load_index))),
     )
 
 

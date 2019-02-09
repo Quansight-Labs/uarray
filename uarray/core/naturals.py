@@ -54,7 +54,7 @@ class Nat(Box[typing.Any]):
         return v
         """
         op = Operation(Nat.loop, (self, initial, fn))
-        return initial._replace(op)
+        return initial.replace(op)
 
 
 @register(ctx, Nat.equal)

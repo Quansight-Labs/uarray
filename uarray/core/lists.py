@@ -45,7 +45,7 @@ class List(Box[typing.Any], typing.Generic[T_box]):
 
     @classmethod
     def create_infer(cls, arg: T_box, *args: T_box) -> "List[T_box]":
-        return cls.create(arg._replace(None), arg, *args)
+        return cls.create(arg.replace(None), arg, *args)
 
     @classmethod
     def from_function(cls, fn: typing.Callable[[Nat], T_box]) -> "List[T_box]":
@@ -53,7 +53,7 @@ class List(Box[typing.Any], typing.Generic[T_box]):
 
     def __getitem__(self, index: Nat) -> T_box:
         op = Operation(List.__getitem__, (self, index))
-        return self.dtype._replace(op)
+        return self.dtype.replace(op)
 
     # TODO: Refactor many of these to __getitem__ slices
 
@@ -61,22 +61,22 @@ class List(Box[typing.Any], typing.Generic[T_box]):
         """
         x[0]
         """
-        return self.dtype._replace(Operation(List.first, (self,)))
+        return self.dtype.replace(Operation(List.first, (self,)))
 
     def rest(self) -> "List[T_box]":
         """
         x[1:]
         """
-        return self._replace(Operation(List.rest, (self,)))
+        return self.replace(Operation(List.rest, (self,)))
 
     def push(self, item: T_box) -> "List[T_box]":
-        return self._replace(Operation(List.push, (self, item)))
+        return self.replace(Operation(List.push, (self, item)))
 
     def append(self, length: Nat, item: T_box) -> "List[T_box]":
-        return self._replace(Operation(List.append, (self, length, item)))
+        return self.replace(Operation(List.append, (self, length, item)))
 
     def concat(self, length: Nat, other: "List[T_box]") -> "List[T_box]":
-        return self._replace(Operation(List.concat, (self, length, other)))
+        return self.replace(Operation(List.concat, (self, length, other)))
 
     def drop(self, n: Nat) -> "List[T_box]":
         """
@@ -84,19 +84,19 @@ class List(Box[typing.Any], typing.Generic[T_box]):
 
         x[n:]
         """
-        return self._replace(Operation(List.drop, (self, n)))
+        return self.replace(Operation(List.drop, (self, n)))
 
     def take(self, n: Nat) -> "List[T_box]":
         """
         x[:n]
         """
-        return self._replace(Operation(List.take, (self, n)))
+        return self.replace(Operation(List.take, (self, n)))
 
     def reverse(self, length: Nat) -> "List[T_box]":
         """
         x[::-1]
         """
-        return self._replace(Operation(List.reverse, (self, length)))
+        return self.replace(Operation(List.reverse, (self, length)))
 
     def reduce(
         self,
@@ -104,13 +104,13 @@ class List(Box[typing.Any], typing.Generic[T_box]):
         initial: V_box,
         op: Abstraction[V_box, Abstraction[T_box, V_box]],
     ) -> V_box:
-        return initial._replace(Operation(List.reduce, (self, length, initial, op)))
+        return initial.replace(Operation(List.reduce, (self, length, initial, op)))
 
     def reduce_fn(
         self, length: Nat, initial: V_box, op: typing.Callable[[V_box, V_box], V_box]
     ) -> V_box:
         abs_: Abstraction[V_box, Abstraction[V_box, V_box]] = Abstraction.create_bin(
-            op, initial._replace(None), initial._replace(None)
+            op, initial.replace(None), initial.replace(None)
         )
         return self.reduce(length, initial, abs_)
 
@@ -144,7 +144,7 @@ def __call___list(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
 @register(ctx, List.rest)
 def rest(self: List[T_box]) -> List[T_box]:
     if isinstance(self.value, tuple):
-        return self._replace(self.value[1:])
+        return self.replace(self.value[1:])
     # If we know the result is not going to be a tuple, implement with abstractions
     if concrete(self.value):
         return List.from_function(lambda i: self[i + Nat(1)])
@@ -154,7 +154,7 @@ def rest(self: List[T_box]) -> List[T_box]:
 @register(ctx, List.push)
 def push(self: List[T_box], item: T_box) -> List[T_box]:
     if isinstance(self.value, tuple):
-        return self._replace((item,) + self.value)
+        return self.replace((item,) + self.value)
     if concrete(self.value):
         return List.from_function(lambda i: i.equal(Nat(0)).if_(item, self[i - Nat(1)]))
     return NotImplemented
@@ -163,7 +163,7 @@ def push(self: List[T_box], item: T_box) -> List[T_box]:
 @register(ctx, List.append)
 def append(self: List[T_box], length: Nat, item: T_box) -> List[T_box]:
     if isinstance(self.value, tuple):
-        return self._replace(self.value + (item,))
+        return self.replace(self.value + (item,))
     if concrete(self.value):
         return List.from_function(lambda i: i.equal(length).if_(item, self[i]))
     return NotImplemented
@@ -172,7 +172,7 @@ def append(self: List[T_box], length: Nat, item: T_box) -> List[T_box]:
 @register(ctx, List.concat)
 def concat(self: List[T_box], length: Nat, other: List[T_box]) -> List[T_box]:
     if isinstance(self.value, tuple) and isinstance(other.value, tuple):
-        return self._replace(self.value + other.value)
+        return self.replace(self.value + other.value)
     if concrete(self.value) and concrete(other.value):
         return List.from_function(
             lambda i: i.lt(length).if_(self[i], other[i - length])
@@ -214,7 +214,7 @@ def concat_empty_right(
 @register(ctx, List.drop)
 def drop(self: List[T_box], n: Nat) -> List[T_box]:
     if isinstance(self.value, tuple) and isinstance(n.value, int):
-        return self._replace(self.value[n.value :])
+        return self.replace(self.value[n.value:])
     # TODO: make this a bit more permissive. If either self or n are concrete and not the right types
     # we can use general definition.
     if concrete(self) and concrete(n):
@@ -232,7 +232,7 @@ def drop_zero(self: List[T_box], n: Nat) -> List[T_box]:
 @register(ctx, List.take)
 def take(self: List[T_box], n: Nat) -> List[T_box]:
     if isinstance(self.value, tuple) and isinstance(n.value, int):
-        return self._replace(self.value[: n.value])
+        return self.replace(self.value[: n.value])
     if concrete(self) and concrete(n):
         return self
     return NotImplemented
@@ -241,7 +241,7 @@ def take(self: List[T_box], n: Nat) -> List[T_box]:
 @register(ctx, List.reverse)
 def reverse(self: List[T_box], length: Nat) -> List[T_box]:
     if isinstance(self.value, tuple):
-        return self._replace(self.value[::-1])
+        return self.replace(self.value[::-1])
     if concrete(self):
         return self.from_function(lambda i: self[(length - Nat(1)) - i])
     return NotImplemented
@@ -262,7 +262,7 @@ def reduce(
     def fn(v: V_box, idx: Nat) -> V_box:
         return op(v)(self[idx])
 
-    abstraction = Abstraction.create_bin(fn, initial._replace(None), Nat(None))
+    abstraction = Abstraction.create_bin(fn, initial.replace(None), Nat(None))
     return length.loop(initial, abstraction)
 
 

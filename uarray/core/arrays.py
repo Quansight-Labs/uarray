@@ -66,7 +66,7 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
         """
         Returns a vector array of `xs`.
         """
-        return cls.create_1d(x._replace(None), x, *xs)
+        return cls.create_1d(x.replace(None), x, *xs)
 
     @classmethod
     def from_vec(cls, vec: Vec[T_box]) -> "Array[T_box]":

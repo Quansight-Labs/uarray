@@ -37,7 +37,7 @@ T_box = typing.TypeVar("T_box", bound="Box")
 class Box(typing.Generic[T_cov]):
     value: T_cov
 
-    def _replace(self: T_box, value: typing.Any = None) -> "T_box":
+    def replace(self: T_box, value: typing.Any = None) -> "T_box":
         return dataclasses.replace(self, value=value)
 
     @classmethod
@@ -87,7 +87,7 @@ def copy(v: T, already_copied: typing.MutableMapping) -> T:
 def copy_box(v: Box, already_copied: typing.MutableMapping) -> Box:
     if id(v) in already_copied:
         return already_copied[id(v)]
-    new = v._replace(copy(v.value, already_copied))
+    new = v.replace(copy(v.value, already_copied))
     already_copied[id(v)] = new
     return new
 

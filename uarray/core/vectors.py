@@ -50,7 +50,7 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
 
     @classmethod
     def create_infer(cls, arg: T_box, *args: T_box) -> "Vec[T_box]":
-        return cls.create_args(arg._replace(None), arg, *args)
+        return cls.create_args(arg.replace(None), arg, *args)
 
     def _get_length(self) -> Nat:
         return Nat(Operation(Vec._get_length, (self,)))
@@ -114,7 +114,7 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
         self, initial: V_box, op: typing.Callable[[V_box, V_box], V_box]
     ) -> V_box:
         abs_: Abstraction[V_box, Abstraction[V_box, V_box]] = Abstraction.create_bin(
-            op, initial._replace(None), initial._replace(None)
+            op, initial.replace(None), initial.replace(None)
         )
         return self.reduce(initial, abs_)
 

@@ -47,7 +47,7 @@ def __call___nested_lists(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
         if not isinstance(i.value, int):
             return NotImplemented
         data = data[i.value]
-    return self.rettype._replace(data)
+    return self.rettype.replace(data)
 
 
 def to_python_array(a: Array[T_box]) -> Array[T_box]:

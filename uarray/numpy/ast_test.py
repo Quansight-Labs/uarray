@@ -14,7 +14,7 @@ def ast_to_source(node: ast.AST) -> str:
 def ast_source(expr: Box) -> typing.List[str]:
     replaced = replace(to_ast(expr))
     # Verify return type should be the same
-    assert replaced._replace(None) == replaced._replace(None)
+    assert replaced.replace(None) == replaced.replace(None)
 
     assert isinstance(replaced.value, AST)
     return list(map(ast_to_source, list(replaced.value.init) + [replaced.value.get]))

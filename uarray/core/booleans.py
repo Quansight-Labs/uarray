@@ -13,7 +13,7 @@ T_box = typing.TypeVar("T_box", bound=Box)
 class Bool(Box):
     def if_(self, if_true: T_box, if_false: T_box) -> T_box:
         op = Operation(Bool.if_, (self, if_true, if_false))
-        return if_true._replace(op)
+        return if_true.replace(op)
 
     def and_(self, other: "Bool") -> "Bool":
         op = Operation(Bool.and_, (self, other))

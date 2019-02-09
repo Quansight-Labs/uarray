@@ -57,7 +57,7 @@ def _get_idx_abs(self: Array[T_box]) -> Abstraction[Vec[Nat], T_box]:
 
     @Array.create_idx_abs
     def idx_abs(idx: Vec[Nat]) -> T_box:
-        return self.dtype._replace(
+        return self.dtype.replace(
             Operation(index_ndarray, (self, *(idx[Nat(d)] for d in range(dim))))
         )
 
@@ -69,4 +69,4 @@ def _index_ndarray(array: Array[T_box], *idx: Nat) -> T_box:
     if not is_numpy_array(array) or not all(isinstance(i.value, int) for i in idx):
         return NotImplemented
 
-    return array.dtype._replace(array.value[tuple(i.value for i in idx)])
+    return array.dtype.replace(array.value[tuple(i.value for i in idx)])

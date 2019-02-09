@@ -84,11 +84,11 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
     rettype: T_box_cov
 
     def __call__(self, arg: T_box_contra) -> T_box_cov:
-        return self.rettype._replace(Operation(Abstraction.__call__, (self, arg)))
+        return self.rettype.replace(Operation(Abstraction.__call__, (self, arg)))
 
     @classmethod
     def from_variable(cls, variable: T_box, body: U_box) -> "Abstraction[T_box, U_box]":
-        return cls(AbstractionData(variable, body), rettype=body._replace())
+        return cls(AbstractionData(variable, body), rettype=body.replace())
 
     @classmethod
     def from_variables(cls, body: Box, *variables: Box) -> "Box":
@@ -100,7 +100,7 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
     def create(
         cls, fn: typing.Callable[[T_box], U_box], arg_type: T_box, vname: str = None
     ) -> "Abstraction[T_box, U_box]":
-        arg = arg_type._replace(Variable(vname))
+        arg = arg_type.replace(Variable(vname))
         body = fn(arg)
         return cls.from_variable(arg, body)
 
@@ -193,7 +193,7 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
         """
         self.compose(other)(v) == self(other(v))
         """
-        return self._replace(Operation(Abstraction.compose, (self, other)))
+        return self.replace(Operation(Abstraction.compose, (self, other)))
 
 
 @register(ctx, Abstraction.__call__)
@@ -204,11 +204,11 @@ def __call__(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
     if variable.value is body.value:
         return arg  # type: ignore
 
-    return body._replace(
+    return body.replace(
         map_children(
             body.value,
             lambda child: Abstraction(  # type: ignore
-                AbstractionData(variable, child), child._replace(None)
+                AbstractionData(variable, child), child.replace(None)
             )(arg),
         )
     )
@@ -272,9 +272,9 @@ def η_reduction(variable: Box[Variable], body: T_box) -> Abstraction:
         return NotImplemented
 
     if isinstance(inner_abstraction.value, AbstractionData):
-        return inner_abstraction._replace(
+        return inner_abstraction.replace(
             AbstractionData(
-                inner_abstraction.value.variable._replace(variable.value),
+                inner_abstraction.value.variable.replace(variable.value),
                 inner_abstraction.value.body,
             )
         )
@@ -319,6 +319,6 @@ def rename_variables(expr: T_box) -> T_box:
             new_value = replaced[value]
         else:
             new_value = map_children(value, inner)
-        return e._replace(new_value)
+        return e.replace(new_value)
 
     return inner(expr)
