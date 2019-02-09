@@ -7,14 +7,70 @@ from .moa import *  # NOQA
 from .nested_sequence import *  # NOQA
 from .numpy import *  # NOQA
 from .optimize import *  # NOQA
+from .visualize import *  # NOQA
 
-__all__ = (
-    dispatch.__all__
-    + core.__all__
-    + moa.__all__
-    + nested_sequence.__all__
-    + numpy.__all__
-    + optimize.__all__
-)
+# Cannot use this because
+# https://github.com/python/mypy/issues/4949
+# __all__ = (
+#     dispatch.__all__
+#     + core.__all__
+#     + moa.__all__
+#     + nested_sequence.__all__
+#     + numpy.__all__
+#     + optimize.__all__
+#     + visualize.__all__
+# )
+
+__all__ = [
+    "Operation",
+    "Box",
+    "copy",
+    "concrete",
+    "map_children",
+    "Data",
+    "global_context",
+    "ReplacementType",
+    "ContextType",
+    "MutableContextType",
+    "KeyType",
+    "children",
+    "replace_inplace_generator",
+    "key",
+    "ChildrenType",
+    "replace",
+    "ChainCallable",
+    "MapChainCallable",
+    "ChainCallableMap",
+    "default_context",
+    "setcontext",
+    "localcontext",
+    "includecontext",
+    "register",
+    "register_type",
+    "Abstraction",
+    "Variable",
+    "rename_variables",
+    "Partial",
+    "Array",
+    "Bool",
+    "List",
+    "Nat",
+    "Vec",
+    "VecData",
+    "MoA",
+    "create_python_array",
+    "to_python_array",
+    "create_python_bin_abs",
+    "AST",
+    "to_ast",
+    "LazyNDArray",
+    "to_box",
+    "to_array",
+    "numpy_ufunc",
+    "jit",
+    "visualize_diff",
+    "visualize_progress",
+    "display_ops",
+]
 
 __version__ = "0.4"

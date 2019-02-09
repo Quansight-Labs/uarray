@@ -4,7 +4,10 @@ import typing
 import astunparse
 import numpy
 
-from uarray import Box, replace, to_ast, AST, Nat, Vec, numpy_ufunc
+from ..dispatch import *
+from ..core import *
+from .lazy_ndarray import numpy_ufunc
+from .ast import *
 
 
 def ast_to_source(node: ast.AST) -> str:

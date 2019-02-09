@@ -1,6 +1,6 @@
 import typing
 
-from .core import *
+from .core import MutableContextType, children, Box
 
 __all__ = ["register", "register_type"]
 T = typing.TypeVar("T")

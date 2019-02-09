@@ -106,11 +106,9 @@ class List(Box[typing.Any], typing.Generic[T_box]):
         return initial.replace(Operation(List.reduce, (self, length, initial, op)))
 
     def reduce_fn(
-        self, length: Nat, initial: V_box, op: typing.Callable[[V_box, V_box], V_box]
+        self, length: Nat, initial: V_box, op: typing.Callable[[V_box, T_box], V_box]
     ) -> V_box:
-        abs_: Abstraction[V_box, Abstraction[V_box, V_box]] = Abstraction.create_bin(
-            op, initial.replace(None), initial.replace(None)
-        )
+        abs_ = Abstraction.create_bin(op, initial.replace(None), self.dtype)
         return self.reduce(length, initial, abs_)
 
 
@@ -213,7 +211,7 @@ def concat_empty_right(
 @register(ctx, List.drop)
 def drop(self: List[T_box], n: Nat) -> List[T_box]:
     if isinstance(self.value, tuple) and isinstance(n.value, int):
-        return self.replace(self.value[n.value:])
+        return self.replace(self.value[n.value :])
     # TODO: make this a bit more permissive. If either self or n are concrete and not the right types
     # we can use general definition.
     if concrete(self) and concrete(n):

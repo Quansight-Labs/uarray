@@ -16,8 +16,6 @@ V_box = typing.TypeVar("V_box", bound=Box)
 # Types
 ##
 
-VecOperation = Operation[typing.Tuple[Nat, List[T_box]]]
-
 
 @dataclasses.dataclass
 class VecData(Data, typing.Generic[T_box]):
@@ -109,11 +107,9 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
         return self.list.reduce(self.length, initial, op)
 
     def reduce_fn(
-        self, initial: V_box, op: typing.Callable[[V_box, V_box], V_box]
+        self, initial: V_box, op: typing.Callable[[V_box, T_box], V_box]
     ) -> V_box:
-        abs_: Abstraction[V_box, Abstraction[V_box, V_box]] = Abstraction.create_bin(
-            op, initial.replace(None), initial.replace(None)
-        )
+        abs_ = Abstraction.create_bin(op, initial.replace(None), self.dtype)
         return self.reduce(initial, abs_)
 
 

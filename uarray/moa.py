@@ -2,8 +2,8 @@ import dataclasses
 import operator
 import typing
 
-from .core import *
-from .dispatch import *
+from .core import Nat, Array, Vec, Abstraction, List
+from .dispatch import MapChainCallable, register, Box, default_context, Operation
 
 __all__ = ["MoA"]
 

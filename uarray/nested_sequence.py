@@ -104,7 +104,7 @@ def to_python_array_expanded(shape: Vec[Nat], contents: List[T_box]) -> Array[T_
 def _to_python_array_expanded(shape: Vec[Nat], contents: List[T_box]) -> Array[T_box]:
     if not isinstance(shape.value, VecData):
         return NotImplemented
-    shape_length, shape_list = shape.value.args
+    shape_length, shape_list = shape.length, shape.list
     if not isinstance(shape_length.value, int) or not isinstance(
         shape_list.value, tuple
     ):
@@ -136,7 +136,7 @@ def create_python_bin_abs(
     fn: typing.Callable[[T, U], V], l_type: typing.Type[T], r_type: typing.Type[U]
 ) -> Abstraction[Box[T], Abstraction[Box[U], Box[V]]]:
 
-    return Abstraction.create_nary_native(
+    return Abstraction.create_nary_native(  # type: ignore
         lambda a, b: Box(fn(a.value, b.value)),
         Box(typing.cast(V, None)),
         lambda a: isinstance(a.value, l_type),

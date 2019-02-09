@@ -62,7 +62,7 @@ def _ast_abstraction_inner(
 def create_ast_abstraction(
     fn: typing.Callable[..., AST], rettype: Box, n_args: int
 ) -> T_box:
-    return Abstraction.create_nary_native(
+    return Abstraction.create_nary_native(  # type: ignore
         Partial(_ast_abstraction_inner, (fn, rettype)), rettype, *[is_ast] * n_args
     )
 
@@ -96,7 +96,7 @@ def to_ast_tuple(b: T_box) -> T_box:
     def inner(*args: AST) -> AST:
         return AST(ast.Tuple([a.get for a in args], ast.Load())).includes(*args)
 
-    return as_ast(inner, b, *(lst[Nat(i)] for i in range(length.value)))
+    return as_ast(inner, b, *(lst[Nat(i)] for i in range(length.value)))  # type: ignore
 
 
 # @register(ctx, Vec)
@@ -288,7 +288,8 @@ def to_ast__array(b: T_box) -> T_box:
 
     # for now assume 1d array. In future, add ravel.
     vec = b.to_vec()
-    return as_ast(array_fn, b, vec.length, vec.list[Nat(AST(idx_load))])
+    # https://github.com/python/mypy/issues/4949
+    return as_ast(array_fn, b, vec.length, vec.list[Nat(AST(idx_load))])  # type: ignore
 
 
 @register(ctx, to_ast)

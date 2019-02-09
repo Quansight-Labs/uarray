@@ -107,7 +107,7 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
     @classmethod
     def create_nary(
         cls, fn: typing.Callable[..., T_box], vnames: typing.List[str], *arg_types: Box
-    ) -> "Box":
+    ) -> "typing.Union[Abstraction, T_box]":  # cannot type this properly
         if not arg_types:
             return fn()
         arg_type, *new_arg_types = arg_types
