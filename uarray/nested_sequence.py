@@ -26,11 +26,11 @@ class NestedTuples:
 
 def create_python_array(shape: typing.Tuple[int, ...], data: typing.Any) -> Array:
     return Array.create(
-        Array.create_shape(*map(Nat, shape)), Abstraction(NestedTuples(data), Box(None))
+        Array.create_shape(*map(Natural, shape)), Abstraction(NestedTuples(data), Box(None))
     )
 
 
-def index_python_array(array: Array[T_box], *idx: Nat) -> T_box:
+def index_python_array(array: Array[T_box], *idx: Natural) -> T_box:
     ...
 
 
@@ -66,14 +66,14 @@ def _to_python_array(a: Array[T_box]) -> Array[T_box]:
 
 @operation
 def to_python_array_expanded_first(
-    shape: Vec[Nat], idx_abs: Abstraction[Vec[Nat], T_box]
+    shape: Vec[Natural], idx_abs: Abstraction[Vec[Natural], T_box]
 ) -> Array[T_box]:
     return Array(dtype=idx_abs.rettype)
 
 
 @register(ctx, to_python_array_expanded_first)
 def _to_python_array_expanded_first(
-    shape: Vec[Nat], idx_abs: Abstraction[Vec[Nat], T_box]
+    shape: Vec[Natural], idx_abs: Abstraction[Vec[Natural], T_box]
 ) -> Array[T_box]:
     # If contents are already nested tuples, we can stop now.
     if isinstance(idx_abs.value, NestedTuples):
@@ -83,7 +83,7 @@ def _to_python_array_expanded_first(
     shape_list = shape.value.args[1]
     if not isinstance(shape_list.value, tuple):
         return NotImplemented
-    shape_items: typing.Tuple[Nat, ...] = shape_list.value
+    shape_items: typing.Tuple[Natural, ...] = shape_list.value
     if not all(isinstance(i, int) for i in shape_items):
         return NotImplemented
     shape_items_ints: typing.Tuple[int, ...] = tuple(i.value for i in shape_items)
@@ -94,19 +94,19 @@ def _to_python_array_expanded_first(
 
     contents = List.create(
         idx_abs.rettype,
-        *(idx_abs(Array.create_shape(*map(Nat, idx))) for idx in all_possible_idxs)
+        *(idx_abs(Array.create_shape(*map(Natural, idx))) for idx in all_possible_idxs)
     )
 
     return to_python_array_expanded(shape, contents)
 
 
 @operation
-def to_python_array_expanded(shape: Vec[Nat], contents: List[T_box]) -> Array[T_box]:
+def to_python_array_expanded(shape: Vec[Natural], contents: List[T_box]) -> Array[T_box]:
     return Array(dtype=contents.dtype)
 
 
 @register(ctx, to_python_array_expanded)
-def _to_python_array_expanded(shape: Vec[Nat], contents: List[T_box]) -> Array[T_box]:
+def _to_python_array_expanded(shape: Vec[Natural], contents: List[T_box]) -> Array[T_box]:
     if not isinstance(shape.value, Operation) or shape.value.name != Vec.create:
         return NotImplemented
     shape_length, shape_list = shape.value.args
@@ -114,7 +114,7 @@ def _to_python_array_expanded(shape: Vec[Nat], contents: List[T_box]) -> Array[T
         shape_list.value, tuple
     ):
         return NotImplemented
-    shape_items: typing.Tuple[Nat, ...] = shape_list.value
+    shape_items: typing.Tuple[Natural, ...] = shape_list.value
     if not all(isinstance(i.value, int) for i in shape_items):
         return NotImplemented
 

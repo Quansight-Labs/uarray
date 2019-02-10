@@ -25,13 +25,13 @@ def ast_source(expr: Box) -> typing.List[str]:
 
 class TestToAST:
     def test_numbers(self):
-        assert ast_source(Nat(123)) == ["123\n"]
+        assert ast_source(Natural(123)) == ["123\n"]
         assert ast_source(Box(1.2)) == ["1.2\n"]
 
     def test_vec(self):
-        assert ast_source(Vec.create_infer(Nat(123), Nat(456))) == ["(123, 456)\n"]
+        assert ast_source(Vec.create_infer(Natural(123), Natural(456))) == ["(123, 456)\n"]
 
     def test_ufunc(self):
-        assert ast_source(numpy_ufunc(Box(numpy.multiply), Nat(1), Nat(2))) == [
+        assert ast_source(numpy_ufunc(Box(numpy.multiply), Natural(1), Natural(2))) == [
             "numpy.multiply(1, 2)\n"
         ]

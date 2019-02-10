@@ -16,5 +16,5 @@ def test_binary_operation():
     assert replace(
         a.binary_operation(
             create_python_bin_abs(lambda l, r: l + r, int, int), a
-        ).array[Array.create_shape(Nat(0), Nat(0))]
+        ).array[Array.create_shape(Natural(0), Natural(0))]
     ) == Box(2)

@@ -15,28 +15,28 @@ def natural_ints(min_value=0, max_value=5):
 
 @hypothesis._strategies.defines_strategy
 def naturals():
-    return natural_ints().map(Nat)
+    return natural_ints().map(Natural)
 
 
 @hypothesis.given(natural_ints(), natural_ints())
 def test_lte(l: int, r: int):
-    assert replace(Nat(l).lte(Nat(r))) == Bool(l <= r)
+    assert replace(Natural(l).lte(Natural(r))) == Bool(l <= r)
 
 
 @hypothesis.given(natural_ints(), natural_ints())
 def test_add(l: int, r: int):
-    assert replace(Nat(l) + Nat(r)) == Nat(l + r)
+    assert replace(Natural(l) + Natural(r)) == Natural(l + r)
 
 
 @hypothesis.given(natural_ints(), natural_ints())
 def test_subtract(l: int, r: int):
-    assert replace(Nat(l) - Nat(r)) == Nat(l - r)
+    assert replace(Natural(l) - Natural(r)) == Natural(l - r)
 
 
 @hypothesis.given(natural_ints())
 def test_loop(n: int):
-    def factorial_fn(acc: Nat, idx: Nat) -> Nat:
-        return acc * (idx + Nat(1))
+    def factorial_fn(acc: Natural, idx: Natural) -> Natural:
+        return acc * (idx + Natural(1))
 
-    factorial_abs = Abstraction.create_bin(factorial_fn, Nat(None), Nat(None))
-    assert replace(Nat(n).loop(Nat(1), factorial_abs)) == Nat(math.factorial(n))
+    factorial_abs = Abstraction.create_bin(factorial_fn, Natural(None), Natural(None))
+    assert replace(Natural(n).loop(Natural(1), factorial_abs)) == Natural(math.factorial(n))

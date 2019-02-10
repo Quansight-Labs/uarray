@@ -31,23 +31,23 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
         return cls(a.value, a.dtype)
 
     @property
-    def dim(self) -> "MoA[Nat]":
+    def dim(self) -> "MoA[Natural]":
         return self._dim()
 
     @operation
-    def _dim(self) -> "MoA[Nat]":
-        return MoA(dtype=Nat())
+    def _dim(self) -> "MoA[Natural]":
+        return MoA(dtype=Natural())
 
     @property
-    def shape(self) -> "MoA[Nat]":
+    def shape(self) -> "MoA[Natural]":
         return self._shape()
 
     @operation
-    def _shape(self) -> "MoA[Nat]":
-        return MoA(dtype=Nat())
+    def _shape(self) -> "MoA[Natural]":
+        return MoA(dtype=Natural())
 
     @operation
-    def __getitem__(self, idxs: "MoA[Nat]") -> "MoA[T_box]":
+    def __getitem__(self, idxs: "MoA[Natural]") -> "MoA[T_box]":
         return self
 
     @operation
@@ -114,36 +114,36 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
 
     @staticmethod
     @operation
-    def gamma(idx: Vec[Nat], shape: Vec[Nat]) -> Nat:
-        return Nat()
+    def gamma(idx: Vec[Natural], shape: Vec[Natural]) -> Natural:
+        return Natural()
 
     @classmethod
-    def from_list_nd(cls, data: List[T_box], shape: Vec[Nat]) -> "MoA[T_box]":
+    def from_list_nd(cls, data: List[T_box], shape: Vec[Natural]) -> "MoA[T_box]":
         @Array.create_idx_abs
-        def idx_abs(idx: Vec[Nat]) -> T_box:
+        def idx_abs(idx: Vec[Natural]) -> T_box:
             return data[gamma(idx, shape)]
 
         return MoA.from_array(Array.create(shape, idx_abs))
 
 
 @register(ctx, MoA._dim)
-def _dim(self: MoA[T_box]) -> "MoA[Nat]":
+def _dim(self: MoA[T_box]) -> "MoA[Natural]":
     return MoA.from_array(Array.create_0d(self.array.shape.length))
 
 
 @register(ctx, MoA._shape)
-def _shape(self: MoA[T_box]) -> "MoA[Nat]":
+def _shape(self: MoA[T_box]) -> "MoA[Natural]":
     return MoA.from_array(Array.from_vec(self.array.shape))
 
 
 # TODO: Implement array indices
 @register(ctx, MoA.__getitem__)
-def __getitem__(self: MoA[T_box], idxs: "MoA[Nat]") -> "MoA[T_box]":
-    n_idxs = idxs.array.shape[Nat(0)]
+def __getitem__(self: MoA[T_box], idxs: "MoA[Natural]") -> "MoA[T_box]":
+    n_idxs = idxs.array.shape[Natural(0)]
     new_shape = self.array.shape.drop(n_idxs)
 
     @Array.create_idx_abs
-    def new_idx_abs(idx: Vec[Nat]) -> T_box:
+    def new_idx_abs(idx: Vec[Natural]) -> T_box:
         return self.array[idxs.array.to_vec().concat(idx)]
 
     return MoA.from_array(Array.create(new_shape, new_idx_abs))
@@ -152,7 +152,7 @@ def __getitem__(self: MoA[T_box], idxs: "MoA[Nat]") -> "MoA[T_box]":
 @register(ctx, MoA.unary_operation)
 def unary_operation(self: MoA[T_box], op: Abstraction[T_box, V_box]) -> MoA[V_box]:
     @Array.create_idx_abs
-    def new_idx_abs(idx: Vec[Nat]) -> V_box:
+    def new_idx_abs(idx: Vec[Natural]) -> V_box:
         return op(self.array[idx])
 
     return MoA.from_array(Array.create(self.array.shape, new_idx_abs))
@@ -166,13 +166,13 @@ def binary_operation(
     other: MoA[U_box],
 ) -> MoA[V_box]:
     dim_difference = self.array.shape.length - other.array.shape.length
-    left_shorter = dim_difference.lt(Nat(0))
+    left_shorter = dim_difference.lt(Natural(0))
     res_shape = left_shorter.if_(other.array.shape, self.array.shape)
 
     @Array.create_idx_abs
-    def new_idx_abs(idx: Vec[Nat]) -> V_box:
+    def new_idx_abs(idx: Vec[Natural]) -> V_box:
         return left_shorter.if_(
-            op(self.array[idx.drop(dim_difference * Nat(-1))])(other.array[idx]),
+            op(self.array[idx.drop(dim_difference * Natural(-1))])(other.array[idx]),
             op(self.array[idx])(other.array[idx.drop(dim_difference)]),
         )
 
@@ -185,7 +185,7 @@ def transpose(self: MoA[T_box]) -> MoA[T_box]:
     new_shape = self.array.shape.reverse()
 
     @Array.create_idx_abs
-    def new_idx_abs(idx: Vec[Nat]) -> T_box:
+    def new_idx_abs(idx: Vec[Natural]) -> T_box:
         return self.array[idx.reverse()]
 
     return MoA.from_array(Array.create(new_shape, new_idx_abs))
@@ -200,7 +200,7 @@ def outer_product(
     l_dim = self.array.shape.length
 
     @Array.create_idx_abs
-    def new_idx_abs(idx: Vec[Nat]) -> V_box:
+    def new_idx_abs(idx: Vec[Natural]) -> V_box:
         return op(self.array[idx.take(l_dim)])(other.array[idx.drop(l_dim)])
 
     return MoA.from_array(
@@ -216,10 +216,10 @@ def _reduce(
 
 
 @register(ctx, MoA.gamma)
-def gamma(idx: Vec[Nat], shape: Vec[Nat]) -> Nat:
-    def loop_abs(val: Nat, i: Nat) -> Nat:
+def gamma(idx: Vec[Natural], shape: Vec[Natural]) -> Natural:
+    def loop_abs(val: Natural, i: Natural) -> Natural:
         return idx[i] + (shape[i] * val)
 
     return shape.length.loop(
-        Nat(0), Abstraction.create_bin(loop_abs, Nat(None), Nat(None))
+        Natural(0), Abstraction.create_bin(loop_abs, Natural(None), Natural(None))
     )

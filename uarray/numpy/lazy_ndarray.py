@@ -96,7 +96,7 @@ class LazyNDArray(
     def __getitem__(self, i: int):
         return LazyNDArray.create(
             MoA.from_array(self.array)[
-                MoA.from_array(Array.create_1d_infer(Nat(i)))
+                MoA.from_array(Array.create_1d_infer(Natural(i)))
             ].array
         )
 
@@ -107,5 +107,5 @@ class LazyNDArray(
         """
         return tuple(i.value for i in replace(self.array.shape.list).value.args)
 
-    def with_dim(self, ndim: Nat) -> "LazyNDArray":
+    def with_dim(self, ndim: Natural) -> "LazyNDArray":
         return LazyNDArray.create(self.array.with_dim(ndim))

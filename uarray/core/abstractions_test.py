@@ -59,7 +59,7 @@ class TestAbstraction:
         )
 
 
-class TestNativeAbstraction:
+class TestNaturaliveAbstraction:
     @hypothesis.given(expression(), expression())
     def test_applies_conditionally(self, right_box, wrong_box):
         def fn(a):

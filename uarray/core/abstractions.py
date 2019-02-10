@@ -47,7 +47,7 @@ def variable_concrete(v: Variable):
 
 
 @dataclasses.dataclass(frozen=True)
-class NativeAbstraction(typing.Generic[T_box_cov]):
+class NaturaliveAbstraction(typing.Generic[T_box_cov]):
     fn: typing.Callable[[T_box], U_box]
     can_call: typing.Callable[[T_box], bool]
 
@@ -119,7 +119,7 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
         Only use when neccesary, it means that the body of the function won't appear
         in the graph, only as a python function.
         """
-        return cls(NativeAbstraction(fn, can_call), rettype)
+        return cls(NaturaliveAbstraction(fn, can_call), rettype)
 
     @classmethod
     def _create_nary_inner(cls, fn, rettype, new_can_calls, x):
@@ -178,7 +178,7 @@ def __call__(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
 def __call___native(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
     #  type ignore b/c https://github.com/python/mypy/issues/5485
     if not isinstance(
-        self.value, NativeAbstraction
+        self.value, NaturaliveAbstraction
     ) or not self.value.can_call(  # type: ignore
         arg
     ):

@@ -23,34 +23,34 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
         return self._get_list()
 
     @property
-    def length(self) -> Nat:
+    def length(self) -> Natural:
         return self._get_length()
 
     @staticmethod
     @concrete_operation
-    def create(length: Nat, lst: List[T_box]) -> "Vec[T_box]":
+    def create(length: Natural, lst: List[T_box]) -> "Vec[T_box]":
         return Vec(dtype=lst.dtype)
 
     @classmethod
     def create_args(cls, dtype: T_box, *args: T_box) -> "Vec[T_box]":
-        return cls.create(Nat(len(args)), List.create(dtype, *args))
+        return cls.create(Natural(len(args)), List.create(dtype, *args))
 
     @classmethod
     def create_infer(cls, arg: T_box, *args: T_box) -> "Vec[T_box]":
         return cls.create_args(arg.replace(None), arg, *args)
 
     @operation
-    def _get_length(self) -> Nat:
-        return Nat()
+    def _get_length(self) -> Natural:
+        return Natural()
 
     @operation
     def _get_list(self) -> List[T_box]:
         return List(dtype=self.dtype)
 
-    def with_length(self, length: Nat) -> "Vec[T_box]":
+    def with_length(self, length: Natural) -> "Vec[T_box]":
         return Vec.create(length, self.list)
 
-    def __getitem__(self, index: Nat) -> T_box:
+    def __getitem__(self, index: Natural) -> T_box:
         return self.list[index]
 
     def first(self) -> T_box:
@@ -63,26 +63,26 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
         """
         x[1:]
         """
-        return self.create(self.length - Nat(1), self.list.rest())
+        return self.create(self.length - Natural(1), self.list.rest())
 
     def push(self, item: T_box) -> "Vec[T_box]":
-        return self.create(self.length + Nat(1), self.list.push(item))
+        return self.create(self.length + Natural(1), self.list.push(item))
 
     def append(self, item: T_box) -> "Vec[T_box]":
-        return self.create(self.length + Nat(1), self.list.append(self.length, item))
+        return self.create(self.length + Natural(1), self.list.append(self.length, item))
 
     def concat(self, other: "Vec[T_box]") -> "Vec[T_box]":
         return self.create(
             self.length + other.length, self.list.concat(self.length, other.list)
         )
 
-    def drop(self, n: Nat) -> "Vec[T_box]":
+    def drop(self, n: Natural) -> "Vec[T_box]":
         """
         x[:-n]
         """
         return self.create(self.length - n, self.list.drop(n))
 
-    def take(self, n: Nat) -> "Vec[T_box]":
+    def take(self, n: Natural) -> "Vec[T_box]":
         """
         x[:n]
         """
@@ -107,7 +107,7 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
 
 
 @register(ctx, Vec._get_length)
-def _get_length(self: Vec[T_box]) -> Nat:
+def _get_length(self: Vec[T_box]) -> Natural:
     if not isinstance(self.value, Operation) or not self.value.name == Vec.create:
         return NotImplemented
     return self.value.args[0]

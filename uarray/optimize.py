@@ -24,7 +24,7 @@ def jit(*dims: int) -> typing.Callable[[T_call], T_call]:
         def wrapper_fn(*args):
             return fn(
                 *(
-                    LazyNDArray.create(to_array(arg)).with_dim(Nat(dim))
+                    LazyNDArray.create(to_array(arg)).with_dim(Natural(dim))
                     for (arg, dim) in zip(args, dims)
                 )
             ).array

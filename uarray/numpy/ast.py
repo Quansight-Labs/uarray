@@ -3,7 +3,7 @@ Support reading and compiling to python AST of NumPy API
 
 Array -> AST of numpy.ndarray
 Vector -> tuple
-Natural -> number
+Naturalural -> number
 """
 import ast
 import dataclasses
@@ -101,7 +101,7 @@ def to_ast_tuple(b: T_box) -> T_box:
     def inner(*args: AST) -> AST:
         return AST(ast.Tuple([a.get for a in args], ast.Load())).includes(*args)
 
-    return as_ast(inner, b, *(lst[Nat(i)] for i in range(length.value)))  # type: ignore
+    return as_ast(inner, b, *(lst[Natural(i)] for i in range(length.value)))  # type: ignore
 
 
 @register(ctx, to_ast)
@@ -176,10 +176,10 @@ def create_for(
 
 @register(ctx, to_ast)
 def to_ast_loop(b: T_box) -> T_box:
-    if not isinstance(b.value, Operation) or b.value.name != Nat.loop:
+    if not isinstance(b.value, Operation) or b.value.name != Natural.loop:
         return NotImplemented
     n, initial, fn = typing.cast(
-        typing.Tuple[Nat, T_box, Abstraction[T_box, Abstraction["Nat", T_box]]],
+        typing.Tuple[Natural, T_box, Abstraction[T_box, Abstraction["Natural", T_box]]],
         b.value.args,
     )
 
@@ -191,20 +191,20 @@ def to_ast_loop(b: T_box) -> T_box:
         b,
         n,
         initial,
-        fn(initial.replace(AST(load_result)))(Nat(AST(load_index))),
+        fn(initial.replace(AST(load_result)))(Natural(AST(load_index))),
     )
 
 
 @register(ctx, Array._get_shape)
-def _get_shape(self: Array[T_box]) -> Vec[Nat]:
+def _get_shape(self: Array[T_box]) -> Vec[Natural]:
     if not is_ast(self):
         return NotImplemented
-    ndim = Nat(
+    ndim = Natural(
         AST(ast.Attribute(self.value.get, "ndim", ast.Load())).include(self.value)
     )
 
     @List.from_function
-    def list_fn(idx: Nat, self_ast=self.value) -> Nat:
+    def list_fn(idx: Natural, self_ast=self.value) -> Natural:
         def inner(idx_ast: AST, self_ast=self_ast) -> AST:
             return AST(
                 ast.Subscript(
@@ -214,18 +214,18 @@ def _get_shape(self: Array[T_box]) -> Vec[Nat]:
                 )
             ).includes(self_ast, idx_ast)
 
-        return as_ast(inner, Nat(None), idx)
+        return as_ast(inner, Natural(None), idx)
 
     return Vec.create(ndim, list_fn)
 
 
 @register(ctx, Array._get_idx_abs)
-def _get_idx_abs(self: Array[T_box]) -> Abstraction[Vec[Nat], T_box]:
+def _get_idx_abs(self: Array[T_box]) -> Abstraction[Vec[Natural], T_box]:
     if not is_ast(self):
         return NotImplemented
 
     @Array.create_idx_abs
-    def idx_abs(idx: Vec[Nat], self_ast=self.value) -> T_box:
+    def idx_abs(idx: Vec[Natural], self_ast=self.value) -> T_box:
         def inner(idx_ast: AST, self_ast=self_ast) -> AST:
             if not idx_ast.get.elts:  # type: ignore
                 return self_ast
@@ -282,7 +282,7 @@ def to_ast__array(b: T_box) -> T_box:
     # for now assume 1d array. In future, add ravel.
     vec = b.to_vec()
     # https://github.com/python/mypy/issues/4949
-    return as_ast(array_fn, b, vec.length, vec.list[Nat(AST(idx_load))])  # type: ignore
+    return as_ast(array_fn, b, vec.length, vec.list[Natural(AST(idx_load))])  # type: ignore
 
 
 @register(ctx, to_ast)

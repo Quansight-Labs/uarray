@@ -19,12 +19,12 @@ def assert_arrays_eql(array: Array[T_box], shape: typing.List[int], content):
     is nested python lists.
     """
     array = replace(array)
-    assert_vector_is_list(replace(array.shape), list(map(Nat, shape)))
+    assert_vector_is_list(replace(array.shape), list(map(Natural, shape)))
     for indxs in itertools.product(*map(range, shape)):
         x = content
         for i in indxs:
             x = x[i]
-        assert replace(array[Array.create_shape(*map(Nat, indxs))]) == x
+        assert replace(array[Array.create_shape(*map(Natural, indxs))]) == x
 
 
 @hypothesis.given(naturals())
@@ -34,14 +34,14 @@ def test_0d_array(x):
 
 @hypothesis.given(list_of_naturals())
 def test_1d_array(xs):
-    assert_arrays_eql(Array.create_1d(Nat(None), *xs), [len(xs)], xs)
+    assert_arrays_eql(Array.create_1d(Natural(None), *xs), [len(xs)], xs)
 
 
 @hypothesis.given(list_of_naturals())
 def test_vec_to_array(xs):
-    assert_arrays_eql(Array.from_vec(Vec.create_args(Nat(None), *xs)), [len(xs)], xs)
+    assert_arrays_eql(Array.from_vec(Vec.create_args(Natural(None), *xs)), [len(xs)], xs)
 
 
 @hypothesis.given(list_of_naturals())
 def test_array_to_vec(xs):
-    assert_vector_is_list(Array.create_1d(Nat(None), *xs).to_vec(), xs)
+    assert_vector_is_list(Array.create_1d(Natural(None), *xs).to_vec(), xs)

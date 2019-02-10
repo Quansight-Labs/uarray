@@ -10,22 +10,22 @@ from .dispatch import *
 from .moa import *
 
 
-def sum_array(shape: Vec[Nat]) -> MoA[Nat]:
+def sum_array(shape: Vec[Natural]) -> MoA[Natural]:
     """
     Returns an array whose contents are the sum of those indices.
     """
 
     @Array.create_idx_abs
-    def idx_abs(idx: Vec[Nat]) -> Nat:
-        return idx.reduce_fn(Nat(0), operator.add)
+    def idx_abs(idx: Vec[Natural]) -> Natural:
+        return idx.reduce_fn(Natural(0), operator.add)
 
     return MoA.from_array(Array.create(shape, idx_abs))
 
 
 def test_sum_array():
-    a = sum_array(Vec.create_infer(Nat(1), Nat(2), Nat(3)))
+    a = sum_array(Vec.create_infer(Natural(1), Natural(2), Natural(3)))
     assert_arrays_eql(
-        a.array, (1, 2, 3), (((Nat(0), Nat(1), Nat(2)), (Nat(1), Nat(2), Nat(3))),)
+        a.array, (1, 2, 3), (((Natural(0), Natural(1), Natural(2)), (Natural(1), Natural(2), Natural(3))),)
     )
 
 
@@ -33,17 +33,17 @@ def test_index():
     shape = (1, 2, 3)
     idx = (0, 1)
 
-    a = sum_array(Vec.create_infer(*map(Nat, shape)))
-    idx_array = MoA.from_array(Array.create_1d(Nat(None), *map(Nat, idx)))
-    assert_arrays_eql(a[idx_array].array, (3,), (Nat(1), Nat(2), Nat(3)))
+    a = sum_array(Vec.create_infer(*map(Natural, shape)))
+    idx_array = MoA.from_array(Array.create_1d(Natural(None), *map(Natural, idx)))
+    assert_arrays_eql(a[idx_array].array, (3,), (Natural(1), Natural(2), Natural(3)))
 
 
-def vector(*xs: int) -> Vec[Nat]:
-    return Vec.create_infer(*map(Nat, xs))
+def vector(*xs: int) -> Vec[Natural]:
+    return Vec.create_infer(*map(Natural, xs))
 
 
 # def create_test_array(*shape: int) -> ArrayType[typing.Any]:
-#     return Array.create(Vec.create_args(Nat(None), *shape), variable("idx"))
+#     return Array.create(Vec.create_args(Natural(None), *shape), variable("idx"))
 
 
 def row_major_gamma(idx: typing.Tuple[int, ...], shape: typing.Tuple[int, ...]) -> int:
@@ -147,13 +147,13 @@ def test_array_from_list_nd(
     idx: typing.Tuple[int, ...],
     value: int,
 ):
-    new_s = Array.create_shape(*map(Nat, new_shape))
-    reshaped = MoA.from_list_nd(List.create(Nat(None), *map(Nat, vec)), new_s)
-    assert_vector_is_list(replace(reshaped.array.shape), list(map(Nat, new_shape)))
+    new_s = Array.create_shape(*map(Natural, new_shape))
+    reshaped = MoA.from_list_nd(List.create(Natural(None), *map(Natural, vec)), new_s)
+    assert_vector_is_list(replace(reshaped.array.shape), list(map(Natural, new_shape)))
 
-    i = MoA.from_array(Array.create_1d(Nat(None), *map(Nat, idx)))
+    i = MoA.from_array(Array.create_1d(Natural(None), *map(Natural, idx)))
     idxed = reshaped[i]
-    assert replace(idxed.array.to_value()) == Nat(value)
+    assert replace(idxed.array.to_value()) == Natural(value)
 
 
 # def all_indices(shape: typing.Tuple[int, ...]) -> typing.Iterable[typing.Iterable[int]]:
@@ -203,23 +203,23 @@ def test_paper_example():
     """
 
     # We start with two arrays, `A` and `B`.
-    A_rav = List(Variable("A_rav"), Nat(None))
-    B_rav = List(Variable("B_rav"), Nat(None))
+    A_rav = List(Variable("A_rav"), Natural(None))
+    B_rav = List(Variable("B_rav"), Natural(None))
 
-    A_shape = B_shape = Array.create_shape(Nat(3), Nat(4))
+    A_shape = B_shape = Array.create_shape(Natural(3), Natural(4))
 
     A = MoA.from_list_nd(A_rav, A_shape)
     B = MoA.from_list_nd(B_rav, B_shape)
 
-    idx = MoA.from_array(Array.create_1d_infer(Nat(0)))
+    idx = MoA.from_array(Array.create_1d_infer(Natural(0)))
 
     expr = (A + B).transpose()[idx]
 
     # Verify shape is what it should be
-    assert_vector_is_list(expr.array.shape, [Nat(3)])
+    assert_vector_is_list(expr.array.shape, [Natural(3)])
 
     # Verify contents is equal by indexing with `i`.
-    i = Nat(Variable("i"))
+    i = Natural(Variable("i"))
     idxed = expr.array[Array.create_shape(i)]
-    correct_idxed = A_rav[Nat(4) * i] + B_rav[Nat(4) * i]
+    correct_idxed = A_rav[Natural(4) * i] + B_rav[Natural(4) * i]
     assert replace(correct_idxed) == replace(idxed)

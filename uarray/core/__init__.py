@@ -17,6 +17,6 @@ __all__ = [
     "Array",
     "Bool",
     "List",
-    "Nat",
+    "Natural",
     "Vec",
 ]
