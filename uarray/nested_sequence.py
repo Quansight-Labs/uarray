@@ -36,9 +36,13 @@ def index_python_array(array: Array[T_box], *idx: Nat) -> T_box:
 
 @register(ctx, Abstraction.__call__)
 def __call___nested_lists(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
-    if not (isinstance(self.value, NestedTuples)) or not isinstance(arg.value, VecData):
+    if (
+        not (isinstance(self.value, NestedTuples))
+        or not isinstance(arg.value, Operation)
+        or arg.value.name != Vec.create
+    ):
         return NotImplemented
-    idx = arg.value.list.value
+    idx = arg.value.args[1].value
     if not isinstance(idx, tuple):
         return NotImplemented
 
@@ -74,9 +78,9 @@ def _to_python_array_expanded_first(
     # If contents are already nested tuples, we can stop now.
     if isinstance(idx_abs.value, NestedTuples):
         return Array.create(shape, idx_abs)
-    if not isinstance(shape.value, VecData):
+    if not isinstance(shape.value, Operation) or shape.value.name != Vec.create:
         return NotImplemented
-    shape_list = shape.value.list
+    shape_list = shape.value.args[1]
     if not isinstance(shape_list.value, tuple):
         return NotImplemented
     shape_items: typing.Tuple[Nat, ...] = shape_list.value
@@ -102,9 +106,9 @@ def to_python_array_expanded(shape: Vec[Nat], contents: List[T_box]) -> Array[T_
 
 @register(ctx, to_python_array_expanded)
 def _to_python_array_expanded(shape: Vec[Nat], contents: List[T_box]) -> Array[T_box]:
-    if not isinstance(shape.value, VecData):
+    if not isinstance(shape.value, Operation) or shape.value.name != Vec.create:
         return NotImplemented
-    shape_length, shape_list = shape.length, shape.list
+    shape_length, shape_list = shape.value.args
     if not isinstance(shape_length.value, int) or not isinstance(
         shape_list.value, tuple
     ):

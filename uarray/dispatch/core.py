@@ -11,7 +11,6 @@ __all__ = [
     "copy",
     "concrete",
     "map_children",
-    "Data",
     "global_context",
     "ReplacementType",
     "ContextType",
@@ -70,7 +69,7 @@ KeyType = object
 
 
 @functools.singledispatch
-def key(node: T) -> KeyType:
+def key(node) -> KeyType:
     return type(node)
 
 
@@ -101,18 +100,19 @@ T_args = typing.TypeVar("T_args", bound=ChildrenType)
 
 
 @dataclasses.dataclass(frozen=True)
-class Operation(typing.Generic[T_args]):
-    name: object
+class Operation(typing.Generic[T_box, T_args]):
+    name: typing.Callable[..., T_box]
     args: T_args
+    concrete: bool = False
 
 
 @functools.singledispatch
 def operation_concrete(x: Operation) -> bool:
-    return False
+    return x.concrete
 
 
 @children.register(Operation)
-def operation_children(op: Operation[T_args]) -> T_args:
+def operation_children(op: Operation[T_box, T_args]) -> T_args:
     return op.args
 
 
@@ -126,28 +126,6 @@ def operation_map_children(
     v: Operation, fn: typing.Callable[[typing.Any], typing.Any]
 ) -> Operation:
     return dataclasses.replace(v, args=tuple(map(fn, v.args)))
-
-
-@dataclasses.dataclass
-class Data:
-    pass
-
-
-@children.register
-def data_children(v: Data) -> tuple:
-    return tuple(getattr(v, f.name) for f in dataclasses.fields(v))
-
-
-@key.register
-def data_key(op: Data) -> typing.Type:
-    return type(op)
-
-
-@map_children.register
-def data_map_children(
-    v: Data, fn: typing.Callable[[typing.Any], typing.Any]
-) -> Operation:
-    return type(v)(*map(fn, children(v)))  # type: ignore
 
 
 ContextType = typing.Mapping[KeyType, ReplacementType]

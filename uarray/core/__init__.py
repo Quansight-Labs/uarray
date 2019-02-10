@@ -19,5 +19,4 @@ __all__ = [
     "List",
     "Nat",
     "Vec",
-    "VecData",
 ]

@@ -8,7 +8,6 @@ __all__ = [
     "copy",
     "concrete",
     "map_children",
-    "Data",
     "global_context",
     "ReplacementType",
     "ContextType",
@@ -27,5 +26,4 @@ __all__ = [
     "localcontext",
     "includecontext",
     "register",
-    "register_type",
 ]

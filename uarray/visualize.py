@@ -105,11 +105,6 @@ def id_variable(b: Variable):
     return str(id(b))
 
 
-@id_.register
-def id_data(b: Data):
-    return str(id(b))
-
-
 @functools.singledispatch
 def attributes(expr):
     return {"shape": "plaintext", "style": ""}

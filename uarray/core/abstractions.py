@@ -13,14 +13,8 @@ T = typing.TypeVar("T")
 T_box = typing.TypeVar("T_box", bound=Box)
 U_box = typing.TypeVar("U_box", bound=Box)
 V_box = typing.TypeVar("V_box", bound=Box)
-W_box = typing.TypeVar("W_box", bound=Box)
-X_box = typing.TypeVar("X_box", bound=Box)
-
 T_box_cov = typing.TypeVar("T_box_cov", bound=Box, covariant=True)
-U_box_cov = typing.TypeVar("U_box_cov", bound=Box, covariant=True)
-
 T_box_contra = typing.TypeVar("T_box_contra", bound=Box, contravariant=True)
-U_box_contra = typing.TypeVar("U_box_contra", bound=Box, contravariant=True)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -29,7 +23,7 @@ class Partial(typing.Generic[T]):
     Simple partial function application.
 
     We use this over functools.partial b/c it doesn't support
-    equality (https://bugs.python.org/issue3564) and we use that in testing.
+    equality (https://bugs.python.org/issue3564) and we need that for testing.
     """
 
     fn: typing.Callable[..., T]
@@ -52,24 +46,8 @@ def variable_concrete(v: Variable):
     return False
 
 
-# Why do we have data as seperate type here?
-# Can't they just be functions?
-# That would make type signature on replacements of them easier...
-
-
-@dataclasses.dataclass
-class AbstractionData(Data, typing.Generic[T_box_cov]):
-    variable: Box[Variable]
-    body: T_box_cov
-
-
-@dataclasses.dataclass
-class ConstAbstractionData(Data, typing.Generic[T_box_cov]):
-    value: T_box_cov
-
-
 @dataclasses.dataclass(frozen=True)
-class NativeAbstractionData(typing.Generic[T_box_cov]):
+class NativeAbstraction(typing.Generic[T_box_cov]):
     fn: typing.Callable[[T_box], U_box]
     can_call: typing.Callable[[T_box], bool]
 
@@ -88,13 +66,10 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
 
     @classmethod
     def from_variable(cls, variable: T_box, body: U_box) -> "Abstraction[T_box, U_box]":
-        return cls(AbstractionData(variable, body), rettype=body.replace())
-
-    @classmethod
-    def from_variables(cls, body: Box, *variables: Box) -> "Box":
-        for v in variables:
-            body = cls.from_variable(v, body)
-        return body
+        return Abstraction(
+            Operation(Abstraction.from_variable, (variable, body), concrete=True),
+            body.replace(),
+        )
 
     @classmethod
     def create(
@@ -143,7 +118,7 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
         Only use when neccesary, it means that the body of the function won't appear
         in the graph, only as a python function.
         """
-        return cls(NativeAbstractionData(fn, can_call), rettype)
+        return cls(NativeAbstraction(fn, can_call), rettype)
 
     @classmethod
     def _create_nary_inner(cls, fn, rettype, new_can_calls, x):
@@ -179,53 +154,30 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
             new_rettype,
         )
 
-    @classmethod
-    def const(cls, value: T_box) -> "Abstraction[Box, T_box]":
-        return cls(ConstAbstractionData(value), rettype=value)
-
-    @classmethod
-    def identity(cls, arg: T_box) -> "Abstraction[T_box, T_box]":
-        return cls.create(lambda v: v, arg)
-
-    def compose(
-        self, other: "Abstraction[U_box_contra, T_box_contra]"
-    ) -> "Abstraction[U_box_contra, T_box_cov]":
-        """
-        self.compose(other)(v) == self(other(v))
-        """
-        return self.replace(Operation(Abstraction.compose, (self, other)))
-
 
 @register(ctx, Abstraction.__call__)
 def __call__(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
-    if not isinstance(self.value, AbstractionData):
+    if (
+        not isinstance(self.value, Operation)
+        or not self.value.name == Abstraction.from_variable
+    ):
         return NotImplemented
-    variable, body = self.value.variable, self.value.body
+    variable, body = self.value.args
     if variable.value is body.value:
         return arg  # type: ignore
 
     return body.replace(
         map_children(
-            body.value,
-            lambda child: Abstraction(  # type: ignore
-                AbstractionData(variable, child), child.replace(None)
-            )(arg),
+            body.value, lambda child: Abstraction.from_variable(variable, child)(arg)
         )
     )
-
-
-@register(ctx, Abstraction.__call__)
-def __call___const(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
-    if not isinstance(self.value, ConstAbstractionData):
-        return NotImplemented
-    return self.value.value
 
 
 @register(ctx, Abstraction.__call__)
 def __call___native(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
     #  type ignore b/c https://github.com/python/mypy/issues/5485
     if not isinstance(
-        self.value, NativeAbstractionData
+        self.value, NativeAbstraction
     ) or not self.value.can_call(  # type: ignore
         arg
     ):
@@ -233,32 +185,17 @@ def __call___native(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
     return self.value.fn(arg)  # type: ignore
 
 
-@register(ctx, Abstraction.compose)
-def compose(
-    self: Abstraction[T_box_contra, T_box_cov],
-    other: Abstraction[U_box_contra, T_box_contra],
-) -> Abstraction[U_box_contra, T_box_cov]:
-    if not isinstance(self.value, AbstractionData) or not isinstance(
-        other.value, AbstractionData
-    ):
-        return NotImplemented
-
-    return Abstraction(
-        AbstractionData(other.value.variable, self(other.value.body)), self.rettype
-    )
-
-
-@register(ctx, AbstractionData)
-def η_reduction(variable: Box[Variable], body: T_box) -> Abstraction:
+@register(ctx, Abstraction.from_variable)
+def η_reduction(variable: T_box, body: U_box) -> Abstraction[T_box, U_box]:
     """
     https://en.wikipedia.org/wiki/Lambda_calculus#%CE%B7-conversion
 
     λx.(f x) -> f
 
     If we have a structure that looks like:
-        lambda a: AbstractionData(variable, body)(a)
+        lambda a: abstraction(variable, body)(a)
     We should replace it with:
-        AbstractionData(a, body)
+        abstraction(a, body)
 
     Otherwise if we have some other kind of abstraction, we can replace it without changing the arg.
 
@@ -271,12 +208,13 @@ def η_reduction(variable: Box[Variable], body: T_box) -> Abstraction:
     if inner_arg.value != variable.value:
         return NotImplemented
 
-    if isinstance(inner_abstraction.value, AbstractionData):
-        return inner_abstraction.replace(
-            AbstractionData(
-                inner_abstraction.value.variable.replace(variable.value),
-                inner_abstraction.value.body,
-            )
+    if (
+        isinstance(inner_abstraction.value, Operation)
+        and inner_abstraction.value.name == Abstraction.from_variable
+    ):
+        inner_variable, inner_body = inner_abstraction.value.args
+        return Abstraction.from_variable(
+            inner_variable.replace(variable.value), inner_body
         )
     elif concrete(inner_abstraction.value):
         return inner_abstraction

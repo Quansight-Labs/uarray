@@ -15,3 +15,4 @@ dist
 **/*.pyc
 docs/_build
 .idea/
+pytype_output

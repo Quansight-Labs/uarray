@@ -15,12 +15,6 @@ V_box = typing.TypeVar("V_box", bound=Box)
 
 
 @dataclasses.dataclass
-class ArrayData(Data, typing.Generic[T_box]):
-    shape: Vec[Nat]
-    idx_abs: Abstraction[Vec[Nat], T_box]
-
-
-@dataclasses.dataclass
 class Array(Box[typing.Any], typing.Generic[T_box]):
     value: typing.Any
     dtype: T_box
@@ -43,14 +37,16 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
     def create(
         cls, shape: Vec[Nat], idx_abs: Abstraction[Vec[Nat], T_box]
     ) -> "Array[T_box]":
-        return cls(ArrayData(shape, idx_abs), idx_abs.rettype)
+        return cls(Operation(cls.create, (shape, idx_abs), True), idx_abs.rettype)
 
     @classmethod
     def create_0d(cls, x: T_box) -> "Array[T_box]":
         """
         Returns a scalar array of `x`.
         """
-        return cls.create(Vec.create_args(Nat(None)), Abstraction.const(x))
+        return cls.create(
+            Vec.create_args(Nat(None)), Abstraction.create(lambda _: x, x.replace(None))
+        )
 
     @classmethod
     def create_1d(cls, x: T_box, *xs: T_box) -> "Array[T_box]":
@@ -111,13 +107,13 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
 
 @register(ctx, Array._get_shape)
 def _get_shape(self: Array[T_box]) -> Vec[Nat]:
-    if not isinstance(self.value, ArrayData):
+    if not isinstance(self.value, Operation) or not self.value.name == Array.create:
         return NotImplemented
-    return self.value.shape
+    return self.value.args[0]
 
 
 @register(ctx, Array._get_idx_abs)
 def _get_idx_abs(self: Array[T_box]) -> Abstraction[Vec[Nat], T_box]:
-    if not isinstance(self.value, ArrayData):
+    if not isinstance(self.value, Operation) or not self.value.name == Array.create:
         return NotImplemented
-    return self.value.idx_abs
+    return self.value.args[1]

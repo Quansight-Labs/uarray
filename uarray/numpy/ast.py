@@ -86,10 +86,14 @@ def to_ast_numbers(b: T_box) -> T_box:
 
 @register(ctx, to_ast)
 def to_ast_tuple(b: T_box) -> T_box:
-    if not isinstance(b, Vec) or not isinstance(b.value, VecData):
+    if (
+        not isinstance(b, Vec)
+        or not isinstance(b.value, Operation)
+        or b.value.name != Vec.create
+    ):
         return NotImplemented
 
-    length, lst = b.value.length, b.value.list
+    length, lst = b.value.args
     if not isinstance(length.value, int):
         return NotImplemented
 
@@ -97,18 +101,6 @@ def to_ast_tuple(b: T_box) -> T_box:
         return AST(ast.Tuple([a.get for a in args], ast.Load())).includes(*args)
 
     return as_ast(inner, b, *(lst[Nat(i)] for i in range(length.value)))  # type: ignore
-
-
-# @register(ctx, Vec)
-# def _convert_list(length: Nat, lst: List[T_box]) -> Vec[T_box]:
-#     """
-#     When we know length, convert abstraction list to exact list
-#     """
-#     if not isinstance(length.value, int) or not concrete(lst):
-#         return NotImplemented
-#     return Vec.create(
-#         length, List.create(lst.dtype, *(lst[Nat(i)] for i in range(length.value)))
-#     )
 
 
 @register(ctx, to_ast)

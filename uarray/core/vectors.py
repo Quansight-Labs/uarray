@@ -7,20 +7,10 @@ from .lists import *
 from .naturals import *
 from ..dispatch import *
 
-__all__ = ["Vec", "VecData"]
+__all__ = ["Vec"]
 
 T_box = typing.TypeVar("T_box", bound=Box)
 V_box = typing.TypeVar("V_box", bound=Box)
-
-##
-# Types
-##
-
-
-@dataclasses.dataclass
-class VecData(Data, typing.Generic[T_box]):
-    length: Nat
-    list: List[T_box]
 
 
 @dataclasses.dataclass
@@ -38,7 +28,7 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
 
     @classmethod
     def create(cls, length: Nat, lst: List[T_box]) -> "Vec[T_box]":
-        return cls(VecData(length, lst), lst.dtype)
+        return cls(Operation(cls.create, (length, lst), True), lst.dtype)
 
     @classmethod
     def create_args(cls, dtype: T_box, *args: T_box) -> "Vec[T_box]":
@@ -115,13 +105,13 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
 
 @register(ctx, Vec._get_length)
 def _get_length(self: Vec[T_box]) -> Nat:
-    if not isinstance(self.value, VecData):
+    if not isinstance(self.value, Operation) or not self.value.name == Vec.create:
         return NotImplemented
-    return self.value.length
+    return self.value.args[0]
 
 
 @register(ctx, Vec._get_list)
 def _get_list(self: Vec[T_box]) -> List[T_box]:
-    if not isinstance(self.value, VecData):
+    if not isinstance(self.value, Operation) or not self.value.name == Vec.create:
         return NotImplemented
-    return self.value.list
+    return self.value.args[1]
