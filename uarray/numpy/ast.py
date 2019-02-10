@@ -48,8 +48,9 @@ def to_array(b: Box) -> Array:
     return Array(b.value, Box(None))
 
 
+@operation
 def to_ast(b: T_box) -> T_box:
-    return b.replace(Operation(to_ast, (b,)))
+    return b
 
 
 def _ast_abstraction_inner(

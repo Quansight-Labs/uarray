@@ -54,8 +54,9 @@ def __call___nested_lists(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
     return self.rettype.replace(data)
 
 
+@operation
 def to_python_array(a: Array[T_box]) -> Array[T_box]:
-    return Array(Operation(to_python_array, (a,)), a.dtype)
+    return a
 
 
 @register(ctx, to_python_array)
@@ -63,12 +64,11 @@ def _to_python_array(a: Array[T_box]) -> Array[T_box]:
     return to_python_array_expanded_first(a.shape, a.idx_abs)
 
 
+@operation
 def to_python_array_expanded_first(
     shape: Vec[Nat], idx_abs: Abstraction[Vec[Nat], T_box]
 ) -> Array[T_box]:
-    return Array(
-        Operation(to_python_array_expanded_first, (shape, idx_abs)), idx_abs.rettype
-    )
+    return Array(dtype=idx_abs.rettype)
 
 
 @register(ctx, to_python_array_expanded_first)
@@ -100,8 +100,9 @@ def _to_python_array_expanded_first(
     return to_python_array_expanded(shape, contents)
 
 
+@operation
 def to_python_array_expanded(shape: Vec[Nat], contents: List[T_box]) -> Array[T_box]:
-    return Array(Operation(to_python_array_expanded, (shape, contents)), contents.dtype)
+    return Array(dtype=contents.dtype)
 
 
 @register(ctx, to_python_array_expanded)

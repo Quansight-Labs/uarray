@@ -11,25 +11,25 @@ T_box = typing.TypeVar("T_box", bound=Box)
 
 
 class Bool(Box):
+    @operation
     def if_(self, if_true: T_box, if_false: T_box) -> T_box:
-        op = Operation(Bool.if_, (self, if_true, if_false))
-        return if_true.replace(op)
+        return if_true
 
+    @operation
     def and_(self, other: "Bool") -> "Bool":
-        op = Operation(Bool.and_, (self, other))
-        return Bool(op)
+        return Bool()
 
+    @operation
     def or_(self, other: "Bool") -> "Bool":
-        op = Operation(Bool.or_, (self, other))
-        return Bool(op)
+        return Bool()
 
+    @operation
     def not_(self) -> "Bool":
-        op = Operation(Bool.not_, (self,))
-        return Bool(op)
+        return Bool()
 
+    @operation
     def equal(self, other: "Bool") -> "Bool":
-        op = Operation(Bool.equal, (self, other))
-        return Bool(op)
+        return Bool()
 
 
 @register(ctx, Bool.if_)

@@ -2,8 +2,8 @@ import dataclasses
 import operator
 import typing
 
-from .core import Nat, Array, Vec, Abstraction, List
-from .dispatch import MapChainCallable, register, Box, default_context, Operation
+from .core import *
+from .dispatch import *
 
 __all__ = ["MoA"]
 
@@ -34,33 +34,36 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
     def dim(self) -> "MoA[Nat]":
         return self._dim()
 
+    @operation
     def _dim(self) -> "MoA[Nat]":
-        return MoA(Operation(MoA._dim, (self,)), Nat(None))
+        return MoA(dtype=Nat())
 
     @property
     def shape(self) -> "MoA[Nat]":
         return self._shape()
 
+    @operation
     def _shape(self) -> "MoA[Nat]":
-        return MoA(Operation(MoA._shape, (self,)), Nat(None))
+        return MoA(dtype=Nat())
 
+    @operation
     def __getitem__(self, idxs: "MoA[Nat]") -> "MoA[T_box]":
-        return MoA(Operation(MoA.__getitem__, (self, idxs)), self.dtype)
+        return self
 
+    @operation
     def unary_operation(self, op: Abstraction[T_box, U_box]) -> "MoA[U_box]":
-        return MoA(Operation(MoA.unary_operation, (self, op)), op.rettype)
+        return MoA(dtype=op.rettype)
 
     def unary_operation_abstraction(
         self, op: typing.Callable[[T_box], U_box]
     ) -> "MoA[U_box]":
         return self.unary_operation(Abstraction.create(op, self.dtype))
 
+    @operation
     def binary_operation(
         self, op: Abstraction[T_box, Abstraction[U_box, V_box]], other: "MoA[U_box]"
     ) -> "MoA[V_box]":
-        return MoA(
-            Operation(MoA.binary_operation, (self, op, other)), op.rettype.rettype
-        )
+        return MoA(dtype=op.rettype.rettype)
 
     def binary_operation_abstraction(
         self, op: typing.Callable[[T_box, U_box], V_box], other: "MoA[U_box]"
@@ -69,15 +72,17 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
             Abstraction.create_bin(op, self.dtype, other.dtype), other
         )
 
+    @operation
     def transpose(self) -> "MoA[T_box]":
-        return MoA(Operation(MoA.transpose, (self,)), self.dtype)
+        return self
 
+    @operation
     def outer_product(
         self: "MoA[T_box]",
         op: Abstraction[T_box, Abstraction[U_box, V_box]],
         other: "MoA[U_box]",
     ) -> "MoA[V_box]":
-        return MoA(Operation(MoA.outer_product, (self, op, other)), op.rettype.rettype)
+        return MoA(dtype=op.rettype.rettype)
 
     def outer_product_abstraction(
         self: "MoA[T_box]",
@@ -94,12 +99,13 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
         """
         return self.binary_operation_abstraction(operator.add, other)
 
+    @operation
     def reduce(
         self: "MoA[T_box]",
         op: Abstraction[V_box, Abstraction[T_box, V_box]],
         initial: V_box,
     ) -> "MoA[V_box]":
-        return MoA(Operation(MoA.reduce, (self, op, initial)), op.rettype.rettype)
+        return MoA(dtype=op.rettype.rettype)
 
     def reduce_abstraction(
         self: "MoA[T_box]", op: typing.Callable[[V_box, T_box], V_box], initial: V_box
@@ -107,8 +113,9 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
         return self.reduce(Abstraction.create_bin(op, initial, self.dtype), initial)
 
     @staticmethod
+    @operation
     def gamma(idx: Vec[Nat], shape: Vec[Nat]) -> Nat:
-        return Nat(Operation(MoA.gamma, (idx, shape)))
+        return Nat()
 
     @classmethod
     def from_list_nd(cls, data: List[T_box], shape: Vec[Nat]) -> "MoA[T_box]":

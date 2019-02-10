@@ -26,9 +26,10 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
     def length(self) -> Nat:
         return self._get_length()
 
-    @classmethod
-    def create(cls, length: Nat, lst: List[T_box]) -> "Vec[T_box]":
-        return cls(Operation(cls.create, (length, lst), True), lst.dtype)
+    @staticmethod
+    @concrete_operation
+    def create(length: Nat, lst: List[T_box]) -> "Vec[T_box]":
+        return Vec(dtype=lst.dtype)
 
     @classmethod
     def create_args(cls, dtype: T_box, *args: T_box) -> "Vec[T_box]":
@@ -38,11 +39,13 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
     def create_infer(cls, arg: T_box, *args: T_box) -> "Vec[T_box]":
         return cls.create_args(arg.replace(None), arg, *args)
 
+    @operation
     def _get_length(self) -> Nat:
-        return Nat(Operation(Vec._get_length, (self,)))
+        return Nat()
 
+    @operation
     def _get_list(self) -> List[T_box]:
-        return List(Operation(Vec._get_list, (self,)), self.dtype)
+        return List(dtype=self.dtype)
 
     def with_length(self, length: Nat) -> "Vec[T_box]":
         return Vec.create(length, self.list)

@@ -50,60 +50,67 @@ class List(Box[typing.Any], typing.Generic[T_box]):
     def from_function(cls, fn: typing.Callable[[Nat], T_box]) -> "List[T_box]":
         return cls.from_abstraction(Abstraction.create(fn, Nat(None)))
 
+    @operation
     def __getitem__(self, index: Nat) -> T_box:
-        op = Operation(List.__getitem__, (self, index))
-        return self.dtype.replace(op)
+        return self.dtype
 
-    # TODO: Refactor many of these to __getitem__ slices
-
+    @operation
     def first(self) -> T_box:
         """
         x[0]
         """
-        return self.dtype.replace(Operation(List.first, (self,)))
+        return self.dtype
 
+    @operation
     def rest(self) -> "List[T_box]":
         """
         x[1:]
         """
-        return self.replace(Operation(List.rest, (self,)))
+        return self
 
+    @operation
     def push(self, item: T_box) -> "List[T_box]":
-        return self.replace(Operation(List.push, (self, item)))
+        return self
 
+    @operation
     def append(self, length: Nat, item: T_box) -> "List[T_box]":
-        return self.replace(Operation(List.append, (self, length, item)))
+        return self
 
+    @operation
     def concat(self, length: Nat, other: "List[T_box]") -> "List[T_box]":
-        return self.replace(Operation(List.concat, (self, length, other)))
+        return self
 
+    @operation
     def drop(self, n: Nat) -> "List[T_box]":
         """
         Drops the first n items from the list.
 
         x[n:]
         """
-        return self.replace(Operation(List.drop, (self, n)))
+        return self
 
+    @operation
     def take(self, n: Nat) -> "List[T_box]":
         """
         x[:n]
         """
-        return self.replace(Operation(List.take, (self, n)))
+        return self
 
+    @operation
     def reverse(self, length: Nat) -> "List[T_box]":
         """
         x[::-1]
         """
-        return self.replace(Operation(List.reverse, (self, length)))
+        return self
 
+    @operation
     def reduce(
         self,
         length: Nat,
         initial: V_box,
         op: Abstraction[V_box, Abstraction[T_box, V_box]],
     ) -> V_box:
-        return initial.replace(Operation(List.reduce, (self, length, initial, op)))
+        return initial
 
     def reduce_fn(
         self, length: Nat, initial: V_box, op: typing.Callable[[V_box, T_box], V_box]

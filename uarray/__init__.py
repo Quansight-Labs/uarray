@@ -1,6 +1,4 @@
 """Universal array library"""
-
-
 from .dispatch import *  # NOQA
 from .core import *  # NOQA
 from .moa import *  # NOQA
@@ -55,6 +53,7 @@ __all__ = [
     "Nat",
     "Vec",
     "MoA",
+    "concrete_operation",
     "create_python_array",
     "to_python_array",
     "create_python_bin_abs",

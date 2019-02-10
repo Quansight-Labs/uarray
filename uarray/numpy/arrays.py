@@ -45,8 +45,9 @@ def _get_shape(self: Array[T_box]) -> Vec[Nat]:
     return Array.create_shape(*map(Nat, self.value.shape))
 
 
+@operation
 def index_ndarray(array: Array[T_box], *idx: Nat) -> T_box:
-    ...
+    return array.dtype
 
 
 @register(ctx, Array._get_idx_abs)
@@ -58,9 +59,7 @@ def _get_idx_abs(self: Array[T_box]) -> Abstraction[Vec[Nat], T_box]:
 
     @Array.create_idx_abs
     def idx_abs(idx: Vec[Nat]) -> T_box:
-        return self.dtype.replace(
-            Operation(index_ndarray, (self, *(idx[Nat(d)] for d in range(dim))))
-        )
+        return index_ndarray(self, *(idx[Nat(d)] for d in range(dim)))
 
     return idx_abs
 

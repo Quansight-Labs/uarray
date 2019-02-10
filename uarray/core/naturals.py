@@ -12,38 +12,39 @@ T_box = typing.TypeVar("T_box", bound=Box)
 
 
 class Nat(Box[typing.Any]):
+    @operation
     def lte(self, other: "Nat") -> Bool:
-        op = Operation(Nat.lte, (self, other))
-        return Bool(op)
+        return Bool()
 
+    @operation
     def lt(self, other: "Nat") -> Bool:
-        op = Operation(Nat.lt, (self, other))
-        return Bool(op)
+        return Bool()
 
+    @operation
     def __add__(self, other: "Nat") -> "Nat":
-        op = Operation(Nat.__add__, (self, other))
-        return Nat(op)
+        return Nat()
 
+    @operation
     def __mul__(self, other: "Nat") -> "Nat":
-        op = Operation(Nat.__mul__, (self, other))
-        return Nat(op)
+        return Nat()
 
+    @operation
     def __sub__(self, other: "Nat") -> "Nat":
-        op = Operation(Nat.__sub__, (self, other))
-        return Nat(op)
+        return Nat()
 
+    @operation
     def __floordiv__(self, other: "Nat") -> "Nat":
-        op = Operation(Nat.__floordiv__, (self, other))
-        return Nat(op)
+        return Nat()
 
+    @operation
     def __mod__(self, other: "Nat") -> "Nat":
-        op = Operation(Nat.__mod__, (self, other))
-        return Nat(op)
+        return Nat()
 
+    @operation
     def equal(self, other: "Nat") -> "Bool":
-        op = Operation(Nat.equal, (self, other))
-        return Bool(op)
+        return Bool()
 
+    @operation
     def loop(
         self, initial: T_box, fn: Abstraction[T_box, Abstraction["Nat", T_box]]
     ) -> T_box:
@@ -53,8 +54,7 @@ class Nat(Box[typing.Any]):
             v = op(v)(i)
         return v
         """
-        op = Operation(Nat.loop, (self, initial, fn))
-        return initial.replace(op)
+        return initial
 
 
 @register(ctx, Nat.equal)

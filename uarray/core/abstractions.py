@@ -63,15 +63,14 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
     # https://github.com/python/mypy/issues/3737
     rettype: T_box_cov = typing.cast(T_box_cov, Box(None))
 
+    @operation
     def __call__(self, arg: T_box_contra) -> T_box_cov:
-        return self.rettype.replace(Operation(Abstraction.__call__, (self, arg)))
+        return self.rettype
 
-    @classmethod
-    def from_variable(cls, variable: T_box, body: U_box) -> "Abstraction[T_box, U_box]":
-        return Abstraction(
-            Operation(Abstraction.from_variable, (variable, body), concrete=True),
-            body.replace(),
-        )
+    @staticmethod
+    @concrete_operation
+    def from_variable(variable: T_box, body: U_box) -> "Abstraction[T_box, U_box]":
+        return Abstraction(rettype=body.replace())
 
     @classmethod
     def create(

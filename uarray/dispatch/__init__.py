@@ -8,6 +8,7 @@ __all__ = [
     "Box",
     "copy",
     "concrete",
+    "concrete_operation",
     "Operation",
     "operation",
     "map_children",

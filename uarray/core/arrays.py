@@ -17,7 +17,7 @@ V_box = typing.TypeVar("V_box", bound=Box)
 @dataclasses.dataclass
 class Array(Box[typing.Any], typing.Generic[T_box]):
     value: typing.Any = None
-    dtype: T_box = typing.cast(T_box, Box(None))
+    dtype: T_box = typing.cast(T_box, Box())
 
     @property
     def shape(self) -> Vec[Nat]:
@@ -27,17 +27,20 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
     def idx_abs(self) -> Abstraction[Vec[Nat], T_box]:
         return self._get_idx_abs()
 
+    @operation
     def _get_shape(self) -> Vec[Nat]:
-        return Vec(Operation(Array._get_shape, (self,)), Nat(None))
+        return Vec(dtype=Nat())
 
+    @operation
     def _get_idx_abs(self) -> Abstraction[Vec[Nat], T_box]:
-        return Abstraction(Operation(Array._get_idx_abs, (self,)), self.dtype)
+        return Abstraction(rettype=self.dtype)
 
-    @classmethod
+    @staticmethod
+    @concrete_operation
     def create(
-        cls, shape: Vec[Nat], idx_abs: Abstraction[Vec[Nat], T_box]
+        shape: Vec[Nat], idx_abs: Abstraction[Vec[Nat], T_box]
     ) -> "Array[T_box]":
-        return cls(Operation(cls.create, (shape, idx_abs), True), idx_abs.rettype)
+        return Array(dtype=idx_abs.rettype)
 
     @classmethod
     def create_0d(cls, x: T_box) -> "Array[T_box]":
@@ -68,7 +71,7 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
         def idx_fn(idxs: Vec[Nat]) -> T_box:
             return vec[idxs.first()]
 
-        return Array.create(shape=Vec.create_infer(vec.length), idx_abs=idx_fn)
+        return Array.create(Vec.create_infer(vec.length), idx_fn)
 
     @classmethod
     def create_idx_abs(

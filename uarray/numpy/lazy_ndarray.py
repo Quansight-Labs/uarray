@@ -42,8 +42,9 @@ def _to_array(b: Box) -> Array:
 T_box = typing.TypeVar("T_box", bound=Box)
 
 
+@operation
 def numpy_ufunc(ufunc: Box[numpy.ufunc], *args: Box) -> Box:
-    return Box(Operation(numpy_ufunc, (ufunc, *args)))
+    return Box()
 
 
 @dataclasses.dataclass
