@@ -58,8 +58,10 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
     Abstraction from type T_box_contra to type T_box_cov.
     """
 
-    value: typing.Any
-    rettype: T_box_cov
+    value: typing.Any = None
+    # Need cast b/c
+    # https://github.com/python/mypy/issues/3737
+    rettype: T_box_cov = typing.cast(T_box_cov, Box(None))
 
     def __call__(self, arg: T_box_contra) -> T_box_cov:
         return self.rettype.replace(Operation(Abstraction.__call__, (self, arg)))

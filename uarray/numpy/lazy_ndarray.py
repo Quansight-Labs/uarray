@@ -50,8 +50,8 @@ def numpy_ufunc(ufunc: Box[numpy.ufunc], *args: Box) -> Box:
 class LazyNDArray(
     Box[typing.Any], typing.Generic[T_box], numpy.lib.mixins.NDArrayOperatorsMixin
 ):
-    value: typing.Any
-    dtype: T_box
+    value: typing.Any = None
+    dtype: T_box = typing.cast(T_box, Box(None))
 
     @classmethod
     def create(cls, a: Array[T_box]) -> "LazyNDArray[T_box]":

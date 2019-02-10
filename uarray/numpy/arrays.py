@@ -23,8 +23,8 @@ class NumpyDataType(Box[numpy.dtype]):
 
 @dataclasses.dataclass
 class NumpyScalar(Box[typing.Any]):
-    value: typing.Any
-    dtype: NumpyDataType
+    value: typing.Any = None
+    dtype: Box = Box(None)
 
 
 def is_numpy_array(a: Box) -> bool:

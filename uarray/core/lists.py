@@ -27,8 +27,8 @@ def tuple_map_children(a: tuple, b: typing.Callable):
 
 @dataclasses.dataclass
 class List(Box[typing.Any], typing.Generic[T_box]):
-    value: typing.Any
-    dtype: T_box
+    value: typing.Any = None
+    dtype: T_box = typing.cast(T_box, Box(None))
 
     @property
     def abstraction(self):

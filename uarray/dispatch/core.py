@@ -6,7 +6,6 @@ import functools
 import typing
 
 __all__ = [
-    "Operation",
     "Box",
     "copy",
     "concrete",
@@ -34,7 +33,7 @@ T_box = typing.TypeVar("T_box", bound="Box")
 
 @dataclasses.dataclass
 class Box(typing.Generic[T_cov]):
-    value: T_cov
+    value: T_cov = typing.cast(T_cov, None)
 
     def replace(self: T_box, value: typing.Any = None) -> "T_box":
         return dataclasses.replace(self, value=value)
@@ -94,38 +93,6 @@ def copy_box(v: Box, already_copied: typing.MutableMapping) -> Box:
 @functools.singledispatch
 def concrete(x: typing.Any) -> bool:
     return True
-
-
-T_args = typing.TypeVar("T_args", bound=ChildrenType)
-
-
-@dataclasses.dataclass(frozen=True)
-class Operation(typing.Generic[T_box, T_args]):
-    name: typing.Callable[..., T_box]
-    args: T_args
-    concrete: bool = False
-
-
-@functools.singledispatch
-def operation_concrete(x: Operation) -> bool:
-    return x.concrete
-
-
-@children.register(Operation)
-def operation_children(op: Operation[T_box, T_args]) -> T_args:
-    return op.args
-
-
-@key.register
-def operation_key(op: Operation) -> object:
-    return op.name
-
-
-@map_children.register
-def operation_map_children(
-    v: Operation, fn: typing.Callable[[typing.Any], typing.Any]
-) -> Operation:
-    return dataclasses.replace(v, args=tuple(map(fn, v.args)))
 
 
 ContextType = typing.Mapping[KeyType, ReplacementType]

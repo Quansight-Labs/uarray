@@ -16,8 +16,8 @@ V_box = typing.TypeVar("V_box", bound=Box)
 
 @dataclasses.dataclass
 class Array(Box[typing.Any], typing.Generic[T_box]):
-    value: typing.Any
-    dtype: T_box
+    value: typing.Any = None
+    dtype: T_box = typing.cast(T_box, Box(None))
 
     @property
     def shape(self) -> Vec[Nat]:

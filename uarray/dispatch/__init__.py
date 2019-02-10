@@ -1,12 +1,15 @@
 from .contextmanagers import *  # NOQA
 from .core import *  # NOQA
 from .replacement import *  # NOQA
+from .operations import *  # NOQA
 
 __all__ = [
     "Operation",
     "Box",
     "copy",
     "concrete",
+    "Operation",
+    "operation",
     "map_children",
     "global_context",
     "ReplacementType",
