@@ -34,34 +34,24 @@ class Bool(Box):
 
 @register(ctx, Bool.if_)
 def if_(self: Bool, if_true: T_box, if_false: T_box) -> T_box:
-    if isinstance(self.value, bool):
-        return if_true if self.value else if_false
-    return NotImplemented
+    return if_true if extract_value(bool, self) else if_false
 
 
 @register(ctx, Bool.not_)
 def not_(self: Bool) -> Bool:
-    if isinstance(self.value, bool):
-        return Bool(not self.value)
-    return NotImplemented
+    return Bool(not extract_value(bool, self))
 
 
 @register(ctx, Bool.and_)
 def and_(self: Bool, other: Bool) -> Bool:
-    if isinstance(self.value, bool) and isinstance(other.value, bool):
-        return Bool(self.value and other.value)
-    return NotImplemented
+    return Bool(extract_value(bool, self) and extract_value(bool, other))
 
 
 @register(ctx, Bool.or_)
 def or_(self: Bool, other: Bool) -> Bool:
-    if isinstance(self.value, bool) and isinstance(other.value, bool):
-        return Bool(self.value or other.value)
-    return NotImplemented
+    return Bool(extract_value(bool, self) or extract_value(bool, other))
 
 
 @register(ctx, Bool.equal)
 def equal(self: Bool, other: Bool) -> Bool:
-    if isinstance(self.value, bool) and isinstance(other.value, bool):
-        return Bool(self.value == other.value)
-    return NotImplemented
+    return Bool(extract_value(bool, self) == extract_value(bool, other))

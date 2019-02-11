@@ -131,7 +131,7 @@ class MapChainCallable(collections.abc.MutableMapping):
         ] = collections.defaultdict(ChainCallable)
 
     def __setitem__(self, key: KeyType, value: ReplacementType) -> None:
-        self.dict[key].callables.append(value)
+        self.dict[key].callables = [value] + self.dict[key].callables
 
     def __getitem__(self, key: KeyType) -> ReplacementType:
         return self.dict[key]

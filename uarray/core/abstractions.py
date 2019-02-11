@@ -47,7 +47,7 @@ def variable_concrete(v: Variable):
 
 
 @dataclasses.dataclass(frozen=True)
-class NaturaliveAbstraction(typing.Generic[T_box_cov]):
+class NativeAbstraction(typing.Generic[T_box_cov]):
     fn: typing.Callable[[T_box], U_box]
     can_call: typing.Callable[[T_box], bool]
 
@@ -119,7 +119,7 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
         Only use when neccesary, it means that the body of the function won't appear
         in the graph, only as a python function.
         """
-        return cls(NaturaliveAbstraction(fn, can_call), rettype)
+        return cls(NativeAbstraction(fn, can_call), rettype)
 
     @classmethod
     def _create_nary_inner(cls, fn, rettype, new_can_calls, x):
@@ -158,12 +158,7 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
 
 @register(ctx, Abstraction.__call__)
 def __call__(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
-    if (
-        not isinstance(self.value, Operation)
-        or not self.value.name == Abstraction.from_variable
-    ):
-        return NotImplemented
-    variable, body = self.value.args
+    variable, body = extract_args(Abstraction.from_variable, self)
     if variable.value is body.value:
         return arg  # type: ignore
 
@@ -176,14 +171,11 @@ def __call__(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
 
 @register(ctx, Abstraction.__call__)
 def __call___native(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
+    native_abstraction = extract_value(NativeAbstraction, self)
     #  type ignore b/c https://github.com/python/mypy/issues/5485
-    if not isinstance(
-        self.value, NaturaliveAbstraction
-    ) or not self.value.can_call(  # type: ignore
-        arg
-    ):
+    if not native_abstraction.can_call(arg):  # type: ignore
         return NotImplemented
-    return self.value.fn(arg)  # type: ignore
+    return native_abstraction.fn(arg)  # type: ignore
 
 
 @register(ctx, Abstraction.from_variable)
@@ -203,21 +195,23 @@ def η_reduction(variable: T_box, body: U_box) -> Abstraction[T_box, U_box]:
     Needed to support chaning abstraction wrapping list into list
     so we can compile list: lambda a: (1, 2, 3)(a) -> (1, 2, 3)
     """
-    if not isinstance(body.value, Operation) or body.value.name != Abstraction.__call__:
-        return NotImplemented
-    inner_abstraction, inner_arg = body.value.args
+    inner_abstraction, inner_arg = extract_args(  # type: ignore
+        Abstraction.__call__, body
+    )
     if inner_arg.value != variable.value:
         return NotImplemented
 
-    if (
-        isinstance(inner_abstraction.value, Operation)
-        and inner_abstraction.value.name == Abstraction.from_variable
-    ):
-        inner_variable, inner_body = inner_abstraction.value.args
+    try:
+        inner_variable, inner_body = extract_args(
+            Abstraction.from_variable, inner_abstraction
+        )
+    except ReturnNotImplemented:
+        pass
+    else:
         return Abstraction.from_variable(
             inner_variable.replace(variable.value), inner_body
         )
-    elif concrete(inner_abstraction.value):
+    if concrete(inner_abstraction.value):
         return inner_abstraction
     return NotImplemented
 

@@ -50,224 +50,166 @@ class List(Box[typing.Any], typing.Generic[T_box]):
     def from_function(cls, fn: typing.Callable[[Natural], T_box]) -> "List[T_box]":
         return cls.from_abstraction(Abstraction.create(fn, Natural(None)))
 
-    @operation
     def __getitem__(self, index: Natural) -> T_box:
-        return self.dtype
+        return self.abstraction(index)
 
-    @operation
+    @operation_with_default(ctx)
     def first(self) -> T_box:
         """
         x[0]
         """
-        return self.dtype
+        return self[Natural(0)]
 
-    @operation
+    @operation_with_default(ctx)
     def rest(self) -> "List[T_box]":
         """
         x[1:]
         """
-        return self
+        return List.from_function(lambda i: self[i + Natural(1)])
 
-    @operation
+    @operation_with_default(ctx)
     def push(self, item: T_box) -> "List[T_box]":
-        return self
+        return List.from_function(
+            lambda i: i.equal(Natural(0)).if_(item, self[i - Natural(1)])
+        )
 
-    @operation
+    @operation_with_default(ctx)
     def append(self, length: Natural, item: T_box) -> "List[T_box]":
-        return self
+        return List.from_function(lambda i: i.equal(length).if_(item, self[i]))
 
-    @operation
+    @operation_with_default(ctx)
     def concat(self, length: Natural, other: "List[T_box]") -> "List[T_box]":
-        return self
+        return List.from_function(
+            lambda i: i.lt(length).if_(self[i], other[i - length])
+        )
 
-    @operation
+    @operation_with_default(ctx)
     def drop(self, n: Natural) -> "List[T_box]":
         """
         Drops the first n items from the list.
 
         x[n:]
         """
-        return self
+        return List.from_function(lambda i: self[i + n])
 
-    @operation
+    @operation_with_default(ctx)
     def take(self, n: Natural) -> "List[T_box]":
         """
         x[:n]
         """
         return self
 
-    @operation
+    @operation_with_default(ctx)
     def reverse(self, length: Natural) -> "List[T_box]":
         """
         x[::-1]
         """
-        return self
+        return self.from_function(lambda i: self[(length - Natural(1)) - i])
 
-    @operation
+    @operation_with_default(ctx)
     def reduce(
         self,
         length: Natural,
         initial: V_box,
         op: Abstraction[V_box, Abstraction[T_box, V_box]],
     ) -> V_box:
-        return initial
+        def fn(v: V_box, idx: Natural) -> V_box:
+            return op(v)(self[idx])
+
+        abstraction = Abstraction.create_bin(fn, initial.replace(None), Natural(None))
+        return length.loop(initial, abstraction)
 
     def reduce_fn(
-        self, length: Natural, initial: V_box, op: typing.Callable[[V_box, T_box], V_box]
+        self,
+        length: Natural,
+        initial: V_box,
+        op: typing.Callable[[V_box, T_box], V_box],
     ) -> V_box:
         abs_ = Abstraction.create_bin(op, initial.replace(None), self.dtype)
         return self.reduce(length, initial, abs_)
 
 
-@register(ctx, List.__getitem__)
-def __getitem__(self: List[T_box], index: Natural) -> T_box:
-    """
-    Getitem translates into an abstraction.
-    """
-    return self.abstraction(index)
-
-
 @register(ctx, Abstraction.__call__)
 def __call___list(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
-    if isinstance(self.value, tuple) and isinstance(arg.value, int):
-        # We normally shouldn't get invalid indices
-        # but sometimes we do, for example if we have a conditional  and two paths,
-        # one might lead to invalid indices, but that's OK if it is never reached, i.e.
-        # if conditional is always true.
-        #
-        # Alternative way would be to not evaluate conditional paths until we know which branch to take
-        # but this hides part of the try and means we can't compile unknown conditionals
-        try:
-            return self.value[arg.value]
-        except IndexError:
-            # TODO: Return bottom type here, to show that this path is impossible.
-            return NotImplemented
-    return NotImplemented
+    tpl = extract_value(tuple, self)
+    idx = extract_value(int, arg)
+    # We normally shouldn't get invalid indices
+    # but sometimes we do, for example if we have a conditional  and two paths,
+    # one might lead to invalid indices, but that's OK if it is never reached, i.e.
+    # if conditional is always true.
+    try:
+        return tpl[idx]
+    except IndexError:
+        # TODO: Return bottom type here, to show that this path is impossible.
+        return NotImplemented
 
 
 @register(ctx, List.rest)
-def rest(self: List[T_box]) -> List[T_box]:
-    if isinstance(self.value, tuple):
-        return self.replace(self.value[1:])
-    # If we know the result is not going to be a tuple, implement with abstractions
-    if concrete(self.value):
-        return List.from_function(lambda i: self[i + Natural(1)])
-    return NotImplemented
+def rest_tuple(self: List[T_box]) -> List[T_box]:
+    return self.replace(extract_value(tuple, self)[1:])
 
 
 @register(ctx, List.push)
-def push(self: List[T_box], item: T_box) -> List[T_box]:
-    if isinstance(self.value, tuple):
-        return self.replace((item,) + self.value)
-    if concrete(self.value):
-        return List.from_function(lambda i: i.equal(Natural(0)).if_(item, self[i - Natural(1)]))
-    return NotImplemented
+def push_tuple(self: List[T_box], item: T_box) -> List[T_box]:
+    return self.replace((item,) + extract_value(tuple, self))
 
 
 @register(ctx, List.append)
-def append(self: List[T_box], length: Natural, item: T_box) -> List[T_box]:
-    if isinstance(self.value, tuple):
-        return self.replace(self.value + (item,))
-    if concrete(self.value):
-        return List.from_function(lambda i: i.equal(length).if_(item, self[i]))
-    return NotImplemented
+def append_tuple(self: List[T_box], length: Natural, item: T_box) -> List[T_box]:
+    return self.replace(extract_value(tuple, self) + (item,))
 
 
 @register(ctx, List.concat)
-def concat(self: List[T_box], length: Natural, other: List[T_box]) -> List[T_box]:
-    if isinstance(self.value, tuple) and isinstance(other.value, tuple):
-        return self.replace(self.value + other.value)
-    if concrete(self.value) and concrete(other.value):
-        return List.from_function(
-            lambda i: i.lt(length).if_(self[i], other[i - length])
-        )
-    return NotImplemented
+def concat_tuple(self: List[T_box], length: Natural, other: List[T_box]) -> List[T_box]:
+    return self.replace(extract_value(tuple, self) + extract_value(tuple, other))
 
 
 @register(ctx, List.concat)
 def concat_empty_left(
     self: List[T_box], length: Natural, other: List[T_box]
 ) -> List[T_box]:
-    if not isinstance(self.value, tuple) or self.value:
-        return NotImplemented
-    return other
+    if not extract_value(tuple, self):
+        return other
+    return NotImplemented
 
 
 @register(ctx, List.concat)
 def concat_empty_right(
     self: List[T_box], length: Natural, other: List[T_box]
 ) -> List[T_box]:
-    if not isinstance(other.value, tuple) or other.value:
-        return NotImplemented
-    return self
-
-
-# @register(ctx, List.concat)
-# def concat_abs(self: List[T_box], length: Natural, other: List[T_box]) -> List[T_box]:
-#     if not concrete(self.value) or not concrete(other.value):
-#         return NotImplemented
-
-#     def new_list(idx: Natural) -> T_box:
-#         return idx.lt(length).if_(
-#             self.abstraction(idx), other.abstraction(idx - length)
-#         )
-
-#     return List.from_abstraction(Abstraction.create(new_list, Natural(None)))
-
-
-@register(ctx, List.drop)
-def drop(self: List[T_box], n: Natural) -> List[T_box]:
-    if isinstance(self.value, tuple) and isinstance(n.value, int):
-        return self.replace(self.value[n.value :])
-    # TODO: make this a bit more permissive. If either self or n are concrete and not the right types
-    # we can use general definition.
-    if concrete(self) and concrete(n):
-        return List.from_function(lambda i: self[i + n])
-    return NotImplemented
-
-
-@register(ctx, List.drop)
-def drop_zero(self: List[T_box], n: Natural) -> List[T_box]:
-    if n.value != 0:
-        return NotImplemented
-    return self
-
-
-@register(ctx, List.take)
-def take(self: List[T_box], n: Natural) -> List[T_box]:
-    if isinstance(self.value, tuple) and isinstance(n.value, int):
-        return self.replace(self.value[: n.value])
-    if concrete(self) and concrete(n):
+    if not extract_value(tuple, other):
         return self
     return NotImplemented
 
 
-@register(ctx, List.reverse)
-def reverse(self: List[T_box], length: Natural) -> List[T_box]:
-    if isinstance(self.value, tuple):
-        return self.replace(self.value[::-1])
-    if concrete(self):
-        return self.from_function(lambda i: self[(length - Natural(1)) - i])
+@register(ctx, List.drop)
+def drop_tuple(self: List[T_box], n: Natural) -> List[T_box]:
+    return self.replace(extract_value(tuple, self)[extract_value(int, n) :])
+
+
+@register(ctx, List.drop)
+def drop_zero(self: List[T_box], n: Natural) -> List[T_box]:
+    if extract_value(int, n) == 0:
+        return self
     return NotImplemented
 
 
+@register(ctx, List.take)
+def take_tuple(self: List[T_box], n: Natural) -> List[T_box]:
+    return self.replace(extract_value(tuple, self)[: extract_value(int, n)])
+
+
+@register(ctx, List.reverse)
+def reverse_tuple(self: List[T_box], length: Natural) -> List[T_box]:
+    return self.replace(extract_value(tuple, self)[::-1])
+
+
 @register(ctx, List.first)
-def first(self: List[T_box]) -> T_box:
-    return self[Natural(0)]
+def first_tuple(self: List[T_box]) -> T_box:
+    return extract_value(tuple, self)[0]
 
 
-@register(ctx, List.reduce)
-def reduce(
-    self: List[T_box],
-    length: Natural,
-    initial: V_box,
-    op: Abstraction[V_box, Abstraction[T_box, V_box]],
-) -> V_box:
-    def fn(v: V_box, idx: Natural) -> V_box:
-        return op(v)(self[idx])
-
-    abstraction = Abstraction.create_bin(fn, initial.replace(None), Natural(None))
-    return length.loop(initial, abstraction)
+# TODO: implement reduce special case on tuple
 
 
 @register(ctx, List.take)
@@ -275,16 +217,10 @@ def take_of_concat(self: List[T_box], n: Natural) -> List[T_box]:
     """
     When taking less than concat, just take left side
     """
-
-    if (
-        not isinstance(n.value, int)
-        or not isinstance(self.value, Operation)
-        or self.value.name != List.concat
-        or not isinstance(self.value.args[1].value, int)
-        or n.value > self.value.args[1].value
-    ):
-        return NotImplemented
-    return self.value.args[0]
+    l, length, r = extract_args(List.concat, self)  # type: ignore
+    if extract_value(int, n) <= extract_value(int, length):
+        return l
+    return NotImplemented
 
 
 @register(ctx, List.drop)
@@ -293,12 +229,7 @@ def drop_of_concat(self: List[T_box], n: Natural) -> List[T_box]:
     When dropping first part of concat, just take right side
     """
 
-    if (
-        not isinstance(n.value, int)
-        or not isinstance(self.value, Operation)
-        or self.value.name != List.concat
-        or not isinstance(self.value.args[1].value, int)
-        or n.value != self.value.args[1].value
-    ):
-        return NotImplemented
-    return self.value.args[2]
+    l, length, r = extract_args(List.concat, self)  # type: ignore
+    if extract_value(int, n) == extract_value(int, length):
+        return r
+    return NotImplemented
