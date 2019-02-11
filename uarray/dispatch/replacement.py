@@ -15,8 +15,8 @@ class ReturnNotImplemented(Exception):
 def register(
     context: MutableContextType, target: T_call, default=False
 ) -> typing.Callable[[T_call], T_call]:
-    def inner(fn: T_call, context=context) -> T_call:
-        def replacement(op: Box) -> Box:
+    def inner(fn: T_call, context=context, target=target, default=default) -> T_call:
+        def replacement(op: Box, fn=fn, context=context, default=default) -> Box:
             args = children(op.value)
             if default and not all(concrete(a.value) for a in args):
                 return NotImplemented

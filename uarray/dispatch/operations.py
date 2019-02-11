@@ -82,7 +82,7 @@ def operation_with_default(
     Creates an operation and registers a default implementation.
     """
 
-    def inner(default_impl: T_call) -> T_call:
+    def inner(default_impl: T_call, context=context) -> T_call:
         operation_fn = operation(default_impl)
         register(context, operation_fn, default=True)(default_impl)
         return operation_fn
@@ -96,7 +96,7 @@ def operation(type_mapping: T_call) -> T_call:
     """
 
     @functools.wraps(type_mapping)
-    def inner(*args):
+    def inner(*args, type_mapping=type_mapping):
         restype = type_mapping(*args)
         return restype.replace(Operation(inner, tuple(args)))
 
@@ -109,7 +109,7 @@ def concrete_operation(type_mapping: T_call) -> T_call:
     """
 
     @functools.wraps(type_mapping)
-    def inner(*args):
+    def inner(*args, type_mapping=type_mapping):
         restype = type_mapping(*args)
         return restype.replace(Operation(inner, tuple(args), True))
 
