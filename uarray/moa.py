@@ -61,7 +61,7 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
     @operation_with_default(ctx)
     def unary_operation(self, op: Abstraction[T_box, U_box]) -> "MoA[U_box]":
         @Array.create_idx_abs
-        def new_idx_abs(idx: Vec[Natural]) -> V_box:
+        def new_idx_abs(idx: Vec[Natural]) -> U_box:
             return op(self.array[idx])
 
         return MoA.from_array(Array.create(self.array.shape, new_idx_abs))
