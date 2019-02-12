@@ -141,3 +141,17 @@ def __mul__0_right(self: Natural, other: Natural) -> Natural:
         return other
     return NotImplemented
 
+
+@register(ctx, Natural.__mul__)
+def __mul__1_left(self: Natural, other: Natural) -> Natural:
+    if self.value == 1:
+        return other
+    return NotImplemented
+
+
+@register(ctx, Natural.__mul__)
+def __mul__1_right(self: Natural, other: Natural) -> Natural:
+    if other.value == 1:
+        return self
+    return NotImplemented
+

@@ -24,7 +24,7 @@ def to_box_box(a: Box) -> Box:
     return a
 
 
-def to_array(b: Box) -> Array:
+def to_array(b: Box[typing.Any]) -> Array:
     if isinstance(b, Array):
         return b
     elif isinstance(b, LazyNDArray):

@@ -11,9 +11,10 @@ import typing
 
 import numpy
 
-from .lazy_ndarray import to_array, numpy_ufunc
+from .lazy_ndarray import *  # type: ignore
 from ..core import *
 from ..dispatch import *
+from ..moa import *
 
 __all__ = ["AST", "to_ast"]
 T_box = typing.TypeVar("T_box", bound=Box)
@@ -41,7 +42,7 @@ def is_ast(b: Box[object]) -> bool:
     return isinstance(b.value, AST)
 
 
-@register(ctx, to_array)
+@register(ctx, to_array)  # type: ignore
 def to_array(b: Box) -> Array:
     if not is_ast(b):
         return NotImplemented
@@ -86,6 +87,18 @@ def to_ast_numbers(b: T_box) -> T_box:
 
 
 @register(ctx, to_ast)
+def to_ast_nat_mod(b: T_box) -> T_box:
+    l, r = typing.cast(
+        typing.Tuple[Natural, Natural], extract_args(Natural.__mod__, b)  # type: ignore
+    )
+
+    def inner(l_ast: AST, r_ast: AST) -> AST:
+        return AST(ast.BinOp(l_ast.get, ast.Mod(), r_ast.get)).includes(l_ast, r_ast)
+
+    return as_ast(inner, b, l, r)
+
+
+@register(ctx, to_ast)
 def to_ast_tuple(b: T_box) -> T_box:
     if (
         not isinstance(b, Vec)
@@ -101,7 +114,9 @@ def to_ast_tuple(b: T_box) -> T_box:
     def inner(*args: AST) -> AST:
         return AST(ast.Tuple([a.get for a in args], ast.Load())).includes(*args)
 
-    return as_ast(inner, b, *(lst[Natural(i)] for i in range(length.value)))  # type: ignore
+    return as_ast(  # type: ignore
+        inner, b, *(lst[Natural(i)] for i in range(length.value))
+    )
 
 
 @register(ctx, to_ast)
@@ -240,6 +255,8 @@ def _get_idx_abs(self: Array[T_box]) -> Abstraction[Vec[Natural], T_box]:
 
 @register(ctx, to_ast)
 def to_ast__array(b: T_box) -> T_box:
+    if isinstance(b, MoA):
+        b = b.array
     if not isinstance(b, Array):
         return NotImplemented
 
@@ -257,7 +274,14 @@ def to_ast__array(b: T_box) -> T_box:
                             ast.Name("numpy", ast.Load()), "empty", ast.Load()
                         ),
                         [length.get],
-                        [ast.keyword(arg="dtype", value=ast.Str("int64"))],
+                        [
+                            ast.keyword(
+                                arg="dtype",
+                                value=ast.Attribute(
+                                    ast.Name("numpy", ast.Load()), "int64", ast.Load()
+                                ),
+                            )
+                        ],
                     ),
                 ),
                 ast.For(
@@ -279,10 +303,11 @@ def to_ast__array(b: T_box) -> T_box:
             ],
         ).includes(length)
 
-    # for now assume 1d array. In future, add ravel.
-    vec = b.to_vec()
+    vec = MoA.from_array(b).ravel().array.to_vec()
     # https://github.com/python/mypy/issues/4949
-    return as_ast(array_fn, b, vec.length, vec.list[Natural(AST(idx_load))])  # type: ignore
+    return as_ast(  # type: ignore
+        array_fn, b, vec.length, vec.list[Natural(AST(idx_load))]
+    )
 
 
 @register(ctx, to_ast)
