@@ -38,5 +38,5 @@ def test_loop(n: int):
     def factorial_fn(acc: Natural, idx: Natural) -> Natural:
         return acc * (idx + Natural(1))
 
-    factorial_abs = Abstraction.create_bin(factorial_fn, Natural(None), Natural(None))
+    factorial_abs = Abstraction.create_bin(factorial_fn, Natural(), Natural())
     assert replace(Natural(n).loop(Natural(1), factorial_abs)) == Natural(math.factorial(n))

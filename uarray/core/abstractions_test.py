@@ -17,17 +17,17 @@ def expression():
 class TestAbstraction:
     @hypothesis.given(expression(), expression())
     def test_apply_itself(self, x, y):
-        res = Abstraction.create(lambda _: x, Box(None))(y)
+        res = Abstraction.create(lambda _: x, Box())(y)
         assert replace(res) == x
 
     @hypothesis.given(expression())
     def test_apply_arg(self, y):
-        assert replace(Abstraction.create(lambda x: x, Box(None))(y)) == y
+        assert replace(Abstraction.create(lambda x: x, Box())(y)) == y
 
     @hypothesis.given(expression())
     def test_apply_replaces_inner(self, y):
         assert replace(
-            Abstraction.create(lambda x: Box(Operation("dummy", (x,))), Box(None))(y)
+            Abstraction.create(lambda x: Box(Operation("dummy", (x,))), Box())(y)
         ) == Box(Operation("dummy", (y,)))
 
     @hypothesis.given(expression(), expression())
@@ -37,11 +37,11 @@ class TestAbstraction:
         """
         abstr = Abstraction.create(
             lambda arg1: Abstraction.create(
-                lambda arg2: Box(Operation("dummy", (arg1, arg2))), Box(None)
+                lambda arg2: Box(Operation("dummy", (arg1, arg2))), Box()
             ),
-            Box(None),
+            Box(),
         )
-        assert abstr.rettype.rettype == Box(None)
+        assert abstr.rettype.rettype == Box()
 
         assert replace(abstr(x)(y)) == Box(Operation("dummy", (x, y)))
 
@@ -50,9 +50,9 @@ class TestAbstraction:
         """
         Checks abstraction that returns abstraction
         """
-        abstr = Abstraction.create(lambda x: Box(Operation("inner", (x,))), Box(None))
+        abstr = Abstraction.create(lambda x: Box(Operation("inner", (x,))), Box())
         abstr_wrapped = Abstraction.create(
-            lambda x: Box(Operation("outer", (abstr(x),))), Box(None)
+            lambda x: Box(Operation("outer", (abstr(x),))), Box()
         )
         assert replace(abstr_wrapped(x)) == Box(
             Operation("outer", (Box(Operation("inner", (x,))),))
@@ -68,7 +68,7 @@ class TestNativeAbstraction:
         def can_call(a, right_box=right_box):
             return a == right_box
 
-        fn_abs = Abstraction.create_native(fn, can_call, Box(None))
+        fn_abs = Abstraction.create_native(fn, can_call, Box())
 
         assert replace(fn_abs(right_box)) == Box(Operation("inner", (right_box,)))
         assert replace(fn_abs(wrong_box)) == fn_abs(wrong_box)
@@ -78,7 +78,7 @@ class TestNativeAbstraction:
         def fn():
             return Box(Operation("inner", ()))
 
-        fn_abs = Abstraction.create_nary_native(fn, Box(None))
+        fn_abs = Abstraction.create_nary_native(fn, Box())
 
         assert replace(fn_abs) == Box(Operation("inner", ()))
 
@@ -90,7 +90,7 @@ class TestNativeAbstraction:
         def can_call(a, right_box=right_box):
             return a == right_box
 
-        fn_abs = Abstraction.create_nary_native(fn, Box(None), can_call)
+        fn_abs = Abstraction.create_nary_native(fn, Box(), can_call)
 
         assert replace(fn_abs(right_box)) == Box(Operation("inner", (right_box,)))
         assert replace(fn_abs(wrong_box)) == fn_abs(wrong_box)
@@ -107,7 +107,7 @@ class TestNativeAbstraction:
             return b == second
 
         fn_abs = Abstraction.create_nary_native(
-            fn, Box(None), can_call_first, can_call_second
+            fn, Box(), can_call_first, can_call_second
         )
 
         assert replace(fn_abs(first)(second)) == Box(
@@ -192,19 +192,19 @@ class TestηReduction:
 
         """
         fn = Abstraction.create_native(
-            lambda a: NotImplemented, lambda a: False, Box(None)
+            lambda a: NotImplemented, lambda a: False, Box()
         )
 
         # should be simplified
         abstr = Abstraction.create(
-            lambda y: Abstraction.create(lambda x: fn(x), Box(None)), Box(None)
+            lambda y: Abstraction.create(lambda x: fn(x), Box()), Box()
         )
         assert rename_variables(replace(abstr)) == rename_variables(
-            Abstraction.create(lambda y: fn, Box(None))
+            Abstraction.create(lambda y: fn, Box())
         )
 
         # shouldnt be simplified
         abstr = Abstraction.create(
-            lambda y: Abstraction.create(lambda x: fn(y), Box(None)), Box(None)
+            lambda y: Abstraction.create(lambda x: fn(y), Box()), Box()
         )
         assert rename_variables(replace(abstr)) == rename_variables(abstr)

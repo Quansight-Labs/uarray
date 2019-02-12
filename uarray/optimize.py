@@ -30,7 +30,7 @@ def jit(*dims: int) -> typing.Callable[[T_call], T_call]:
             ).array
 
         orig_res = Abstraction.create_nary(
-            wrapper_fn, arg_names, *([Array(None, Box(None))] * nargs)
+            wrapper_fn, arg_names, *([Array(None, Box())] * nargs)
         )
         res = replace(orig_res)
         # return res

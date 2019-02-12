@@ -29,7 +29,7 @@ def to_array(b: Box) -> Array:
         return b
     elif isinstance(b, LazyNDArray):
         return b.array
-    return Array(Operation(to_array, (b,)), Box(None))
+    return Array(Operation(to_array, (b,)), Box())
 
 
 @register(ctx, to_array)
@@ -52,7 +52,7 @@ class LazyNDArray(
     Box[typing.Any], typing.Generic[T_box], numpy.lib.mixins.NDArrayOperatorsMixin
 ):
     value: typing.Any = None
-    dtype: T_box = typing.cast(T_box, Box(None))
+    dtype: T_box = typing.cast(T_box, Box())
 
     @classmethod
     def create(cls, a: Array[T_box]) -> "LazyNDArray[T_box]":

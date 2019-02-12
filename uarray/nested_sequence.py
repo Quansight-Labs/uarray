@@ -26,7 +26,7 @@ class NestedTuples:
 
 def create_python_array(shape: typing.Tuple[int, ...], data: typing.Any) -> Array:
     return Array.create(
-        Array.create_shape(*map(Natural, shape)), Abstraction(NestedTuples(data), Box(None))
+        Array.create_shape(*map(Natural, shape)), Abstraction(NestedTuples(data), Box())
     )
 
 
@@ -101,12 +101,16 @@ def _to_python_array_expanded_first(
 
 
 @operation
-def to_python_array_expanded(shape: Vec[Natural], contents: List[T_box]) -> Array[T_box]:
+def to_python_array_expanded(
+    shape: Vec[Natural], contents: List[T_box]
+) -> Array[T_box]:
     return Array(dtype=contents.dtype)
 
 
 @register(ctx, to_python_array_expanded)
-def _to_python_array_expanded(shape: Vec[Natural], contents: List[T_box]) -> Array[T_box]:
+def _to_python_array_expanded(
+    shape: Vec[Natural], contents: List[T_box]
+) -> Array[T_box]:
     if not isinstance(shape.value, Operation) or shape.value.name != Vec.create:
         return NotImplemented
     shape_length, shape_list = shape.value.args

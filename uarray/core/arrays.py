@@ -48,7 +48,7 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
         Returns a scalar array of `x`.
         """
         return cls.create(
-            Vec.create_args(Natural(None)), Abstraction.create(lambda _: x, x.replace(None))
+            Vec.create_args(Natural()), Abstraction.create(lambda _: x, x.replace(None))
         )
 
     @classmethod
@@ -77,11 +77,11 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
     def create_idx_abs(
         cls, fn: typing.Callable[[Vec[Natural]], T_box]
     ) -> Abstraction[Vec[Natural], T_box]:
-        return Abstraction.create(fn, Vec(None, Natural(None)))
+        return Abstraction.create(fn, Vec(None, Natural()))
 
     @classmethod
     def create_shape(cls, *xs: Natural) -> Vec[Natural]:
-        return Vec.create_args(Natural(None), *xs)
+        return Vec.create_args(Natural(), *xs)
 
     def __getitem__(self, idx: Vec[Natural]) -> T_box:
         """
@@ -96,7 +96,7 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
         def fn(i: Natural) -> T_box:
             return self[Array.create_shape(i)]
 
-        return List.from_abstraction(Abstraction.create(fn, Natural(None)))
+        return List.from_abstraction(Abstraction.create(fn, Natural()))
 
     def to_vec(self) -> Vec[T_box]:
         return Vec.create(self.shape[Natural(0)], self.to_list())

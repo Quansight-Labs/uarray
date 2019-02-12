@@ -28,7 +28,7 @@ def tuple_map_children(a: tuple, b: typing.Callable):
 @dataclasses.dataclass
 class List(Box[typing.Any], typing.Generic[T_box]):
     value: typing.Any = None
-    dtype: T_box = typing.cast(T_box, Box(None))
+    dtype: T_box = typing.cast(T_box, Box())
 
     @property
     def abstraction(self):
@@ -48,7 +48,7 @@ class List(Box[typing.Any], typing.Generic[T_box]):
 
     @classmethod
     def from_function(cls, fn: typing.Callable[[Natural], T_box]) -> "List[T_box]":
-        return cls.from_abstraction(Abstraction.create(fn, Natural(None)))
+        return cls.from_abstraction(Abstraction.create(fn, Natural()))
 
     def __getitem__(self, index: Natural) -> T_box:
         return self.abstraction(index)
@@ -116,7 +116,7 @@ class List(Box[typing.Any], typing.Generic[T_box]):
         def fn(v: V_box, idx: Natural) -> V_box:
             return op(v)(self[idx])
 
-        abstraction = Abstraction.create_bin(fn, initial.replace(None), Natural(None))
+        abstraction = Abstraction.create_bin(fn, initial.replace(None), Natural())
         return length.loop(initial, abstraction)
 
     def reduce_fn(

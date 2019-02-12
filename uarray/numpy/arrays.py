@@ -24,7 +24,7 @@ class NumpyDataType(Box[numpy.dtype]):
 @dataclasses.dataclass
 class NumpyScalar(Box[typing.Any]):
     value: typing.Any = None
-    dtype: Box = Box(None)
+    dtype: Box = Box()
 
 
 def is_numpy_array(a: Box) -> bool:

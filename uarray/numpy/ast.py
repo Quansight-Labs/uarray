@@ -45,7 +45,7 @@ def is_ast(b: Box[object]) -> bool:
 def to_array(b: Box) -> Array:
     if not is_ast(b):
         return NotImplemented
-    return Array(b.value, Box(None))
+    return Array(b.value, Box())
 
 
 @operation
@@ -214,7 +214,7 @@ def _get_shape(self: Array[T_box]) -> Vec[Natural]:
                 )
             ).includes(self_ast, idx_ast)
 
-        return as_ast(inner, Natural(None), idx)
+        return as_ast(inner, Natural(), idx)
 
     return Vec.create(ndim, list_fn)
 

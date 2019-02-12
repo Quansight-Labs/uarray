@@ -25,7 +25,9 @@ def sum_array(shape: Vec[Natural]) -> MoA[Natural]:
 def test_sum_array():
     a = sum_array(Vec.create_infer(Natural(1), Natural(2), Natural(3)))
     assert_arrays_eql(
-        a.array, (1, 2, 3), (((Natural(0), Natural(1), Natural(2)), (Natural(1), Natural(2), Natural(3))),)
+        a.array,
+        (1, 2, 3),
+        (((Natural(0), Natural(1), Natural(2)), (Natural(1), Natural(2), Natural(3))),),
     )
 
 
@@ -34,7 +36,7 @@ def test_index():
     idx = (0, 1)
 
     a = sum_array(Vec.create_infer(*map(Natural, shape)))
-    idx_array = MoA.from_array(Array.create_1d(Natural(None), *map(Natural, idx)))
+    idx_array = MoA.from_array(Array.create_1d(Natural(), *map(Natural, idx)))
     assert_arrays_eql(a[idx_array].array, (3,), (Natural(1), Natural(2), Natural(3)))
 
 
@@ -43,7 +45,7 @@ def vector(*xs: int) -> Vec[Natural]:
 
 
 # def create_test_array(*shape: int) -> ArrayType[typing.Any]:
-#     return Array.create(Vec.create_args(Natural(None), *shape), variable("idx"))
+#     return Array.create(Vec.create_args(Natural(), *shape), variable("idx"))
 
 
 def row_major_gamma(idx: typing.Tuple[int, ...], shape: typing.Tuple[int, ...]) -> int:
@@ -148,10 +150,10 @@ def test_array_from_list_nd(
     value: int,
 ):
     new_s = Array.create_shape(*map(Natural, new_shape))
-    reshaped = MoA.from_list_nd(List.create(Natural(None), *map(Natural, vec)), new_s)
+    reshaped = MoA.from_list_nd(List.create(Natural(), *map(Natural, vec)), new_s)
     assert_vector_is_list(replace(reshaped.array.shape), list(map(Natural, new_shape)))
 
-    i = MoA.from_array(Array.create_1d(Natural(None), *map(Natural, idx)))
+    i = MoA.from_array(Array.create_1d(Natural(), *map(Natural, idx)))
     idxed = reshaped[i]
     assert replace(idxed.array.to_value()) == Natural(value)
 
@@ -203,8 +205,8 @@ def test_paper_example():
     """
 
     # We start with two arrays, `A` and `B`.
-    A_rav = List(Variable("A_rav"), Natural(None))
-    B_rav = List(Variable("B_rav"), Natural(None))
+    A_rav = List(Variable("A_rav"), Natural())
+    B_rav = List(Variable("B_rav"), Natural())
 
     A_shape = B_shape = Array.create_shape(Natural(3), Natural(4))
 

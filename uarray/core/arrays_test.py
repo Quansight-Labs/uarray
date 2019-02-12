@@ -34,14 +34,14 @@ def test_0d_array(x):
 
 @hypothesis.given(list_of_naturals())
 def test_1d_array(xs):
-    assert_arrays_eql(Array.create_1d(Natural(None), *xs), [len(xs)], xs)
+    assert_arrays_eql(Array.create_1d(Natural(), *xs), [len(xs)], xs)
 
 
 @hypothesis.given(list_of_naturals())
 def test_vec_to_array(xs):
-    assert_arrays_eql(Array.from_vec(Vec.create_args(Natural(None), *xs)), [len(xs)], xs)
+    assert_arrays_eql(Array.from_vec(Vec.create_args(Natural(), *xs)), [len(xs)], xs)
 
 
 @hypothesis.given(list_of_naturals())
 def test_array_to_vec(xs):
-    assert_vector_is_list(Array.create_1d(Natural(None), *xs).to_vec(), xs)
+    assert_vector_is_list(Array.create_1d(Natural(), *xs).to_vec(), xs)

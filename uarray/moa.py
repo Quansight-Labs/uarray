@@ -20,7 +20,7 @@ V_box = typing.TypeVar("V_box", bound=Box)
 @dataclasses.dataclass
 class MoA(Box[typing.Any], typing.Generic[T_box]):
     value: typing.Any = None
-    dtype: T_box = typing.cast(T_box, Box(None))
+    dtype: T_box = typing.cast(T_box, Box())
 
     @property
     def array(self):
@@ -158,7 +158,7 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
             return idx[i] + (shape[i] * val)
 
         return shape.length.loop(
-            Natural(0), Abstraction.create_bin(loop_abs, Natural(None), Natural(None))
+            Natural(0), Abstraction.create_bin(loop_abs, Natural(), Natural())
         )
 
     @classmethod
