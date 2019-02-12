@@ -7,6 +7,7 @@ from .context import *
 from .lists import *
 from .naturals import *
 from .vectors import *
+from .pairs import *
 from ..dispatch import *
 
 __all__ = ["Array"]
@@ -111,6 +112,45 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
 
     def with_dim(self, ndim: Natural) -> "Array[T_box]":
         return Array.create(self.shape.with_length(ndim), self.idx_abs)
+
+    @operation_with_default(ctx)
+    def ravel(self) -> "Vec[T_box]":
+        return Vec.create(
+            self.size(),
+            List.create_abstraction(lambda i: self[self.gamma_inverse(i, self.shape)]),
+        )
+
+    @staticmethod
+    @operation_with_default(ctx)
+    def gamma(idx: Vec[Natural], shape: Vec[Natural]) -> Natural:
+        def loop_abs(val: Natural, i: Natural) -> Natural:
+            return idx[i] + (shape[i] * val)
+
+        return shape.length.loop(
+            Natural(0), Abstraction.create_bin(loop_abs, Natural(), Natural())
+        )
+
+    @staticmethod
+    @operation_with_default(ctx)
+    def gamma_inverse(i: Natural, shape: Vec[Natural]) -> Vec[Natural]:
+        def loop_abs(
+            val: Pair[Natural, Vec[Natural]], i: Natural
+        ) -> Pair[Natural, Vec[Natural]]:
+            dim = shape.reverse()[i]
+            return Pair.create(val.left // dim, val.right.push(val.left % dim))
+
+        return shape.length.loop_abstraction(
+            Pair.create(i, Vec.create_args(Natural())), loop_abs
+        ).right
+
+    @staticmethod
+    @operation_with_default(ctx)
+    def from_list_nd(data: List[T_box], shape: Vec[Natural]) -> "Array[T_box]":
+        @Array.create_idx_abs
+        def idx_abs(idx: Vec[Natural]) -> T_box:
+            return data[Array.gamma(idx, shape)]
+
+        return Array.create(shape, idx_abs)
 
 
 @register(ctx, Array._get_shape)

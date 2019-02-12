@@ -147,44 +147,8 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
 
     @operation_with_default(ctx)
     def ravel(self) -> "MoA[T_box]":
-        return MoA.from_array(
-            Array.from_vec(
-                Vec.create(
-                    self.array.size(),
-                    List.create_abstraction(
-                        lambda i: self.array[MoA.gamma_inverse(i, self.array.shape)]
-                    ),
-                )
-            )
-        )
-
-    @staticmethod
-    @operation_with_default(ctx)
-    def gamma(idx: Vec[Natural], shape: Vec[Natural]) -> Natural:
-        def loop_abs(val: Natural, i: Natural) -> Natural:
-            return idx[i] + (shape[i] * val)
-
-        return shape.length.loop(
-            Natural(0), Abstraction.create_bin(loop_abs, Natural(), Natural())
-        )
-
-    @staticmethod
-    @operation_with_default(ctx)
-    def gamma_inverse(i: Natural, shape: Vec[Natural]) -> Vec[Natural]:
-        def loop_abs(
-            val: Pair[Natural, Vec[Natural]], i: Natural
-        ) -> Pair[Natural, Vec[Natural]]:
-            dim = shape.reverse()[i]
-            return Pair.create(val.left // dim, val.right.push(val.left % dim))
-
-        return shape.length.loop_abstraction(
-            Pair.create(i, Vec.create_args(Natural())), loop_abs
-        ).right
+        return MoA.from_array(Array.from_vec(self.array.ravel()))
 
     @classmethod
     def from_list_nd(cls, data: List[T_box], shape: Vec[Natural]) -> "MoA[T_box]":
-        @Array.create_idx_abs
-        def idx_abs(idx: Vec[Natural]) -> T_box:
-            return data[cls.gamma(idx, shape)]
-
-        return MoA.from_array(Array.create(shape, idx_abs))
+        return MoA.from_array(Array.from_list_nd(data, shape))

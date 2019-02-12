@@ -15,6 +15,7 @@ from .lazy_ndarray import *  # type: ignore
 from ..core import *
 from ..dispatch import *
 from ..moa import *
+from .mutable_arrays import *
 
 __all__ = ["AST", "to_ast"]
 T_box = typing.TypeVar("T_box", bound=Box)
@@ -50,7 +51,7 @@ def to_array(b: Box) -> Array:
 
 
 @operation
-def to_ast(b: T_box) -> T_box:
+def to_ast(b: typing.Any) -> typing.Any:
     return b
 
 
@@ -264,60 +265,123 @@ def _get_idx_abs(self: Array[T_box]) -> Abstraction[Vec[Natural], T_box]:
 
 
 @register(ctx, to_ast)
-def to_ast__array(b: T_box) -> T_box:
-    if isinstance(b, MoA):
-        b = b.array
-    if not isinstance(b, Array):
-        return NotImplemented
+def to_ast__create_empty(b: List[T_box]) -> List[T_box]:
+    dtype, length = typing.cast(
+        typing.Tuple[T_box, Natural], extract_args(create_empty, b)  # type: ignore
+    )
 
-    idx_store, idx_load = create_id()
-    array_store, array_load = create_id()
-
-    def array_fn(length: AST, val: AST, shape: AST) -> AST:
+    def inner(length_ast: AST) -> AST:
         return AST(
-            ast.Call(ast.Attribute(array_load, "reshape", ast.Load()), [shape.get], []),
+            ast.Call(
+                ast.Attribute(ast.Name("numpy", ast.Load()), "empty", ast.Load()),
+                [length_ast.get],
+                [
+                    ast.keyword(
+                        arg="dtype",
+                        value=ast.Attribute(
+                            ast.Name("numpy", ast.Load()), "int64", ast.Load()
+                        ),
+                    )
+                ],
+            )
+        ).includes(length_ast)
+
+    return as_ast(inner, b, length)
+
+
+@register(ctx, to_ast)
+def to_ast__from_list_nd(b: Array[T_box]) -> Array[T_box]:
+    data, shape = typing.cast(
+        typing.Tuple[List[T_box], Vec[Natural]],
+        extract_args(Array.from_list_nd, b),  # type: ignore
+    )
+
+    def inner(data_ast: AST, shape_ast: AST) -> AST:
+        return AST(
+            ast.Call(
+                ast.Attribute(data_ast.get, "reshape", ast.Load()), [shape_ast.get], []
+            )
+        ).includes(data_ast, shape_ast)
+
+    return as_ast(inner, b, data, shape)
+
+
+@register(ctx, to_ast)
+def to_ast__set_item(b: List[T_box]) -> List[T_box]:
+    lst, index, item = typing.cast(
+        typing.Tuple[List[T_box], Natural, T_box],
+        extract_args(set_item, b),  # type: ignore
+    )
+
+    def inner(lst_ast: AST, index_ast: AST, item_ast) -> AST:
+        return AST(
+            lst_ast.get,
             [
                 ast.Assign(
-                    [array_store],
-                    ast.Call(
-                        ast.Attribute(
-                            ast.Name("numpy", ast.Load()), "empty", ast.Load()
-                        ),
-                        [length.get],
-                        [
-                            ast.keyword(
-                                arg="dtype",
-                                value=ast.Attribute(
-                                    ast.Name("numpy", ast.Load()), "int64", ast.Load()
-                                ),
-                            )
-                        ],
-                    ),
-                ),
-                ast.For(
-                    idx_store,
-                    ast.Call(ast.Name("range", ast.Load()), [length.get], []),
-                    [
-                        *val.init,
-                        ast.Assign(
-                            [
-                                ast.Subscript(
-                                    array_load, ast.Index(idx_load), ast.Store()
-                                )
-                            ],
-                            val.get,
-                        ),
-                    ],
-                    [],
-                ),
+                    [ast.Subscript(lst_ast.get, ast.Index(index_ast.get), ast.Store())],
+                    item_ast.get,
+                )
             ],
-        ).includes(shape, length)
+        ).includes(lst_ast, index_ast, item_ast)
 
-    vec = MoA.from_array(b).ravel().array.to_vec()
-    # https://github.com/python/mypy/issues/4949
-    return as_ast(  # type: ignore
-        array_fn, b, vec.length, vec.list[Natural(AST(idx_load))], b.shape
-    )
+    return as_ast(inner, b, lst, index, item)
+
+
+# @register(ctx, to_ast)
+# def to_ast__array(b: T_box) -> T_box:
+#     if isinstance(b, MoA):
+#         b = b.array
+#     if not isinstance(b, Array):
+#         return NotImplemented
+
+#     idx_store, idx_load = create_id()
+#     array_store, array_load = create_id()
+
+#     def array_fn(length: AST, val: AST, shape: AST) -> AST:
+#         return AST(
+#             ast.Call(ast.Attribute(array_load, "reshape", ast.Load()), [shape.get], []),
+#             [
+#                 ast.Assign(
+#                     [array_store],
+#                     ast.Call(
+#                         ast.Attribute(
+#                             ast.Name("numpy", ast.Load()), "empty", ast.Load()
+#                         ),
+#                         [length.get],
+#                         [
+#                             ast.keyword(
+#                                 arg="dtype",
+#                                 value=ast.Attribute(
+#                                     ast.Name("numpy", ast.Load()), "int64", ast.Load()
+#                                 ),
+#                             )
+#                         ],
+#                     ),
+#                 ),
+#                 ast.For(
+#                     idx_store,
+#                     ast.Call(ast.Name("range", ast.Load()), [length.get], []),
+#                     [
+#                         *val.init,
+#                         ast.Assign(
+#                             [
+#                                 ast.Subscript(
+#                                     array_load, ast.Index(idx_load), ast.Store()
+#                                 )
+#                             ],
+#                             val.get,
+#                         ),
+#                     ],
+#                     [],
+#                 ),
+#             ],
+#         ).includes(shape, length)
+
+#     vec = MoA.from_array(b).ravel().array.to_vec()
+#     # https://github.com/python/mypy/issues/4949
+#     return as_ast(  # type: ignore
+#         array_fn, b, vec.length, vec.list[Natural(AST(idx_load))], b.shape
+#     )
 
 
 @register(ctx, to_ast)
