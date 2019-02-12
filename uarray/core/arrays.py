@@ -44,6 +44,9 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
     ) -> "Array[T_box]":
         return Array(dtype=idx_abs.rettype)
 
+    def to_create(self) -> "Array[T_box]":
+        return Array.create(self.shape, self.idx_abs)
+
     @classmethod
     def create_0d(cls, x: T_box) -> "Array[T_box]":
         """
