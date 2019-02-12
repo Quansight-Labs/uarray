@@ -128,7 +128,7 @@ def row_major_gamma_inverse(
 def test_gamma_and_inverse(shape, idx, res):
     assert row_major_gamma(idx, shape) == res
     assert replace(
-        MoA.gamma(
+        Array.gamma(
             Vec.create_args(Natural(), *map(Natural, idx)),
             Vec.create_args(Natural(), *map(Natural, shape)),
         )
@@ -136,7 +136,7 @@ def test_gamma_and_inverse(shape, idx, res):
 
     assert row_major_gamma_inverse(res, shape) == idx
     assert replace(
-        MoA.gamma_inverse(
+        Array.gamma_inverse(
             Natural(res), Vec.create_args(Natural(), *map(Natural, shape))
         )
     ) == Vec.create_args(Natural(), *map(Natural, idx))
@@ -254,8 +254,10 @@ def test_paper_example():
     """
 
     # We start with two arrays, `A` and `B`.
-    A_rav = List(Variable("A_rav"), Natural())
-    B_rav = List(Variable("B_rav"), Natural())
+    # Turn them into abstractions, because we wanna say all we know
+    # about them is their indexing, not that they are some particular type.
+    A_rav = List(Variable("A_rav"), Natural()).as_abstraction()
+    B_rav = List(Variable("B_rav"), Natural()).as_abstraction()
 
     A_shape = B_shape = Array.create_shape(Natural(3), Natural(4))
 
