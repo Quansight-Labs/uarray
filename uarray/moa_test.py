@@ -87,6 +87,28 @@ def row_major_gamma_inverse(
     return (*row_major_gamma_inverse(n // dim, next_shape), n % dim)
 
 
+# def row_major_gamma_inverse_other(
+#     n: int, shape: typing.Sequence[int]
+# ) -> typing.Tuple[int, ...]:
+#     assert n >= 0
+#     assert n < product(shape)
+#     for x_ in shape:
+#         assert x_ > 0
+
+#     res = ()
+
+#     for i in range(len(shape)):
+#         res = (i % n)+ res
+#     if not shape:
+#         return ()
+
+#     if len(shape) == 1:
+#         return (n,)
+
+#     *next_shape, dim = shape
+#     return (*row_major_gamma_inverse(n // dim, next_shape), n % dim)
+
+
 @pytest.mark.parametrize(
     "shape,idx,res",
     [
@@ -95,10 +117,29 @@ def row_major_gamma_inverse(
         ((2, 2), (0, 1), 1),
         ((2, 2), (1, 0), 2),
         ((2, 2), (1, 1), 3),
+        ((1, 3, 2), (0, 0, 0), 0),
+        ((1, 3, 2), (0, 0, 1), 1),
+        ((1, 3, 2), (0, 1, 0), 2),
+        ((1, 3, 2), (0, 1, 1), 3),
+        ((1, 3, 2), (0, 2, 0), 4),
+        ((1, 3, 2), (0, 2, 1), 5),
     ],
 )
-def test_gamma(shape, idx, res):
+def test_gamma_and_inverse(shape, idx, res):
     assert row_major_gamma(idx, shape) == res
+    assert replace(
+        MoA.gamma(
+            Vec.create_args(Natural(), *map(Natural, idx)),
+            Vec.create_args(Natural(), *map(Natural, shape)),
+        )
+    ) == Natural(res)
+
+    assert row_major_gamma_inverse(res, shape) == idx
+    assert replace(
+        MoA.gamma_inverse(
+            Natural(res), Vec.create_args(Natural(), *map(Natural, shape))
+        )
+    ) == Vec.create_args(Natural(), *map(Natural, idx))
 
 
 # @pytest.mark.parametrize(

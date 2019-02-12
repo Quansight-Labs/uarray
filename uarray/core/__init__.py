@@ -8,6 +8,7 @@ from .booleans import *  # NOQA
 from .lists import *  # NOQA
 from .naturals import *  # NOQA
 from .vectors import *  # NOQA
+from .pairs import *  # NOQA
 
 __all__ = [
     "Abstraction",
@@ -19,4 +20,5 @@ __all__ = [
     "List",
     "Natural",
     "Vec",
+    "Pair",
 ]

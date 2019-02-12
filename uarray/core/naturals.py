@@ -56,6 +56,13 @@ class Natural(Box[typing.Any]):
         """
         return initial
 
+    def loop_abstraction(
+        self, initial: T_box, fn: typing.Callable[[T_box, "Natural"], T_box]
+    ) -> T_box:
+        return self.loop(
+            initial, Abstraction.create_bin(fn, initial.replace(), Natural())
+        )
+
 
 @register(ctx, Natural.equal)
 def equal(self: Natural, other: Natural) -> Bool:
