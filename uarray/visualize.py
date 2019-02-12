@@ -6,7 +6,7 @@ import graphviz
 import numpy
 
 from .dispatch import *
-from .core.abstractions import Variable
+from .core.abstractions import Variable, NativeAbstraction, Partial
 from .numpy.ast import AST
 
 __all__ = ["visualize_diff", "visualize_progress", "display_ops"]
@@ -15,9 +15,9 @@ __all__ = ["visualize_diff", "visualize_progress", "display_ops"]
 @functools.singledispatch
 def description(expr):
     name = description(key(expr))
-    n_ports = len(children(expr))
+    n_ports = len(children_nodes(expr))
     if n_ports == 0:
-        return str(expr)[:10]
+        return str(expr)
     #     return f"""<
     #     <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
     #     <TR>
@@ -45,13 +45,6 @@ def _box_desc(box: Box):
 @description.register(type(lambda: None))
 def _operation_func(op):
     return op.__qualname__
-
-
-@description.register(AST)
-def _ast_description(op):
-    comma = ", "
-    init = f"({comma.join(map(description, op.init))})"
-    return f"AST({comma.join((description(op.get),init))})"
 
 
 @description.register(ast.AST)
@@ -126,9 +119,23 @@ def children_nodes(expr):
 
 
 @children_nodes.register
+def children_nodes_ast(expr: AST):
+    return (expr.get, *expr.init)
+
+
+@children_nodes.register
+def children_nodes_partial(expr: Partial):
+    return (expr.fn, *expr.args)
+
+
+@children_nodes.register
+def children_nodes_native_(expr: NativeAbstraction):
+    return (expr.fn, expr.can_call)  # type: ignore
+
+
+@children_nodes.register
 def _box_children(box: Box):
     return (box.value,)
-    # return (getattr(box, f.name) for f in dataclasses.fields(box) if f.init)
 
 
 def visualize(expr, dot: graphviz.Digraph, seen: typing.Set[str]) -> str:
@@ -145,7 +152,8 @@ def visualize(expr, dot: graphviz.Digraph, seen: typing.Set[str]) -> str:
 
 
 def visualize_ops(expr, dot: graphviz.Digraph, seen: typing.Set[str]) -> str:
-    expr = expr.value
+    if isinstance(expr, Box):
+        expr = expr.value
     expr_id = id_(expr)
     if expr_id in seen:
         return expr_id
