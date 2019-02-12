@@ -96,7 +96,7 @@ _nat_bin_ops = {
 
 
 @register(ctx, to_ast)
-def to_ast_nat_mod(b: T_box) -> T_box:
+def to_ast_nat_bin_ops(b: T_box) -> T_box:
     if not isinstance(b.value, Operation) or b.value.name not in _nat_bin_ops:
         return NotImplemented
 
