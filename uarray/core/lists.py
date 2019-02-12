@@ -39,6 +39,10 @@ class List(Box[typing.Any], typing.Generic[T_box]):
         return cls(a.value, a.rettype)
 
     @classmethod
+    def create_abstraction(cls, fn: typing.Callable[[Natural], T_box]) -> "List[T_box]":
+        return cls.from_abstraction(Abstraction.create(fn, Natural()))
+
+    @classmethod
     def create(cls, dtype: T_box, *args: T_box) -> "List[T_box]":
         return cls(tuple(args), dtype)
 

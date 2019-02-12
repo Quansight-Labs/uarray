@@ -109,9 +109,7 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
 
     @operation_with_default(ctx)
     def outer_product(
-        self: "MoA[T_box]",
-        op: Abstraction[T_box, Abstraction[U_box, V_box]],
-        other: "MoA[U_box]",
+        self, op: Abstraction[T_box, Abstraction[U_box, V_box]], other: "MoA[U_box]"
     ) -> "MoA[V_box]":
         l_dim = self.array.shape.length
 
@@ -124,9 +122,7 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
         )
 
     def outer_product_abstraction(
-        self: "MoA[T_box]",
-        op: typing.Callable[[T_box, U_box], V_box],
-        other: "MoA[U_box]",
+        self, op: typing.Callable[[T_box, U_box], V_box], other: "MoA[U_box]"
     ) -> "MoA[V_box]":
         return self.outer_product(
             Abstraction.create_bin(op, self.dtype, other.dtype), other
@@ -140,16 +136,27 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
 
     @operation_with_default(ctx)
     def reduce(
-        self: "MoA[T_box]",
-        op: Abstraction[V_box, Abstraction[T_box, V_box]],
-        initial: V_box,
+        self, op: Abstraction[V_box, Abstraction[T_box, V_box]], initial: V_box
     ) -> "MoA[V_box]":
         return MoA.from_array(Array.create_0d(self.array.to_vec().reduce(initial, op)))
 
     def reduce_abstraction(
-        self: "MoA[T_box]", op: typing.Callable[[V_box, T_box], V_box], initial: V_box
+        self, op: typing.Callable[[V_box, T_box], V_box], initial: V_box
     ) -> "MoA[V_box]":
         return self.reduce(Abstraction.create_bin(op, initial, self.dtype), initial)
+
+    @operation_with_default(ctx)
+    def ravel(self) -> "MoA[T_box]":
+        return MoA.from_array(
+            Array.from_vec(
+                Vec.create(
+                    self.array.size(),
+                    List.create_abstraction(
+                        lambda i: self.array[MoA.gamma_inverse(i, self.array.shape)]
+                    ),
+                )
+            )
+        )
 
     @staticmethod
     @operation_with_default(ctx)

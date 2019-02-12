@@ -1,5 +1,6 @@
 import dataclasses
 import typing
+import operator
 
 from .abstractions import *
 from .context import *
@@ -91,6 +92,10 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
         But this causes some assymetry in creating and use the index abstraction.
         """
         return self.idx_abs(Vec.create(self.shape.length, idx.list))
+
+    @operation_with_default(ctx)
+    def size(self) -> Natural:
+        return self.shape.reduce_fn(Natural(1), operator.mul)
 
     def to_list(self) -> List[T_box]:
         def fn(i: Natural) -> T_box:

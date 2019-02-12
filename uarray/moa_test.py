@@ -142,23 +142,31 @@ def test_gamma_and_inverse(shape, idx, res):
     ) == Vec.create_args(Natural(), *map(Natural, idx))
 
 
-# @pytest.mark.parametrize(
-#     "shape,idx",
-#     [
-#         ((), ()),
-#         ((10,), (0,)),
-#         ((10,), (1,)),
-#         ((10,), (9,)),
-#         ((2, 3), (1, 2)),
-#         ((5, 3, 2), (3, 2, 0)),
-#     ],
-# )
-# def test_ravel(shape: typing.Tuple[int, ...], idx: typing.Tuple[int, ...]):
-#     array = create_test_array(*shape)
-#     idxed = Index(vector(*idx), array)
+@pytest.mark.parametrize(
+    "shape,idx",
+    [
+        ((), ()),
+        ((10,), (0,)),
+        ((10,), (1,)),
+        ((10,), (9,)),
+        ((2, 3), (1, 2)),
+        ((5, 3, 2), (3, 2, 0)),
+    ],
+)
+def test_ravel(shape: typing.Tuple[int, ...], idx: typing.Tuple[int, ...]):
+    array: MoA[Box] = MoA.from_array(
+        Array.create(
+            Vec.create_args(Natural(), *map(Natural, shape)),
+            Abstraction(Variable(), Box()),
+        )
+    )
+    idxed = array[MoA.from_array(Array.create_1d(Natural(), *map(Natural, idx)))]
 
-#     ravel_idxed = Index(vector(row_major_gamma(idx, shape)), Ravel(array))
-#     assert replace(ravel_idxed) == replace(idxed)
+    ravel_idxed = array.ravel()[
+        MoA.from_array(Array.create_1d(Natural(), Natural(row_major_gamma(idx, shape))))
+    ]
+    assert replace(ravel_idxed.array.shape) == replace(idxed.array.shape)
+    assert replace(ravel_idxed.array.to_value()) == replace(idxed.array.to_value())
 
 
 @pytest.mark.parametrize(
