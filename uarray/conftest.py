@@ -1,5 +1,8 @@
 def pytest_assertrepr_compare(op, left, right):
-    import graphviz
+    try:
+        import graphviz
+    except ImportError:
+        return
     from .visualize import visualize
     from .dispatch import Box
 
