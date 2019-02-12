@@ -45,6 +45,9 @@ def jit(*dims: int) -> typing.Callable[[T_call], T_call]:
         # return replaced
         res_ast = replaced.value
         if not isinstance(res_ast, AST):
+            from IPython.display import display
+
+            display(replaced)
             raise NotImplementedError("Couldn't compile to AST")
         args_ = ast.arguments(
             args=[ast.arg(arg=a, annotation=None) for a in arg_names],

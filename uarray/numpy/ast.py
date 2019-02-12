@@ -86,16 +86,26 @@ def to_ast_numbers(b: T_box) -> T_box:
     return b.replace(AST(ast.Num(b.value)))
 
 
+_nat_bin_ops = {
+    Natural.__add__: ast.Add(),
+    Natural.__mul__: ast.Mult(),
+    Natural.__sub__: ast.Sub(),
+    Natural.__floordiv__: ast.FloorDiv(),
+    Natural.__mod__: ast.Mod(),
+}
+
+
 @register(ctx, to_ast)
 def to_ast_nat_mod(b: T_box) -> T_box:
-    l, r = typing.cast(
-        typing.Tuple[Natural, Natural], extract_args(Natural.__mod__, b)  # type: ignore
-    )
+    if not isinstance(b.value, Operation) or b.value.name not in _nat_bin_ops:
+        return NotImplemented
 
     def inner(l_ast: AST, r_ast: AST) -> AST:
-        return AST(ast.BinOp(l_ast.get, ast.Mod(), r_ast.get)).includes(l_ast, r_ast)
+        return AST(
+            ast.BinOp(l_ast.get, _nat_bin_ops[b.value.name], r_ast.get)
+        ).includes(l_ast, r_ast)
 
-    return as_ast(inner, b, l, r)
+    return as_ast(inner, b, *b.value.args)
 
 
 @register(ctx, to_ast)
@@ -263,9 +273,9 @@ def to_ast__array(b: T_box) -> T_box:
     idx_store, idx_load = create_id()
     array_store, array_load = create_id()
 
-    def array_fn(length: AST, val: AST) -> AST:
+    def array_fn(length: AST, val: AST, shape: AST) -> AST:
         return AST(
-            array_load,
+            ast.Call(ast.Attribute(array_load, "reshape", ast.Load()), [shape.get], []),
             [
                 ast.Assign(
                     [array_store],
@@ -301,12 +311,12 @@ def to_ast__array(b: T_box) -> T_box:
                     [],
                 ),
             ],
-        ).includes(length)
+        ).includes(shape, length)
 
     vec = MoA.from_array(b).ravel().array.to_vec()
     # https://github.com/python/mypy/issues/4949
     return as_ast(  # type: ignore
-        array_fn, b, vec.length, vec.list[Natural(AST(idx_load))]
+        array_fn, b, vec.length, vec.list[Natural(AST(idx_load))], b.shape
     )
 
 
