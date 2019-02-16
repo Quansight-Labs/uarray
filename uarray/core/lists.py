@@ -2,7 +2,6 @@ import dataclasses
 import typing
 
 from .abstractions import *
-from .context import *
 from .naturals import *
 from ..dispatch import *
 
@@ -60,37 +59,37 @@ class List(Box[typing.Any], typing.Generic[T_box]):
     def __getitem__(self, index: Natural) -> T_box:
         return self.abstraction(index)
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def first(self) -> T_box:
         """
         x[0]
         """
         return self[Natural(0)]
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def rest(self) -> "List[T_box]":
         """
         x[1:]
         """
         return List.from_function(lambda i: self[i + Natural(1)])
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def push(self, item: T_box) -> "List[T_box]":
         return List.from_function(
             lambda i: i.equal(Natural(0)).if_(item, self[i - Natural(1)])
         )
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def append(self, length: Natural, item: T_box) -> "List[T_box]":
         return List.from_function(lambda i: i.equal(length).if_(item, self[i]))
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def concat(self, length: Natural, other: "List[T_box]") -> "List[T_box]":
         return List.from_function(
             lambda i: i.lt(length).if_(self[i], other[i - length])
         )
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def drop(self, n: Natural) -> "List[T_box]":
         """
         Drops the first n items from the list.
@@ -99,21 +98,21 @@ class List(Box[typing.Any], typing.Generic[T_box]):
         """
         return List.from_function(lambda i: self[i + n])
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def take(self, n: Natural) -> "List[T_box]":
         """
         x[:n]
         """
         return self
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def reverse(self, length: Natural) -> "List[T_box]":
         """
         x[::-1]
         """
         return self.from_function(lambda i: self[(length - Natural(1)) - i])
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def reduce(
         self,
         length: Natural,
@@ -136,7 +135,7 @@ class List(Box[typing.Any], typing.Generic[T_box]):
         return self.reduce(length, initial, abs_)
 
 
-@register(ctx, Abstraction.__call__)
+@register(Abstraction.__call__)
 def __call___list(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
     tpl = extract_value(tuple, self)
     idx = extract_value(int, arg)
@@ -151,27 +150,27 @@ def __call___list(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
         return NotImplemented
 
 
-@register(ctx, List.rest)
+@register(List.rest)
 def rest_tuple(self: List[T_box]) -> List[T_box]:
     return self.replace(extract_value(tuple, self)[1:])
 
 
-@register(ctx, List.push)
+@register(List.push)
 def push_tuple(self: List[T_box], item: T_box) -> List[T_box]:
     return self.replace((item,) + extract_value(tuple, self))
 
 
-@register(ctx, List.append)
+@register(List.append)
 def append_tuple(self: List[T_box], length: Natural, item: T_box) -> List[T_box]:
     return self.replace(extract_value(tuple, self) + (item,))
 
 
-@register(ctx, List.concat)
+@register(List.concat)
 def concat_tuple(self: List[T_box], length: Natural, other: List[T_box]) -> List[T_box]:
     return self.replace(extract_value(tuple, self) + extract_value(tuple, other))
 
 
-@register(ctx, List.concat)
+@register(List.concat)
 def concat_empty_left(
     self: List[T_box], length: Natural, other: List[T_box]
 ) -> List[T_box]:
@@ -180,7 +179,7 @@ def concat_empty_left(
     return NotImplemented
 
 
-@register(ctx, List.concat)
+@register(List.concat)
 def concat_empty_right(
     self: List[T_box], length: Natural, other: List[T_box]
 ) -> List[T_box]:
@@ -189,29 +188,29 @@ def concat_empty_right(
     return NotImplemented
 
 
-@register(ctx, List.drop)
+@register(List.drop)
 def drop_tuple(self: List[T_box], n: Natural) -> List[T_box]:
     return self.replace(extract_value(tuple, self)[extract_value(int, n) :])
 
 
-@register(ctx, List.drop)
+@register(List.drop)
 def drop_zero(self: List[T_box], n: Natural) -> List[T_box]:
     if extract_value(int, n) == 0:
         return self
     return NotImplemented
 
 
-@register(ctx, List.take)
+@register(List.take)
 def take_tuple(self: List[T_box], n: Natural) -> List[T_box]:
     return self.replace(extract_value(tuple, self)[: extract_value(int, n)])
 
 
-@register(ctx, List.reverse)
+@register(List.reverse)
 def reverse_tuple(self: List[T_box], length: Natural) -> List[T_box]:
     return self.replace(extract_value(tuple, self)[::-1])
 
 
-@register(ctx, List.first)
+@register(List.first)
 def first_tuple(self: List[T_box]) -> T_box:
     return extract_value(tuple, self)[0]
 
@@ -219,7 +218,7 @@ def first_tuple(self: List[T_box]) -> T_box:
 # TODO: implement reduce special case on tuple
 
 
-@register(ctx, List.take)
+@register(List.take)
 def take_of_concat(self: List[T_box], n: Natural) -> List[T_box]:
     """
     When taking less than concat, just take left side
@@ -230,7 +229,7 @@ def take_of_concat(self: List[T_box], n: Natural) -> List[T_box]:
     return NotImplemented
 
 
-@register(ctx, List.drop)
+@register(List.drop)
 def drop_of_concat(self: List[T_box], n: Natural) -> List[T_box]:
     """
     When dropping first part of concat, just take right side

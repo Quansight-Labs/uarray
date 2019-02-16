@@ -13,8 +13,6 @@ U_box = typing.TypeVar("U_box", bound=Box)
 T = typing.TypeVar("T")
 U = typing.TypeVar("U")
 V = typing.TypeVar("V")
-ctx = MapChainCallable()
-default_context.append(ctx)
 
 __all__ = ["create_python_array", "to_python_array", "create_python_bin_abs"]
 
@@ -34,7 +32,7 @@ def index_python_array(array: Array[T_box], *idx: Natural) -> T_box:
     ...
 
 
-@register(ctx, Abstraction.__call__)
+@register(Abstraction.__call__)
 def __call___nested_lists(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
     if (
         not (isinstance(self.value, NestedTuples))
@@ -59,7 +57,7 @@ def to_python_array(a: Array[T_box]) -> Array[T_box]:
     return a
 
 
-@register(ctx, to_python_array)
+@register(to_python_array)
 def _to_python_array(a: Array[T_box]) -> Array[T_box]:
     return to_python_array_expanded_first(a.shape, a.idx_abs)
 
@@ -71,7 +69,7 @@ def to_python_array_expanded_first(
     return Array(dtype=idx_abs.rettype)
 
 
-@register(ctx, to_python_array_expanded_first)
+@register(to_python_array_expanded_first)
 def _to_python_array_expanded_first(
     shape: Vec[Natural], idx_abs: Abstraction[Vec[Natural], T_box]
 ) -> Array[T_box]:
@@ -107,7 +105,7 @@ def to_python_array_expanded(
     return Array(dtype=contents.dtype)
 
 
-@register(ctx, to_python_array_expanded)
+@register(to_python_array_expanded)
 def _to_python_array_expanded(
     shape: Vec[Natural], contents: List[T_box]
 ) -> Array[T_box]:

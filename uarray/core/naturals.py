@@ -2,7 +2,6 @@ import typing
 
 from .abstractions import *
 from .booleans import *
-from .context import *
 from ..dispatch import *
 
 __all__ = ["Natural"]
@@ -64,47 +63,47 @@ class Natural(Box[typing.Any]):
         )
 
 
-@register(ctx, Natural.equal)
+@register(Natural.equal)
 def equal(self: Natural, other: Natural) -> Bool:
     return Bool(extract_value(int, self) == extract_value(int, other))
 
 
-@register(ctx, Natural.lte)
+@register(Natural.lte)
 def lte(self: Natural, other: Natural) -> Bool:
     return Bool(extract_value(int, self) <= extract_value(int, other))
 
 
-@register(ctx, Natural.lt)
+@register(Natural.lt)
 def lt(self: Natural, other: Natural) -> Bool:
     return Bool(extract_value(int, self) < extract_value(int, other))
 
 
-@register(ctx, Natural.__add__)
+@register(Natural.__add__)
 def __add__(self: Natural, other: Natural) -> Natural:
     return Natural(extract_value(int, self) + extract_value(int, other))
 
 
-@register(ctx, Natural.__mul__)
+@register(Natural.__mul__)
 def __mul__(self: Natural, other: Natural) -> Natural:
     return Natural(extract_value(int, self) * extract_value(int, other))
 
 
-@register(ctx, Natural.__sub__)
+@register(Natural.__sub__)
 def __sub__(self: Natural, other: Natural) -> Natural:
     return Natural(extract_value(int, self) - extract_value(int, other))
 
 
-@register(ctx, Natural.__floordiv__)
+@register(Natural.__floordiv__)
 def __floordiv__(self: Natural, other: Natural) -> Natural:
     return Natural(extract_value(int, self) // extract_value(int, other))
 
 
-@register(ctx, Natural.__mod__)
+@register(Natural.__mod__)
 def __mod__(self: Natural, other: Natural) -> Natural:
     return Natural(extract_value(int, self) % extract_value(int, other))
 
 
-@register(ctx, Natural.loop)
+@register(Natural.loop)
 def loop(
     self, initial: T_box, fn: Abstraction[T_box, Abstraction["Natural", T_box]]
 ) -> T_box:
@@ -114,42 +113,42 @@ def loop(
     return v
 
 
-@register(ctx, Natural.__add__)
+@register(Natural.__add__)
 def __add__0_left(self: Natural, other: Natural) -> Natural:
     if self.value == 0:
         return other
     return NotImplemented
 
 
-@register(ctx, Natural.__add__)
+@register(Natural.__add__)
 def __add__0_right(self: Natural, other: Natural) -> Natural:
     if other.value == 0:
         return self
     return NotImplemented
 
 
-@register(ctx, Natural.__mul__)
+@register(Natural.__mul__)
 def __mul__0_left(self: Natural, other: Natural) -> Natural:
     if self.value == 0:
         return self
     return NotImplemented
 
 
-@register(ctx, Natural.__mul__)
+@register(Natural.__mul__)
 def __mul__0_right(self: Natural, other: Natural) -> Natural:
     if other.value == 0:
         return other
     return NotImplemented
 
 
-@register(ctx, Natural.__mul__)
+@register(Natural.__mul__)
 def __mul__1_left(self: Natural, other: Natural) -> Natural:
     if self.value == 1:
         return other
     return NotImplemented
 
 
-@register(ctx, Natural.__mul__)
+@register(Natural.__mul__)
 def __mul__1_right(self: Natural, other: Natural) -> Natural:
     if other.value == 1:
         return self

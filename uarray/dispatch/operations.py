@@ -75,19 +75,14 @@ def extract_value(type: typing.Type[T], box: Box[typing.Any]) -> T:
     raise ReturnNotImplemented
 
 
-def operation_with_default(
-    context: MutableContextType
-) -> typing.Callable[[T_call], T_call]:
+def operation_with_default(default_impl: T_call) -> T_call:
     """
     Creates an operation and registers a default implementation.
     """
 
-    def inner(default_impl: T_call, context=context) -> T_call:
-        operation_fn = operation(default_impl)
-        register(context, operation_fn, default=True)(default_impl)
-        return operation_fn
-
-    return inner
+    operation_fn = operation(default_impl)
+    register(operation_fn, default=True)(default_impl)
+    return operation_fn
 
 
 def operation(type_mapping: T_call) -> T_call:

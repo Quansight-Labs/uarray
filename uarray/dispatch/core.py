@@ -13,7 +13,6 @@ __all__ = [
     "global_context",
     "ReplacementType",
     "ContextType",
-    "MutableContextType",
     "KeyType",
     "children",
     "replace_inplace_generator",
@@ -22,8 +21,6 @@ __all__ = [
     "replace",
     "ChainCallable",
     "MapChainCallable",
-    "ChainCallableMap",
-    "default_context",
 ]
 
 T = typing.TypeVar("T")
@@ -95,8 +92,7 @@ def concrete(x: typing.Any) -> bool:
     return True
 
 
-ContextType = typing.Mapping[KeyType, ReplacementType]
-MutableContextType = typing.MutableMapping[KeyType, ReplacementType]
+ContextType = typing.MutableMapping[KeyType, ReplacementType]
 
 
 class ChainCallable:
@@ -146,40 +142,8 @@ class MapChainCallable(collections.abc.MutableMapping):
         return len(self.dict)
 
 
-class ChainCallableMap(collections.abc.Mapping):
-    def __init__(self, *callable_maps: ContextType):
-        self.callable_maps = list(callable_maps)
-
-    def __getitem__(self, key: KeyType) -> ReplacementType:
-        return ChainCallable(
-            *(
-                callable_map[key]
-                for callable_map in self.callable_maps
-                if key in callable_map
-            )
-        )
-
-    def __len__(self) -> int:
-        s: typing.Set[KeyType] = set()
-        for callable_map in self.callable_maps:
-            s.update(callable_map.keys())
-        return len(s)
-
-    def __iter__(self) -> typing.Iterator[KeyType]:
-        s: typing.Set[KeyType] = set()
-        for callable_map in self.callable_maps:
-            s.update(callable_map.keys())
-        return iter(s)
-
-    def append(self, context: ContextType):
-        self.callable_maps.append(context)
-
-
-default_context = ChainCallableMap()
-
-
 global_context: contextvars.ContextVar[ContextType] = contextvars.ContextVar(
-    "uarray.dispatch.global_context", default=default_context
+    "uarray.dispatch.global_context", default=MapChainCallable()
 )
 
 

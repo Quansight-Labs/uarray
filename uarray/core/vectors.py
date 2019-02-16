@@ -2,7 +2,6 @@ import dataclasses
 import typing
 
 from .abstractions import *
-from .context import *
 from .lists import *
 from .naturals import *
 from ..dispatch import *
@@ -69,7 +68,9 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
         return self.create(self.length + Natural(1), self.list.push(item))
 
     def append(self, item: T_box) -> "Vec[T_box]":
-        return self.create(self.length + Natural(1), self.list.append(self.length, item))
+        return self.create(
+            self.length + Natural(1), self.list.append(self.length, item)
+        )
 
     def concat(self, other: "Vec[T_box]") -> "Vec[T_box]":
         return self.create(
@@ -106,14 +107,14 @@ class Vec(Box[typing.Any], typing.Generic[T_box]):
         return self.reduce(initial, abs_)
 
 
-@register(ctx, Vec._get_length)
+@register(Vec._get_length)
 def _get_length(self: Vec[T_box]) -> Natural:
     if not isinstance(self.value, Operation) or not self.value.name == Vec.create:
         return NotImplemented
     return self.value.args[0]
 
 
-@register(ctx, Vec._get_list)
+@register(Vec._get_list)
 def _get_list(self: Vec[T_box]) -> List[T_box]:
     if not isinstance(self.value, Operation) or not self.value.name == Vec.create:
         return NotImplemented

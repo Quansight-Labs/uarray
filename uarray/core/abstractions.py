@@ -4,7 +4,6 @@ Lambda calculus
 import dataclasses
 import typing
 
-from .context import *
 from ..dispatch import *
 
 __all__ = ["Abstraction", "Variable", "rename_variables", "Partial"]
@@ -162,7 +161,7 @@ class Abstraction(Box[typing.Any], typing.Generic[T_box_contra, T_box_cov]):
         )
 
 
-@register(ctx, Abstraction.__call__)
+@register(Abstraction.__call__)
 def __call__(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
     variable, body = extract_args(Abstraction.from_variable, self)
     if variable.value is body.value:
@@ -175,7 +174,7 @@ def __call__(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
     )
 
 
-@register(ctx, Abstraction.__call__)
+@register(Abstraction.__call__)
 def __call___native(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
     native_abstraction = extract_value(NativeAbstraction, self)
     #  type ignore b/c https://github.com/python/mypy/issues/5485
@@ -184,7 +183,7 @@ def __call___native(self: Abstraction[T_box, U_box], arg: T_box) -> U_box:
     return native_abstraction.fn(arg)  # type: ignore
 
 
-@register(ctx, Abstraction.from_variable)
+@register(Abstraction.from_variable)
 def η_reduction(variable: T_box, body: U_box) -> Abstraction[T_box, U_box]:
     """
     https://en.wikipedia.org/wiki/Lambda_calculus#%CE%B7-conversion

@@ -3,7 +3,6 @@ import typing
 import operator
 
 from .abstractions import *
-from .context import *
 from .lists import *
 from .naturals import *
 from .vectors import *
@@ -97,7 +96,7 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
         """
         return self.idx_abs(Vec.create(self.shape.length, idx.list))
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def size(self) -> Natural:
         return self.shape.reduce_fn(Natural(1), operator.mul)
 
@@ -116,7 +115,7 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
     def with_dim(self, ndim: Natural) -> "Array[T_box]":
         return Array.create(self.shape.with_length(ndim), self.idx_abs)
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def ravel(self) -> "Vec[T_box]":
         return Vec.create(
             self.size(),
@@ -124,7 +123,7 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
         )
 
     @staticmethod
-    @operation_with_default(ctx)
+    @operation_with_default
     def gamma(idx: Vec[Natural], shape: Vec[Natural]) -> Natural:
         def loop_abs(val: Natural, i: Natural) -> Natural:
             return idx[i] + (shape[i] * val)
@@ -134,7 +133,7 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
         )
 
     @staticmethod
-    @operation_with_default(ctx)
+    @operation_with_default
     def gamma_inverse(i: Natural, shape: Vec[Natural]) -> Vec[Natural]:
         def loop_abs(
             val: Pair[Natural, Vec[Natural]], i: Natural
@@ -147,7 +146,7 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
         ).right
 
     @staticmethod
-    @operation_with_default(ctx)
+    @operation_with_default
     def from_list_nd(data: List[T_box], shape: Vec[Natural]) -> "Array[T_box]":
         @Array.create_idx_abs
         def idx_abs(idx: Vec[Natural]) -> T_box:
@@ -156,14 +155,14 @@ class Array(Box[typing.Any], typing.Generic[T_box]):
         return Array.create(shape, idx_abs)
 
 
-@register(ctx, Array._get_shape)
+@register(Array._get_shape)
 def _get_shape(self: Array[T_box]) -> Vec[Natural]:
     if not isinstance(self.value, Operation) or not self.value.name == Array.create:
         return NotImplemented
     return self.value.args[0]
 
 
-@register(ctx, Array._get_idx_abs)
+@register(Array._get_idx_abs)
 def _get_idx_abs(self: Array[T_box]) -> Abstraction[Vec[Natural], T_box]:
     if not isinstance(self.value, Operation) or not self.value.name == Array.create:
         return NotImplemented

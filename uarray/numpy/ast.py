@@ -19,8 +19,6 @@ from .mutable_arrays import *
 
 __all__ = ["AST", "to_ast"]
 T_box = typing.TypeVar("T_box", bound=Box)
-ctx = MapChainCallable()
-default_context.append(ctx)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -43,7 +41,7 @@ def is_ast(b: Box[object]) -> bool:
     return isinstance(b.value, AST)
 
 
-@register(ctx, to_array)  # type: ignore
+@register(to_array)  # type: ignore
 def to_array(b: Box) -> Array:
     if not is_ast(b):
         return NotImplemented
@@ -80,7 +78,7 @@ def as_ast(fn: typing.Callable[..., AST], rettype: T_box, *args: Box) -> T_box:
     return typing.cast(T_box, res)
 
 
-@register(ctx, to_ast)
+@register(to_ast)
 def to_ast_numbers(b: T_box) -> T_box:
     if not isinstance(b.value, (int, float)):
         return NotImplemented
@@ -96,7 +94,7 @@ _nat_bin_ops = {
 }
 
 
-@register(ctx, to_ast)
+@register(to_ast)
 def to_ast_nat_bin_ops(b: T_box) -> T_box:
     if not isinstance(b.value, Operation) or b.value.name not in _nat_bin_ops:
         return NotImplemented
@@ -109,7 +107,7 @@ def to_ast_nat_bin_ops(b: T_box) -> T_box:
     return as_ast(inner, b, *b.value.args)
 
 
-@register(ctx, to_ast)
+@register(to_ast)
 def to_ast_tuple(b: T_box) -> T_box:
     if (
         not isinstance(b, Vec)
@@ -130,7 +128,7 @@ def to_ast_tuple(b: T_box) -> T_box:
     )
 
 
-@register(ctx, to_ast)
+@register(to_ast)
 def to_ast__ufunc(b: T_box) -> T_box:
     if not isinstance(b.value, Operation) or b.value.name != numpy_ufunc:
         return NotImplemented
@@ -200,7 +198,7 @@ def create_for(
     ).includes(initial_ast, n_ast)
 
 
-@register(ctx, to_ast)
+@register(to_ast)
 def to_ast_loop(b: T_box) -> T_box:
     if not isinstance(b.value, Operation) or b.value.name != Natural.loop:
         return NotImplemented
@@ -221,7 +219,7 @@ def to_ast_loop(b: T_box) -> T_box:
     )
 
 
-@register(ctx, Array._get_shape)
+@register(Array._get_shape)
 def _get_shape(self: Array[T_box]) -> Vec[Natural]:
     if not is_ast(self):
         return NotImplemented
@@ -245,7 +243,7 @@ def _get_shape(self: Array[T_box]) -> Vec[Natural]:
     return Vec.create(ndim, list_fn)
 
 
-@register(ctx, Array._get_idx_abs)
+@register(Array._get_idx_abs)
 def _get_idx_abs(self: Array[T_box]) -> Abstraction[Vec[Natural], T_box]:
     if not is_ast(self):
         return NotImplemented
@@ -264,7 +262,7 @@ def _get_idx_abs(self: Array[T_box]) -> Abstraction[Vec[Natural], T_box]:
     return idx_abs
 
 
-@register(ctx, to_ast)
+@register(to_ast)
 def to_ast__create_empty(b: List[T_box]) -> List[T_box]:
     dtype, length = typing.cast(
         typing.Tuple[T_box, Natural], extract_args(create_empty, b)  # type: ignore
@@ -289,7 +287,7 @@ def to_ast__create_empty(b: List[T_box]) -> List[T_box]:
     return as_ast(inner, b, length)
 
 
-@register(ctx, to_ast)
+@register(to_ast)
 def to_ast__from_list_nd(b: Array[T_box]) -> Array[T_box]:
     data, shape = typing.cast(
         typing.Tuple[List[T_box], Vec[Natural]],
@@ -306,7 +304,7 @@ def to_ast__from_list_nd(b: Array[T_box]) -> Array[T_box]:
     return as_ast(inner, b, data, shape)
 
 
-@register(ctx, to_ast)
+@register(to_ast)
 def to_ast__set_item(b: List[T_box]) -> List[T_box]:
     lst, index, item = typing.cast(
         typing.Tuple[List[T_box], Natural, T_box],
@@ -327,7 +325,7 @@ def to_ast__set_item(b: List[T_box]) -> List[T_box]:
     return as_ast(inner, b, lst, index, item)
 
 
-# @register(ctx, to_ast)
+# @register(to_ast)
 # def to_ast__array(b: T_box) -> T_box:
 #     if isinstance(b, MoA):
 #         b = b.array
@@ -384,7 +382,7 @@ def to_ast__set_item(b: List[T_box]) -> List[T_box]:
 #     )
 
 
-@register(ctx, to_ast)
+@register(to_ast)
 def to_ast_already_ast(b: T_box) -> T_box:
     if not is_ast(b):
         return NotImplemented

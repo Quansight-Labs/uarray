@@ -12,9 +12,9 @@ class ReturnNotImplemented(Exception):
     pass
 
 
-def register(
-    context: MutableContextType, target: T_call, default=False
-) -> typing.Callable[[T_call], T_call]:
+def register(target: T_call, default=False) -> typing.Callable[[T_call], T_call]:
+    context = global_context.get()
+
     def inner(fn: T_call, context=context, target=target, default=default) -> T_call:
         def replacement(op: Box, fn=fn, context=context, default=default) -> Box:
             args = children(op.value)

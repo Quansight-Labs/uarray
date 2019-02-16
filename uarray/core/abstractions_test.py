@@ -191,9 +191,7 @@ class TestηReduction:
             = lambda y: fn
 
         """
-        fn = Abstraction.create_native(
-            lambda a: NotImplemented, lambda a: False, Box()
-        )
+        fn = Abstraction.create_native(lambda a: NotImplemented, lambda a: False, Box())
 
         # should be simplified
         abstr = Abstraction.create(

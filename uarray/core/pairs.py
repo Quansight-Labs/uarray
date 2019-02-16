@@ -1,7 +1,6 @@
 import dataclasses
 import typing
 
-from .context import *
 from ..dispatch import *
 
 __all__ = ["Pair"]
@@ -38,13 +37,13 @@ class Pair(Box[typing.Any], typing.Generic[T_box, U_box]):
         return self.right_type
 
 
-@register(ctx, Pair._get_left)
+@register(Pair._get_left)
 def _get_left(self: Pair[T_box, typing.Any]) -> T_box:
     left, right = extract_args(Pair.create, self)  # type: ignore
     return left
 
 
-@register(ctx, Pair._get_right)
+@register(Pair._get_right)
 def _get_right(self: Pair[typing.Any, T_box]) -> T_box:
     left, right = extract_args(Pair.create, self)  # type: ignore
     return right

@@ -10,8 +10,6 @@ from ..moa import *
 
 __all__ = ["LazyNDArray", "to_box", "to_array", "numpy_ufunc"]
 
-ctx = MapChainCallable()
-default_context.append(ctx)
 
 
 @functools.singledispatch
@@ -32,7 +30,7 @@ def to_array(b: Box[typing.Any]) -> Array:
     return Array(Operation(to_array, (b,)), Box())
 
 
-@register(ctx, to_array)
+@register(to_array)
 def _to_array(b: Box) -> Array:
     if isinstance(b.value, (int, float, complex)):
         return Array.create_0d(b)

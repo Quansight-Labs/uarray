@@ -1,6 +1,5 @@
 import typing
 
-from .context import *
 from ..dispatch import *
 
 __all__ = ["Bool"]
@@ -32,26 +31,26 @@ class Bool(Box):
         return Bool()
 
 
-@register(ctx, Bool.if_)
+@register(Bool.if_)
 def if_(self: Bool, if_true: T_box, if_false: T_box) -> T_box:
     return if_true if extract_value(bool, self) else if_false
 
 
-@register(ctx, Bool.not_)
+@register(Bool.not_)
 def not_(self: Bool) -> Bool:
     return Bool(not extract_value(bool, self))
 
 
-@register(ctx, Bool.and_)
+@register(Bool.and_)
 def and_(self: Bool, other: Bool) -> Bool:
     return Bool(extract_value(bool, self) and extract_value(bool, other))
 
 
-@register(ctx, Bool.or_)
+@register(Bool.or_)
 def or_(self: Bool, other: Bool) -> Bool:
     return Bool(extract_value(bool, self) or extract_value(bool, other))
 
 
-@register(ctx, Bool.equal)
+@register(Bool.equal)
 def equal(self: Bool, other: Bool) -> Bool:
     return Bool(extract_value(bool, self) == extract_value(bool, other))

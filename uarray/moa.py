@@ -8,9 +8,6 @@ from .dispatch import *
 __all__ = ["MoA"]
 
 
-ctx = MapChainCallable()
-
-default_context.append(ctx)
 
 T_box = typing.TypeVar("T_box", bound=Box)
 U_box = typing.TypeVar("U_box", bound=Box)
@@ -34,7 +31,7 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
     def dim(self) -> "MoA[Natural]":
         return self._dim()
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def _dim(self) -> "MoA[Natural]":
         return MoA.from_array(Array.create_0d(self.array.shape.length))
 
@@ -42,11 +39,11 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
     def shape(self) -> "MoA[Natural]":
         return self._shape()
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def _shape(self) -> "MoA[Natural]":
         return MoA.from_array(Array.from_vec(self.array.shape))
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def __getitem__(self, idxs: "MoA[Natural]") -> "MoA[T_box]":
         # TODO: Implement array indices
         n_idxs = idxs.array.shape[Natural(0)]
@@ -58,7 +55,7 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
 
         return MoA.from_array(Array.create(new_shape, new_idx_abs))
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def unary_operation(self, op: Abstraction[T_box, U_box]) -> "MoA[U_box]":
         @Array.create_idx_abs
         def new_idx_abs(idx: Vec[Natural]) -> U_box:
@@ -71,7 +68,7 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
     ) -> "MoA[U_box]":
         return self.unary_operation(Abstraction.create(op, self.dtype))
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def binary_operation(
         self, op: Abstraction[T_box, Abstraction[U_box, V_box]], other: "MoA[U_box]"
     ) -> "MoA[V_box]":
@@ -97,7 +94,7 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
             Abstraction.create_bin(op, self.dtype, other.dtype), other
         )
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def transpose(self) -> "MoA[T_box]":
         new_shape = self.array.shape.reverse()
 
@@ -107,7 +104,7 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
 
         return MoA.from_array(Array.create(new_shape, new_idx_abs))
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def outer_product(
         self, op: Abstraction[T_box, Abstraction[U_box, V_box]], other: "MoA[U_box]"
     ) -> "MoA[V_box]":
@@ -134,7 +131,7 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
         """
         return self.binary_operation_abstraction(operator.add, other)
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def reduce(
         self, op: Abstraction[V_box, Abstraction[T_box, V_box]], initial: V_box
     ) -> "MoA[V_box]":
@@ -145,7 +142,7 @@ class MoA(Box[typing.Any], typing.Generic[T_box]):
     ) -> "MoA[V_box]":
         return self.reduce(Abstraction.create_bin(op, initial, self.dtype), initial)
 
-    @operation_with_default(ctx)
+    @operation_with_default
     def ravel(self) -> "MoA[T_box]":
         return MoA.from_array(Array.from_vec(self.array.ravel()))
 
