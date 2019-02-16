@@ -17,7 +17,7 @@ T_box_cov = typing.TypeVar("T_box_cov", bound=Box, covariant=True)
 T_box_contra = typing.TypeVar("T_box_contra", bound=Box, contravariant=True)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class Partial(typing.Generic[T]):
     """
     Simple partial function application.
@@ -31,6 +31,12 @@ class Partial(typing.Generic[T]):
 
     def __call__(self, *args) -> T:
         return self.fn(*self.args, *args)  # type: ignore
+
+    def __post_init__(self):
+        if isinstance(self.fn, Partial):
+            fn = self.fn
+            self.fn = fn.fn
+            self.args = fn.args + self.args
 
 
 @dataclasses.dataclass(eq=False, frozen=True)
