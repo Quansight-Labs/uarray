@@ -18,6 +18,7 @@ __all__ = [
     "map_children",
     "global_context",
     "ReplacementType",
+    "MapChainCallable",
     "ContextType",
     "KeyType",
     "children",

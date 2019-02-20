@@ -43,8 +43,6 @@ __all__ = [
     "replace",
     "ChainCallable",
     "MapChainCallable",
-    "ChainCallableMap",
-    "default_context",
     "setcontext",
     "register",
     "Abstraction",
