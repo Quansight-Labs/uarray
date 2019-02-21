@@ -97,6 +97,10 @@ class LazyNDArray(
             ].array
         )
 
+    # : typing.Union[None, typing.Sequence[int], Vector[Natural]]
+    def transpose(self, axes=None) -> "LazyNDArray[T_box]":
+        return numpy_transpose(self)
+
     @property
     def shape(self) -> typing.Tuple[int, ...]:
         """
@@ -106,3 +110,8 @@ class LazyNDArray(
 
     def with_dim(self, ndim: Natural) -> "LazyNDArray":
         return LazyNDArray.create(self.array.with_dim(ndim))
+
+
+@operation
+def numpy_transpose(array: LazyNDArray[T_box]) -> LazyNDArray[T_box]:
+    return array

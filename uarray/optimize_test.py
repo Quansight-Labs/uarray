@@ -27,3 +27,11 @@ def test_outer_index():
     args = [numpy.arange(10000), numpy.arange(10000)]
     jitted = jit(1, 1)(outer_index)
     assert numpy.array_equal(outer_index(*args), jitted(*args))
+
+
+def transpose():
+    def transpose(a):
+        return a.transpose()
+    args = [numpy.arange(12).reshape(3, 4)]
+    jitted = jit(None)(transpose)
+    assert numpy.array_equal(transpose(*args), jitted(*args))

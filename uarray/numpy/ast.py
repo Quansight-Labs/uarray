@@ -16,9 +16,29 @@ from ..core import *
 from ..dispatch import *
 from ..moa import *
 from .mutable_arrays import *
+from .lazy_ndarray import numpy_transpose
 
 __all__ = ["AST", "to_ast"]
 T_box = typing.TypeVar("T_box", bound=Box)
+
+
+@register(numpy_transpose)
+def numpy_transpose_ast(array: LazyNDArray[T_box]) -> LazyNDArray[T_box]:
+    if isinstance(array.value, AST):
+        return LazyNDArray(
+            AST(
+                ast.Call(
+                    ast.Attribute(
+                        value=array.value.get, attr="transpose", ctx=ast.Load()
+                    ),
+                    args=[],
+                    keywords=[],
+                )
+            ).include(array.value),
+            dtype=array.dtype,
+        )
+
+    return NotImplemented
 
 
 @dataclasses.dataclass(frozen=True)
