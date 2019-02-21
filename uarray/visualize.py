@@ -1,91 +1,240 @@
-import itertools
+import ast
+import functools
+import typing
 
-import matchpy
+import graphviz
+import numpy
 
-try:
-    import graphviz
-except ImportError as e:
-    graphviz = None
+from .dispatch import *
+from .core.abstractions import Variable, NativeAbstraction, Partial
+from .numpy.ast import AST
+
+__all__ = ["visualize_diff", "visualize_progress", "display_ops"]
 
 
-def visualize_expression(expr, comment='uarray expression', with_attrs=True, with_uarray=True):
-    """Returns a graphviz representation of the uarray expression
+@functools.singledispatch
+def description(expr):
+    name = description(key(expr))
+    n_ports = len(children_nodes(expr))
+    if n_ports == 0:
+        return str(expr)
+    #     return f"""<
+    #     <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+    #     <TR>
+    #         <TD>{str(expr)}</TD>
+    #     </TR>
+    #     </TABLE>
+    # >"""
+    return f"""<
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+        <TR>
+            <TD COLSPAN="{n_ports}">{name}</TD>
+        </TR>
+        <TR>
+        {' '.join(f'<TD PORT="{i}"></TD>' for i in range(n_ports))}
+        </TR>
+        </TABLE>
+    >"""
 
-    Expects that each node(Symbol/Operation) has an attribute
-    `_repr_gviz_node_()`. This method returns a tuple with string
-    decription https://www.graphviz.org/doc/info/shapes.html that
-    allows html and a dictionary that describes node attributes
-    https://www.graphviz.org/doc/info/attrs.html.
 
-    Attributes
-    ==========
-    expr:
-       uarray expression
-    comment:
-       name to give graphviz dot
-    with_attrs:
-       whether to apply graphviz attributes to nodes (enable/disable) stlying
-    with_uarray:
-       whether to display graphviz with specialized uarray logic
+@description.register
+def _box_desc(box: Box):
+    return box._str_without_value()
 
-    Example
-    =======
-    (
-       'hello world',
-       {'color': 'red', 'fontsize': 100}
-    )
 
-    """
-    if graphviz is None:
-        raise ImportError('The graphviz package is required to draw expressions')
+@description.register(type(lambda: None))
+def _operation_func(op):
+    return op.__qualname__
 
-    from . import moa, core
 
-    dot = graphviz.Digraph(comment=comment)
-    counter = itertools.count()
-    default_node_attr = dict(color='black', fillcolor='white', fontcolor='black')
+@description.register(ast.AST)
+def _ast_ast_description(op):
+    return ast.dump(op, annotate_fields=False)
 
-    def _label_node(dot, expr):
-        unique_id = str(next(counter))
 
-        if hasattr(expr, '_repr_gviz_node_'):
-            node_description, node_attr = expr._repr_gviz_node_()
-        elif isinstance(expr, core.Sequence) and with_uarray:
-            if isinstance(expr[1], core.UnaryFunction):
-                node_description = f'NDArray\n{expr[1][0][1][0][0][0][0][0][0][0].variable_name}^< {" ".join([str(_[0].name) for _ in expr[1][0][0]])} >'
-                node_attr = dict(shape='box')
-            else:
-                node_description = f'Vector\n< {" ".join([str(_[0].name) for _ in expr[1]])} >'
-                node_attr = dict(shape='box')
-        elif isinstance(expr, core.Unbound) and with_uarray:
-            node_description = f'NDArray\n{expr.variable_name}'
-            node_attr = dict(shape='box')
-        elif isinstance(expr, matchpy.Symbol):
-            node_description = f'Symbol: {expr.__class__.__name__}\n{expr.name}'
-            if expr.variable_name:
-                node_description += f', variable_name={expr.variable_name}'
-            node_attr = dict(shape='box')
-        elif isinstance(expr, matchpy.Operation):
-            node_description = f'Operation: {expr.__class__.__name__}\n'
-            if expr.variable_name:
-                node_description += ', variable_name={expr.variable_name}'
-            node_attr = dict(shape='oval')
-        else:
-            raise ValueError(f'uarray matchpy expression does not have _repr_gviz_node_: "{repr(self)}"')
+class _Cls:
+    @classmethod
+    def _(cls):
+        pass
 
-        if with_attrs:
-            dot.attr('node', **{**default_node_attr, **node_attr})
-        dot.node(unique_id, node_description)
-        return unique_id
 
-    def _visualize_node(dot, expr):
-        expr_id = _label_node(dot, expr)
+@description.register(type(_Cls._))
+def _operation_method(op):
+    return op.__qualname__
 
-        if isinstance(expr, matchpy.Operation) and (not isinstance(expr, (core.Unbound, core.Sequence)) or not with_uarray):
-            for sub_expr in expr:
-                sub_expr_id = _visualize_node(dot, sub_expr)
-                dot.edge(expr_id, sub_expr_id)
+
+@description.register
+def description_type(op: type):
+    return op.__qualname__
+
+
+@description.register
+def description_ufunc(op: numpy.ufunc):
+    return f"ufunc: {op.__name__}"
+
+
+_id = 0
+
+
+@functools.singledispatch
+def id_(expr) -> str:
+    global _id
+    _id += 1
+    return str(_id)
+
+
+@id_.register
+def id_box(b: Box):
+    return str(id(b))
+
+
+@id_.register
+def id_operation(b: Operation):
+    return str(id(b))
+
+
+@id_.register
+def id_variable(b: Variable):
+    return str(id(b))
+
+
+@functools.singledispatch
+def attributes(expr):
+    return {"shape": "plaintext", "style": ""}
+
+
+@attributes.register
+def attributes_box(expr: Box):
+    return {"shape": "box", "style": "filled"}
+
+
+@attributes.register
+def attributes_var(expr: Variable):
+    return {"shape": "circle", "style": "dashed"}
+
+
+@functools.singledispatch
+def children_nodes(expr):
+    return children(expr)
+
+
+@children_nodes.register
+def children_nodes_ast(expr: AST):
+    return (expr.get, *expr.init)
+
+
+@children_nodes.register
+def children_nodes_partial(expr: Partial):
+    return (expr.fn, *expr.args)
+
+
+@children_nodes.register
+def children_nodes_native_(expr: NativeAbstraction):
+    return (expr.fn, expr.can_call)  # type: ignore
+
+
+@children_nodes.register
+def _box_children(box: Box):
+    return (box.value,)
+
+
+def visualize(expr, dot: graphviz.Digraph, seen: typing.Set[str]) -> str:
+    expr_id = id_(expr)
+    if expr_id in seen:
+        return expr_id
+    seen.add(expr_id)
+    dot.attr("node", **attributes(expr))
+    dot.node(expr_id, description(expr))
+    for i, child in enumerate(children_nodes(expr)):
+        child_id = visualize(child, dot, seen)
+        dot.edge(f"{expr_id}:{i}", child_id)
+    return expr_id
+
+
+def visualize_ops(expr, dot: graphviz.Digraph, seen: typing.Set[str]) -> str:
+    if isinstance(expr, Box):
+        expr = expr.value
+    expr_id = id_(expr)
+    if expr_id in seen:
+        return expr_id
+    seen.add(expr_id)
+    dot.attr("node", **attributes(expr))
+    dot.node(expr_id, description(expr))
+    for i, child in enumerate(children_nodes(expr)):
+        child_id = visualize_ops(child, dot, seen)
+        dot.edge(f"{expr_id}:{i}", child_id)
+    return expr_id
+
+
+def visualize_highlight(
+    expr, highlight_expr, dot: graphviz.Digraph, seen: typing.Set[str]
+) -> str:
+    expr_id = id_(expr)
+    if expr_id in seen:
+        return expr_id
+    if expr_id == id_(highlight_expr):
+        with dot.subgraph(name="cluster_0") as dot:
+            ret = visualize(expr, dot, seen)
+            dot.attr(label="replaced")
+            dot.attr(color="red")
+            return ret
+    else:
+        seen.add(expr_id)
+        dot.attr("node", **attributes(expr))
+        dot.node(expr_id, description(expr))
+        for i, child in enumerate(children_nodes(expr)):
+            child_id = visualize_highlight(child, highlight_expr, dot, seen)
+            dot.edge(f"{expr_id}:{i}", child_id)
         return expr_id
 
-    _visualize_node(dot, expr)
-    return dot
+
+def visualize_diff(expr, highlight_expr):
+    d = graphviz.Digraph()
+    visualize_highlight(expr, highlight_expr, d, set())
+    return d
+
+
+def visualize_progress(expr, clear=True, max_n=1000):
+    raise NotImplementedError
+
+
+def display_ops(expr):
+    raise NotImplementedError
+
+
+try:
+    from IPython.display import display, SVG, clear_output
+
+    svg_formatter = get_ipython().display_formatter.formatters[  # type: ignore
+        "image/svg+xml"
+    ]
+except Exception:
+    pass
+else:
+
+    def svg(expr):
+        d = graphviz.Digraph()
+        visualize(expr, d, set())
+        return d._repr_svg_()
+
+    def display_ops(expr):
+        d = graphviz.Digraph()
+        visualize_ops(expr, d, set())
+        return d
+
+    def visualize_progress(expr, clear=True, max_n=1000):
+        d = graphviz.Digraph()
+        visualize(expr, d, set())
+        display(SVG(d._repr_svg_()))
+
+        e = copy(expr, {})
+        for i, replaced in enumerate(replace_inplace_generator(e)):
+            if i > max_n:
+                raise Exception(f"Over {max_n} replacements")
+            new_svg = SVG(visualize_diff(e, replaced)._repr_svg_())
+            if clear:
+                clear_output(wait=True)
+            display(new_svg)
+
+    svg_formatter.for_type(Box, svg)
+    # svg_formatter.for_type(LazyNDArray, lambda a: svg(a.box))

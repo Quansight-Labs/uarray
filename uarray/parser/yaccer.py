@@ -1,7 +1,5 @@
 import ply.yacc as yacc
 
-from .lexer import tokens
-
 from .. import moa, core
 
 # binary operators need precedence

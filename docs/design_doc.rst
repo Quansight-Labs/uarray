@@ -312,3 +312,5 @@ Related solutions
 -  Turn host language functions into DSL by introspecting `"Deeply
    Reifying Running Code for Constructing a Domain-Specific
    Language" <https://paperpile.com/app/p/9888f10b-dbd4-0d4d-82ea-ed95f0f18ec8>`__
+- `"PEP 3124 -- Overloading, Generic Functions, Interfaces, and
+   Adaptation" <https://www.python.org/dev/peps/pep-3124/>`__

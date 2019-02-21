@@ -9,7 +9,6 @@ author-email = "s.shanabrook@gmail.com"
 home-page = "https://github.com/Quansight-Labs/uarray"
 description-file = "README.md"
 requires = [
-    "matchpy",
     "numpy",
     "astunparse",
     "typing_extensions",

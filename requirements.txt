@@ -1,4 +1,3 @@
-matchpy
 numba
 mypy
 pytest-cov
@@ -6,9 +5,10 @@ numpy
 pytest
 astunparse
 typing_extensions
-nbval
+# nbval
 pytest-mypy
 black
 flit
 ply
 graphviz
+hypothesis

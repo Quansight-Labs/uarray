@@ -1,32 +1,32 @@
 pool:
-  vmImage: 'Ubuntu 16.04'
+  vmImage: "Ubuntu 16.04"
 
 steps:
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: '3.7'
-    architecture: 'x64'
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.7"
+      architecture: "x64"
 
-- script: python -m pip install -r requirements.txt; flit install
-  displayName: Install python deps
+  - script: python -m pip install -r requirements.txt; flit install
+    displayName: Install python deps
 
-- script: mypy uarray
-  displayName: 'Run mypy'
+  - script: mypy uarray
+    displayName: "Run mypy"
 
-- script: python extract_readme_tests.py
-  displayName: 'extract tests from readme'
+  # - script: python extract_readme_tests.py
+  #   displayName: 'extract tests from readme'
 
-- script: py.test
-  displayName: Run tests
+  - script: py.test
+    displayName: Run tests
 
-- task: PublishTestResults@2
-  condition: always()
-  inputs:
-    testResultsFiles: '**/test-*.xml'
-    testRunTitle: 'Publish test results'
+  - task: PublishTestResults@2
+    condition: always()
+    inputs:
+      testResultsFiles: "**/test-*.xml"
+      testRunTitle: "Publish test results"
 
-- task: PublishCodeCoverageResults@1
-  inputs:
-    codeCoverageTool: Cobertura
-    summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
-    reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
+  - task: PublishCodeCoverageResults@1
+    inputs:
+      codeCoverageTool: Cobertura
+      summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/coverage.xml"
+      reportDirectory: "$(System.DefaultWorkingDirectory)/**/htmlcov"
