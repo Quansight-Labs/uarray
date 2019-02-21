@@ -325,61 +325,10 @@ def to_ast__set_item(b: List[T_box]) -> List[T_box]:
     return as_ast(inner, b, lst, index, item)
 
 
-# @register(to_ast)
-# def to_ast__array(b: T_box) -> T_box:
-#     if isinstance(b, MoA):
-#         b = b.array
-#     if not isinstance(b, Array):
-#         return NotImplemented
-
-#     idx_store, idx_load = create_id()
-#     array_store, array_load = create_id()
-
-#     def array_fn(length: AST, val: AST, shape: AST) -> AST:
-#         return AST(
-#             ast.Call(ast.Attribute(array_load, "reshape", ast.Load()), [shape.get], []),
-#             [
-#                 ast.Assign(
-#                     [array_store],
-#                     ast.Call(
-#                         ast.Attribute(
-#                             ast.Name("numpy", ast.Load()), "empty", ast.Load()
-#                         ),
-#                         [length.get],
-#                         [
-#                             ast.keyword(
-#                                 arg="dtype",
-#                                 value=ast.Attribute(
-#                                     ast.Name("numpy", ast.Load()), "int64", ast.Load()
-#                                 ),
-#                             )
-#                         ],
-#                     ),
-#                 ),
-#                 ast.For(
-#                     idx_store,
-#                     ast.Call(ast.Name("range", ast.Load()), [length.get], []),
-#                     [
-#                         *val.init,
-#                         ast.Assign(
-#                             [
-#                                 ast.Subscript(
-#                                     array_load, ast.Index(idx_load), ast.Store()
-#                                 )
-#                             ],
-#                             val.get,
-#                         ),
-#                     ],
-#                     [],
-#                 ),
-#             ],
-#         ).includes(shape, length)
-
-#     vec = MoA.from_array(b).ravel().array.to_vec()
-#     # https://github.com/python/mypy/issues/4949
-#     return as_ast(  # type: ignore
-#         array_fn, b, vec.length, vec.list[Natural(AST(idx_load))], b.shape
-#     )
+@register(to_ast)
+def to_ast__array(b: T_box) -> T_box:
+    extract_args(Array.create, b)  # type: ignore
+    return to_ast(create_and_fill(b))  # type: ignore
 
 
 @register(to_ast)

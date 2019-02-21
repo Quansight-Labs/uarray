@@ -11,7 +11,6 @@ from ..moa import *
 __all__ = ["LazyNDArray", "to_box", "to_array", "numpy_ufunc"]
 
 
-
 @functools.singledispatch
 def to_box(a: object) -> Box:
     return Box(a)
