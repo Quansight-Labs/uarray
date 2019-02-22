@@ -7,14 +7,13 @@ steps:
       versionSpec: "3.7"
       architecture: "x64"
 
-  - script: python -m pip install -r requirements.txt; flit install
-    displayName: Install python deps
-
-  - script: mypy uarray
-    displayName: "Run mypy"
-
-  # - script: python extract_readme_tests.py
-  #   displayName: 'extract tests from readme'
+  - script: pip install flit
+  - script: flit -f udispatch.toml install --symlink
+  - script: flit -f uarray.toml install --symlink
+  - script: flit -f umoa.toml install --symlink
+  - script: flit -f umoa_parser.toml install --symlink
+  - script: flit -f unumpy.toml install --symlink
+  - script: flit -f uvisualize.toml install --symlink
 
   - script: py.test
     displayName: Run tests

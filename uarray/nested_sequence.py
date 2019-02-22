@@ -5,8 +5,12 @@ import dataclasses
 import itertools
 import typing
 
-from .core import *
-from .dispatch import *
+from .vectors import *
+from .arrays import *
+from .abstractions import *
+from .naturals import *
+from .lists import *
+from udispatch import *
 
 T_box = typing.TypeVar("T_box", bound=Box)
 U_box = typing.TypeVar("U_box", bound=Box)

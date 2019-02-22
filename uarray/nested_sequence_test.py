@@ -1,6 +1,6 @@
-from .core import *
-from .dispatch import *
-from .moa import *
+from uarray import *
+from udispatch import *
+# from .moa import *
 from .nested_sequence import *
 
 
@@ -11,10 +11,10 @@ def test_isomoprhic():
     assert python_array == replace(to_python_array(python_array))
 
 
-def test_binary_operation():
-    a = MoA.from_array(create_python_array((2, 2), ((1, 2), (3, 4))))
-    assert replace(
-        a.binary_operation(
-            create_python_bin_abs(lambda l, r: l + r, int, int), a
-        ).array[Array.create_shape(Natural(0), Natural(0))]
-    ) == Box(2)
+# def test_binary_operation():
+#     a = MoA.from_array(create_python_array((2, 2), ((1, 2), (3, 4))))
+#     assert replace(
+#         a.binary_operation(
+#             create_python_bin_abs(lambda l, r: l + r, int, int), a
+#         ).array[Array.create_shape(Natural(0), Natural(0))]
+#     ) == Box(2)
