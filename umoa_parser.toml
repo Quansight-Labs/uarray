@@ -1,0 +1,32 @@
+[build-system]
+requires = ["flit"]
+build-backend = "flit.buildapi"
+
+[tool.flit.metadata]
+module = "umoa_parser"
+author = "Christopher Ostrouchov"
+author-email = "chris.ostrouchov@gmail.com"
+home-page = "https://github.com/Quansight-Labs/uarray/tree/master/umoa_parser"
+requires-python = ">=3.7"
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+requires = [
+    "umoa",
+    "ply"
+]
+
+[tool.flit.metadata.requires-extra]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-mypy",
+    "hypothesis"
+]
+dev = [
+    "mypy"
+]

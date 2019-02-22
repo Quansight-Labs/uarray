@@ -148,16 +148,19 @@ A: In an earlier iteration of this project, everything was just a function and w
 ```bash
 conda create -n uarray python=3.7
 conda activate uarray
-pip install -r requirements.dev.txt
-flit install --symlink
+
+flit -f udispatch.toml install --symlink
+flit -f uarray.toml install --symlink
+flit -f umoa.toml install --symlink
+flit -f umoa_parser.toml install --symlink
+flit -f unumpy.toml install --symlink
+flit -f uvisualize.toml install --symlink
 ```
 
 ### Testing
 
 ```bash
-mypy uarray
-# python extract_readme_tests.py
-py.test uarray/
+py.test
 ```
 
 To re-run notebooks (their outputs are checked in the tests):
