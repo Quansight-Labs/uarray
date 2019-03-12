@@ -17,3 +17,4 @@ docs/_build
 .idea/
 pytype_output
 htmlcov/
+*.egg-info/
