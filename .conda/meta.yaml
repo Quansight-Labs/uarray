@@ -12,18 +12,9 @@ source:
 
 requirements:
   build:
-    - flit
-    - matchpy
-    - numpy
-    - astunparse
-    - typing_extensions
-    - black
+    - python
   run:
-    - matchpy
-    - numpy
-    - astunparse
-    - typing_extensions
-    - black
+    - python
 
 build:
   noarch: python
@@ -40,4 +31,5 @@ about:
 
 extra:
   recipe-maintainers:
+    - hameerabbasi
     - costrouc

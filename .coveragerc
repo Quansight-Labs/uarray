@@ -2,12 +2,7 @@
 branch = True
 source = 
     uarray
-    udispatch
-    umoa
-    umoa_parser
-    unumpy
-    uvisualize
 [report]
 omit =
-    *_test.py
-    **/test_*.py
+    **/test/
+    docs/
