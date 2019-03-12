@@ -41,7 +41,8 @@ setup(
     name='uarray',
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
-    description='Array interface object for Python with pluggable backends and a multiple-dispatch mechanism for defining down-stream functions',
+    description='Array interface object for Python with pluggable backends and a multiple-dispatch'
+                'mechanism for defining down-stream functions',
     url='https://github.com/Quansight-Labs/uarray/',
     maintainer='Hameer Abbasi',
     maintainer_email='habbasi@quansight.com',
