@@ -10,7 +10,7 @@ steps:
   - script: pip install -e .[all]
     displayName: Install package
 
-  - script: py.test
+  - script: pytest
     displayName: Run tests
 
   - task: PublishTestResults@2
