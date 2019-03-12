@@ -7,13 +7,8 @@ steps:
       versionSpec: "3.7"
       architecture: "x64"
 
-  - script: pip install flit
-  - script: flit -f udispatch.toml install --symlink
-  - script: flit -f uarray.toml install --symlink
-  - script: flit -f umoa.toml install --symlink
-  - script: flit -f umoa_parser.toml install --symlink
-  - script: flit -f unumpy.toml install --symlink
-  - script: flit -f uvisualize.toml install --symlink
+  - script: pip install .[all]
+    displayName: Install package
 
   - script: py.test
     displayName: Run tests
