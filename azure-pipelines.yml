@@ -7,10 +7,10 @@ steps:
       versionSpec: "3.7"
       architecture: "x64"
 
-  - script: pip install .[all]
+  - script: pip install -e .[all]
     displayName: Install package
 
-  - script: py.test
+  - script: pytest
     displayName: Run tests
 
   - task: PublishTestResults@2

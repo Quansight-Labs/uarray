@@ -6,3 +6,4 @@ source =
 omit =
     **/test/
     docs/
+    uarray/_version.py
