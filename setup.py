@@ -49,7 +49,11 @@ setup(
     license='BSD 3-Clause License (Revised)',
     keywords='uarray,numpy,scipy,pytorch,cupy,tensorflow',
     packages=find_packages(
-        include=['uarray', 'uarray.*'],
+        include=[
+            'uarray', 'uarray.*',
+            'unumpy', 'unumpy.*',
+            'uscipy', 'uscipy.*',
+        ],
     ),
     long_description=long_desc,
     install_requires=reqs,
