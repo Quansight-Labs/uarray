@@ -1,0 +1,14 @@
+name: uarray
+channels:
+- defaults
+- conda-forge
+dependencies:
+- mypy
+- pytest
+- pytest-cov
+- pytest-flake8
+- sphinx
+- sphinx_rtd_theme
+- pip:
+  - pytest-mypy
+

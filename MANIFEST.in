@@ -1,2 +1,4 @@
 include versioneer.py
-include uarray/_version.py
+recursive-include uarray *.py
+recursive-include unumpy *.py
+recursive-include ulinalg *.py
