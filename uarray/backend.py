@@ -1,5 +1,6 @@
 from typing import Callable, Iterable, Dict, Tuple, Any, Set
 from abc import ABCMeta, abstractmethod
+import inspect
 
 DispatcherType = Callable[..., Iterable]
 ReverseDispatcherType = Callable[[Iterable, Dict, Iterable], Tuple[Iterable, Dict]]
@@ -12,6 +13,7 @@ class Method:
         self.__name__ = dispatcher.__name__
         self.__module__ = dispatcher.__module__
         self.__doc__ = dispatcher.__doc__
+        self.__signature__ = inspect.signature(dispatcher)
 
     def __str__(self):
         return str(self.dispatcher)
