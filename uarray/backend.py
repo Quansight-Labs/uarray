@@ -32,7 +32,8 @@ class Method:
         raise TypeError('No registered backends had an implementation for this method.')
 
 
-MethodLookupType = Dict[Method, Callable]
+ImplementationType = Callable[[Method, Iterable, Dict], Any]
+MethodLookupType = Dict[Method, ImplementationType]
 ConvertorType = Callable[[Any], Any]
 
 
@@ -49,8 +50,11 @@ class Backend(metaclass=ABCMeta):
     def convertor(self):
         return self._convertor
 
-    def register_method(self, method: Method, implementation: Callable):
+    def register_method(self, method: Method, implementation: ImplementationType):
         self._methods[method] = implementation
+
+    def deregister_method(self, method: Method):
+        del self._methods[method]
 
     @abstractmethod
     def usable(self, array_args: Iterable) -> bool:
@@ -75,3 +79,7 @@ class TypeCheckBackend(Backend):
 
 def register_backend(backend: Backend):
     _backends.add(backend)
+
+
+def deregister_backend(backend: Backend):
+    _backends.remove(backend)
