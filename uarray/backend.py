@@ -1,5 +1,6 @@
 from typing import Callable, Iterable, Dict, Tuple, Any, Set
 from abc import ABCMeta, abstractmethod
+import inspect
 
 DispatcherType = Callable[..., Iterable]
 ReverseDispatcherType = Callable[[Iterable, Dict, Iterable], Tuple[Iterable, Dict]]
@@ -12,6 +13,7 @@ class Method:
         self.__name__ = dispatcher.__name__
         self.__module__ = dispatcher.__module__
         self.__doc__ = dispatcher.__doc__
+        self.__signature__ = inspect.signature(dispatcher)
 
     def __str__(self):
         return str(self.dispatcher)
@@ -32,7 +34,15 @@ class Method:
         raise TypeError('No registered backends had an implementation for this method.')
 
 
-MethodLookupType = Dict[Method, Callable]
+def wrap_dispatcher(reverse_dispatcher: ReverseDispatcherType) -> Callable[[DispatcherType], Method]:
+    def inner(dispatcher: DispatcherType) -> Method:
+        return Method(dispatcher, reverse_dispatcher)
+
+    return inner
+
+
+ImplementationType = Callable[[Method, Iterable, Dict], Any]
+MethodLookupType = Dict[Method, ImplementationType]
 ConvertorType = Callable[[Any], Any]
 
 
@@ -49,8 +59,11 @@ class Backend(metaclass=ABCMeta):
     def convertor(self):
         return self._convertor
 
-    def register_method(self, method: Method, implementation: Callable):
+    def register_method(self, method: Method, implementation: ImplementationType):
         self._methods[method] = implementation
+
+    def deregister_method(self, method: Method):
+        del self._methods[method]
 
     @abstractmethod
     def usable(self, array_args: Iterable) -> bool:
@@ -75,3 +88,7 @@ class TypeCheckBackend(Backend):
 
 def register_backend(backend: Backend):
     _backends.add(backend)
+
+
+def deregister_backend(backend: Backend):
+    _backends.remove(backend)
