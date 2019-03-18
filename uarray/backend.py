@@ -32,6 +32,13 @@ class Method:
         raise TypeError('No registered backends had an implementation for this method.')
 
 
+def wrap_dispatcher(reverse_dispatcher: ReverseDispatcherType) -> Callable[[DispatcherType], Method]:
+    def inner(dispatcher: DispatcherType) -> Method:
+        return Method(dispatcher, reverse_dispatcher)
+
+    return inner
+
+
 ImplementationType = Callable[[Method, Iterable, Dict], Any]
 MethodLookupType = Dict[Method, ImplementationType]
 ConvertorType = Callable[[Any], Any]
