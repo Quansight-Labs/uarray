@@ -1,4 +1,4 @@
-from uarray.backend import wrap_dispatcher
+from uarray import wrap_dispatcher
 
 __all__ = ['svd']
 
