@@ -29,14 +29,14 @@ class MultiMethod:
         for backend, coerce in _backend_order():
             if coerce:
                 if self not in backend.methods:
-                    raise RuntimeError('Method was not registered in the set backend while coercion was on.')
+                    break
 
                 array_args = tuple(backend.convertor(arr) for arr in array_args)
                 args, kwargs = self.reverse_dispatcher(args, kwargs, array_args)
                 result = backend.methods[self](self, args, kwargs)
 
                 if result is NotImplemented:
-                    raise RuntimeError('Method was not implemented in the set backend while coercion was on.')
+                    break
 
                 return result
 
@@ -46,7 +46,7 @@ class MultiMethod:
                 if result is not NotImplemented:
                     return result
 
-        raise TypeError('No registered backends had an implementation for this method.')
+        raise TypeError('No selected backends had an implementation for this method.')
 
 
 def wrap_dispatcher(reverse_dispatcher: ReverseDispatcherType) -> Callable[[DispatcherType], MultiMethod]:
