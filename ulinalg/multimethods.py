@@ -1,10 +1,11 @@
-from uarray.backend import wrap_dispatcher
+from uarray import wrap_dispatcher
 
 __all__ = ['svd']
 
 
 def svd_rd(args, kwargs, arrays):
-    return svd.dispatcher(arrays[0], *args, **kwargs)
+    out_args = arrays + args[1:]
+    return out_args, kwargs
 
 
 @wrap_dispatcher(svd_rd)

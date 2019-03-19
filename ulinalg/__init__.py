@@ -1,11 +1,11 @@
-from .methods import *
+from .multimethods import *
 
 try:
-    from .numpy_backend import *
+    import ulinalg.numpy_backend
 except ImportError:
     pass
 
 try:
-    from .pytorch_backend import *
+    import ulinalg.pytorch_backend
 except ImportError:
     pass

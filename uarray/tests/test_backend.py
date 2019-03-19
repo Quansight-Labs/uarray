@@ -1,6 +1,6 @@
 import pytest
 
-from uarray.backend import TypeCheckBackend, Method, register_backend, deregister_backend
+from uarray import TypeCheckBackend, MultiMethod, register_backend, deregister_backend
 
 
 class DummyClass:
@@ -19,7 +19,7 @@ def dummy_rd(args, kwargs, rep_args):
     return out_args, out_kwargs
 
 
-dummy_method = Method(dummy_fd, dummy_rd)
+dummy_method = MultiMethod(dummy_fd, dummy_rd)
 
 dummy_backend = TypeCheckBackend((DummyClass,), DummyClass)
 
@@ -57,7 +57,7 @@ def test_invalidtype():
 
 
 def test_invalidmethod():
-    invalid_method = Method(dummy_fd, dummy_rd)
+    invalid_method = MultiMethod(dummy_fd, dummy_rd)
 
     with pytest.raises(TypeError):
         invalid_method(DummyClass())
