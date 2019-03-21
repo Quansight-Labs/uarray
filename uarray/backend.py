@@ -3,28 +3,29 @@ from abc import ABCMeta, abstractmethod
 import inspect
 from contextvars import ContextVar
 import itertools
+import functools
 
-DispatcherType = Callable[..., Tuple]
-ReverseDispatcherType = Callable[[Tuple, Dict, Tuple], Tuple[Tuple, Dict]]
+ArgumentExtractorType = Callable[..., Tuple]
+ArgumentReplacerType = Callable[[Tuple, Dict, Tuple], Tuple[Tuple, Dict]]
 
 
 class MultiMethod:
-    def __init__(self, dispatcher: DispatcherType, reverse_dispatcher: ReverseDispatcherType):
-        self.dispatcher = dispatcher
-        self.reverse_dispatcher = reverse_dispatcher
-        self.__name__ = dispatcher.__name__
-        self.__module__ = dispatcher.__module__
-        self.__doc__ = dispatcher.__doc__
-        self.__signature__ = inspect.signature(dispatcher)
+    def __init__(self, argument_extractor: ArgumentExtractorType, argument_replacer: ArgumentReplacerType):
+        self.argument_extractor = argument_extractor
+        self.argument_replacer = argument_replacer
+        self.__name__ = argument_extractor.__name__
+        self.__module__ = argument_extractor.__module__
+        self.__doc__ = argument_extractor.__doc__
+        self.__signature__ = inspect.signature(argument_extractor)
 
     def __str__(self):
-        return str(self.dispatcher)
+        return str(self.argument_extractor)
 
     def __repr__(self):
-        return repr(self.dispatcher)
+        return repr(self.argument_extractor)
 
     def __call__(self, *args, **kwargs):
-        array_args = self.dispatcher(*args, **kwargs)
+        array_args = self.argument_extractor(*args, **kwargs)
 
         for backend, coerce in _backend_order():
             if coerce:
@@ -32,7 +33,7 @@ class MultiMethod:
                     break
 
                 array_args = tuple(backend.convertor(arr) for arr in array_args)
-                args, kwargs = self.reverse_dispatcher(args, kwargs, array_args)
+                args, kwargs = self.argument_replacer(args, kwargs, array_args)
                 result = backend.methods[self](self, args, kwargs)
 
                 if result is NotImplemented:
@@ -48,9 +49,14 @@ class MultiMethod:
 
         raise TypeError('No selected backends had an implementation for this method.')
 
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+        return functools.partial(self.__call__, instance)
 
-def wrap_dispatcher(reverse_dispatcher: ReverseDispatcherType) -> Callable[[DispatcherType], MultiMethod]:
-    def inner(dispatcher: DispatcherType) -> MultiMethod:
+
+def argument_extractor(reverse_dispatcher: ArgumentReplacerType) -> Callable[[ArgumentExtractorType], MultiMethod]:
+    def inner(dispatcher: ArgumentExtractorType) -> MultiMethod:
         return MultiMethod(dispatcher, reverse_dispatcher)
 
     return inner
@@ -58,17 +64,25 @@ def wrap_dispatcher(reverse_dispatcher: ReverseDispatcherType) -> Callable[[Disp
 
 ImplementationType = Callable[[MultiMethod, Iterable, Dict], Any]
 MethodLookupType = Dict[MultiMethod, ImplementationType]
+InstanceType = Any
+InstanceStubType = Any
+InstanceLookupType = Dict[InstanceStubType, InstanceType]
 ConvertorType = Callable[[Any], Any]
 
 
 class Backend(metaclass=ABCMeta):
     def __init__(self, convertor: ConvertorType = None):
         self._methods: MethodLookupType = {}
+        self._instances: InstanceLookupType = {}
         self._convertor = convertor
 
     @property
     def methods(self):
         return self._methods
+
+    @property
+    def instances(self):
+        return self._instances
 
     @property
     def convertor(self):
@@ -79,6 +93,9 @@ class Backend(metaclass=ABCMeta):
 
     def deregister_method(self, method: MultiMethod):
         del self._methods[method]
+
+    def register_instance(self, cls: InstanceStubType, implementation: InstanceType):
+        self._instances[cls] = implementation
 
     @abstractmethod
     def usable(self, array_args: Iterable) -> bool:
@@ -108,9 +125,9 @@ class TypeCheckBackend(Backend):
 
     def usable(self, array_args: Iterable) -> bool:
         if self.allow_subclasses:
-            return all(isinstance(arr, self.types) for arr in array_args)
+            return all(isinstance(arr, self.types) for arr in array_args if arr is not None)
         else:
-            return all(type(arr) in self.types for arr in array_args)
+            return all(type(arr) in self.types for arr in array_args if arr is not None)
 
 
 _preferred_backend: ContextVar[Optional[Tuple[Backend, Optional[bool]]]
@@ -143,9 +160,47 @@ def multimethod(backend: Backend, method: MultiMethod):
     return wrapper
 
 
+def instance_multimethod(backend: Backend, method: MultiMethod):
+    def wrapper(func):
+        def inner(method, args, kwargs):
+            return func(backend.instances[args[0]], *args[1:], **kwargs)
+
+        backend.register_method(method, inner)
+
+        return func
+
+    return wrapper
+
+
 def register_backend(backend: Backend):
     _backends.add(backend)
 
 
 def deregister_backend(backend: Backend):
     _backends.remove(backend)
+
+
+WrapperType = Callable[[Callable], Any]
+
+
+class DispatchAttribute:
+    def __init__(self, argument_extractor: ArgumentExtractorType,
+                 argument_replacer: ArgumentReplacerType, wrapper: Optional[WrapperType] = None):
+        self.argument_extractor: ArgumentExtractorType = argument_extractor
+        self.argument_replacer: ArgumentReplacerType = argument_replacer
+        self.wrapper: Optional[WrapperType] = wrapper
+
+
+def dispatch_attribute(argument_replacer: ArgumentReplacerType,
+                       wrapper: Optional[WrapperType] = None) -> Callable[[Callable], DispatchAttribute]:
+    def inner(argument_extractor: ArgumentExtractorType) -> DispatchAttribute:
+        return DispatchAttribute(argument_extractor, argument_replacer, wrapper)
+
+    return inner
+
+
+TypeLookupType = Dict[Backend, Any]
+
+
+class Dispatchable(metaclass=ABCMeta):
+    pass
