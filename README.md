@@ -61,28 +61,12 @@ This project is in active development and not ready for production use. However,
 pip install uarray
 ```
 
+or
+
 ```bash
 conda install -c conda-forge -c uarray uarray
 ```
 
-### Releases
+## Contributing
 
-Make sure to update `pyproject.toml` and `.conda/meta.yaml` to the
-correct version on a new release.
-
-Flit makes `pypi` releases quite simple. Flit will use your
-`~/.pypirc` or environment variables `FLIT_USERNAME`, `FLIT_PASSWORD`,
-and `FLIT_INDEX`.
-
-```bash
-flit publish
-```
-
-Conda releases use the `.conda/meta.yaml` recipe.
-
-```bash
-conda install conda-build anaconda-client
-anaconda login
-conda build -c conda-forge .conda/
-anaconda upload --user uarray <path to conda build>
-```
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for more information on how to contribute to `uarray`.
