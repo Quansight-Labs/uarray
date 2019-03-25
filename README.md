@@ -67,29 +67,6 @@ or
 conda install -c conda-forge -c uarray uarray
 ```
 
+## Contributing
 
-## Development
-
-Make a fork of the main [uarray repository](https://github.com/Quansight-Labs/uarray) and clone the fork:
-
-```
-git clone https://github.com/<your-github-username>/uarray
-```
-
-### Install
-
-`uarray` and all development dependencies can be installed via:
-
-```
-pip install -e ".[all]"
-```
-
-Note that uarray supports Python versions >= 3.5.
-
-### Testing
-
-Tests can be run from the main uarray directory as follows:
-
-```
-pytest
-```
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for more information on how to contribute to `uarray`.
