@@ -1,9 +1,6 @@
-try:
-    import torch
+import torch
 
-    from uarray.backend import TypeCheckBackend, register_backend
+from uarray.backend import TypeCheckBackend, register_backend
 
-    TorchBackend = TypeCheckBackend((torch.Tensor, tuple, list), convertor=torch.Tensor.new_tensor)
-    register_backend(TorchBackend)
-except ImportError:
-    pass
+TorchBackend = TypeCheckBackend((torch.Tensor,), convertor=torch.Tensor)
+register_backend(TorchBackend)

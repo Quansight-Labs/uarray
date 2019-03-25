@@ -180,27 +180,8 @@ def deregister_backend(backend: Backend):
     _backends.remove(backend)
 
 
-WrapperType = Callable[[Callable], Any]
-
-
-class DispatchAttribute:
-    def __init__(self, argument_extractor: ArgumentExtractorType,
-                 argument_replacer: ArgumentReplacerType, wrapper: Optional[WrapperType] = None):
-        self.argument_extractor: ArgumentExtractorType = argument_extractor
-        self.argument_replacer: ArgumentReplacerType = argument_replacer
-        self.wrapper: Optional[WrapperType] = wrapper
-
-
-def dispatch_attribute(argument_replacer: ArgumentReplacerType,
-                       wrapper: Optional[WrapperType] = None) -> Callable[[Callable], DispatchAttribute]:
-    def inner(argument_extractor: ArgumentExtractorType) -> DispatchAttribute:
-        return DispatchAttribute(argument_extractor, argument_replacer, wrapper)
-
-    return inner
-
-
-TypeLookupType = Dict[Backend, Any]
-
-
 class Dispatchable(metaclass=ABCMeta):
-    pass
+    def __init__(self):
+        if type(self) is Dispatchable:
+            raise RuntimeError('Do not instantiate this class directly. '
+                               'It is only meant to be inherited.')
