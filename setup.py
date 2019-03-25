@@ -3,6 +3,7 @@
 from setuptools import setup, find_packages
 import versioneer
 from pathlib import Path
+import sys
 
 
 def open_reqs_file(file, reqs_path=Path('.')):
@@ -27,6 +28,10 @@ reqs = []
 def parse_requires():
     reqs_path = Path('./requirements')
     reqs.extend(open_reqs_file('requirements.txt'))
+
+    if sys.version_info < (3, 7):
+        reqs.append('contextvars')
+
     for f in reqs_path.iterdir():
         extras_require[f.stem] = open_reqs_file(
             f.parts[-1], reqs_path=reqs_path)
