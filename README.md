@@ -93,25 +93,3 @@ Tests can be run from the main uarray directory as follows:
 ```
 pytest
 ```
-
-### Releases
-
-Make sure to update `pyproject.toml` and `.conda/meta.yaml` to the
-correct version on a new release.
-
-Flit makes `pypi` releases quite simple. Flit will use your
-`~/.pypirc` or environment variables `FLIT_USERNAME`, `FLIT_PASSWORD`,
-and `FLIT_INDEX`.
-
-```bash
-flit publish
-```
-
-Conda releases use the `.conda/meta.yaml` recipe.
-
-```bash
-conda install conda-build anaconda-client
-anaconda login
-conda build -c conda-forge .conda/
-anaconda upload --user uarray <path to conda build>
-```
