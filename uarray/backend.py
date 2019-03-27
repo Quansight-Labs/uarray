@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Dict, Tuple, Any, Set, Optional, Iterator
+from typing import Callable, Iterable, Dict, Tuple, Any, Set, Optional, Iterator, List
 from abc import ABCMeta, abstractmethod
 import inspect
 from contextvars import ContextVar
@@ -27,25 +27,38 @@ class MultiMethod:
     def __call__(self, *args, **kwargs):
         array_args = self.argument_extractor(*args, **kwargs)
 
-        for backend, coerce in _backend_order():
-            if coerce:
-                if self not in backend.methods:
-                    break
+        fallback_backends: List[Backend] = []
 
-                array_args = tuple(backend.convertor(arr) for arr in array_args)
-                args, kwargs = self.argument_replacer(args, kwargs, array_args)
+        for backend, coerce in _backend_order():
+            if self in backend.methods:
+                usable = backend.usable(array_args)
+
+                if usable is None or coerce is None:
+                    fallback_backends.append(backend)
+
+                if not usable and not coerce:
+                    continue
+
+                if coerce:
+                    array_args = tuple(backend.convertor(arg) for arg in array_args)
+                    args, kwargs = self.argument_replacer(args, kwargs, array_args)
+
                 result = backend.methods[self](self, args, kwargs)
 
                 if result is NotImplemented:
-                    break
+                    if coerce:
+                        break
+                    continue
 
                 return result
 
-            if self in backend.methods and backend.usable(array_args):
-                result = backend.methods[self](self, args, kwargs)
+        for backend in fallback_backends:
+            result = backend.methods[self](self, args, kwargs)
 
-                if result is not NotImplemented:
-                    return result
+            if result is NotImplemented:
+                continue
+
+            return result
 
         raise TypeError('No selected backends had an implementation for this method.')
 
@@ -98,45 +111,58 @@ class Backend(metaclass=ABCMeta):
         self._instances[multiinstance] = implementation
 
     @abstractmethod
-    def usable(self, array_args: Iterable) -> bool:
+    def usable(self, array_args: Iterable) -> Optional[bool]:
         pass
 
 
 _backends: Set[Backend] = set()
 
+BackendCoerceType = Tuple[Backend, Optional[bool]]
 
-def _backend_order() -> Iterator[Tuple[Backend, bool]]:
+
+def _backend_order() -> Iterator[BackendCoerceType]:
     pref = _preferred_backend.get()
 
-    if pref is not None:
-        yield (pref[0], bool(pref[1]))
-
+    yield from pref
     yield from itertools.product(_backends, (False,))
-
-    if pref is not None and pref[1] is None:
-        yield (pref[0], True)
 
 
 class TypeCheckBackend(Backend):
-    def __init__(self, types: Iterable[type], convertor: ConvertorType = None, allow_subclasses: bool = True):
+    def __init__(self, types: Iterable[type], convertor: ConvertorType = None, allow_subclasses: bool = True,
+                 fallback_types: Iterable[type] = (), allow_fallback_subclasses: Optional[bool] = None):
         self.types = tuple(types)
         self.allow_subclasses = allow_subclasses
+        self.fallback_types = tuple(fallback_types)
+        self.allow_fallback_subclasses = (allow_subclasses if allow_fallback_subclasses is None else
+                                          allow_fallback_subclasses)
         super().__init__(convertor)
 
-    def usable(self, array_args: Iterable) -> bool:
+    def usable(self, array_args: Iterable) -> Optional[bool]:
         if self.allow_subclasses:
-            return all(isinstance(arr, self.types) for arr in array_args if arr is not None)
+            usable = all(isinstance(arr, self.types) for arr in array_args if arr is not None)
         else:
-            return all(type(arr) in self.types for arr in array_args if arr is not None)
+            usable = all(type(arr) in self.types for arr in array_args if arr is not None)
+
+        if usable:
+            return True
+
+        if self.allow_fallback_subclasses:
+            fallback = all(isinstance(arr, self.fallback_types) for arr in array_args if arr is not None)
+        else:
+            fallback = all(type(arr) in self.fallback_types for arr in array_args if arr is not None)
+
+        if fallback:
+            return None
+
+        return False
 
 
-_preferred_backend: ContextVar[Optional[Tuple[Backend, Optional[bool]]]
-                               ] = ContextVar('_preferred_backend', default=None)
+_preferred_backend: ContextVar[Tuple[BackendCoerceType, ...]] = ContextVar('_preferred_backend', default=())
 
 
 class _SetBackend:
     def __init__(self, backend: Backend, coerce: Optional[bool] = None):
-        self.token = _preferred_backend.set((backend, coerce))
+        self.token = _preferred_backend.set(_preferred_backend.get() + ((backend, coerce),))
 
     def __enter__(self):
         pass
