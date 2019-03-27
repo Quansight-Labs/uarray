@@ -94,8 +94,8 @@ class Backend(metaclass=ABCMeta):
     def deregister_method(self, method: MultiMethod):
         del self._methods[method]
 
-    def register_instance(self, cls: InstanceStubType, implementation: InstanceType):
-        self._instances[cls] = implementation
+    def register_instance(self, multiinstance: InstanceStubType, implementation: InstanceType):
+        self._instances[multiinstance] = implementation
 
     @abstractmethod
     def usable(self, array_args: Iterable) -> bool:

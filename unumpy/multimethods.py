@@ -107,3 +107,5 @@ ufunc_list = [
 
 for ufunc_name in ufunc_list:
     globals()[ufunc_name] = UFunc()
+
+del ufunc_name
