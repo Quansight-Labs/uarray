@@ -1,5 +1,3 @@
-from collections.abc import Iterable, Iterator
-
 from uarray.backend import argument_extractor, Dispatchable
 
 
@@ -8,6 +6,12 @@ def _identity_argreplacer(args, kwargs, arrays):
 
 
 class UFunc(Dispatchable):
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return f"<ufunc '{self.name}'>"
+
     @property  # type: ignore
     @argument_extractor(_identity_argreplacer)
     def nin(self):
@@ -36,29 +40,25 @@ class UFunc(Dispatchable):
     def ntypes(self):
         return len(self.types)
 
-    @staticmethod
     def _ufunc_argreplacer(args, kwargs, arrays):
         self = args[0]
         args = args[1:]
-        in_args = arrays[:self.nin]
-        out_args = arrays[self.nin:]
+        in_arrays = arrays[:self.nin]
+        out_arrays = arrays[self.nin:]
+        if len(out_arrays) == 1:
+            out_arrays = out_arrays[0]
+        out_kwargs = {**kwargs, 'out': out_arrays}
 
-        out_args = in_args
-        out_kwargs = {**kwargs, 'out': out_args}
-
-        return out_args, out_kwargs
+        return (self, *in_arrays), out_kwargs
 
     @argument_extractor(_ufunc_argreplacer)
     def __call__(self, *args, out=None):
         in_args = tuple(args)
-        if not isinstance(out, (Iterable, Iterator)):
-            out_args = (out,)
-        else:
-            out_args = tuple(out)
+        if not isinstance(out, tuple):
+            out = (out,)
 
-        return in_args + out_args
+        return in_args + out
 
-    @staticmethod
     def _reduce_argreplacer(args, kwargs, arrays):
         out_args = list(args)
         out_args[1] = arrays[0]
@@ -106,6 +106,32 @@ ufunc_list = [
 ]
 
 for ufunc_name in ufunc_list:
-    globals()[ufunc_name] = UFunc()
+    globals()[ufunc_name] = UFunc(ufunc_name)
+
+
+@argument_extractor(_identity_argreplacer)
+def arange(start, stop, step, dtype=None):
+    return ()
+
+
+@argument_extractor(_identity_argreplacer)
+def array(object, dtype=None, copy=True, order='K', subok=False, ndmin=0):
+    return ()
+
+
+@argument_extractor(_identity_argreplacer)
+def zeros(shape, dtype=float, order='C'):
+    return ()
+
+
+@argument_extractor(_identity_argreplacer)
+def ones(shape, dtype=float, order='C'):
+    return ()
+
+
+@argument_extractor(_identity_argreplacer)
+def asarray(a, dtype=None, order=None):
+    return ()
+
 
 del ufunc_name

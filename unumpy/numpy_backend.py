@@ -1,5 +1,5 @@
 import numpy as np
-from uarray.backend import TypeCheckBackend, register_backend, instance_multimethod
+from uarray.backend import TypeCheckBackend, register_backend, instance_multimethod, multimethod
 from .multimethods import UFunc, ufunc_list
 import unumpy.multimethods as multimethods
 
@@ -16,3 +16,9 @@ instance_multimethod(NumpyBackend, UFunc.types.fget)(lambda x: x.types)
 for ufunc_name in ufunc_list:
     NumpyBackend.register_instance(getattr(multimethods, ufunc_name),
                                    getattr(np, ufunc_name))
+
+multimethod(NumpyBackend, multimethods.arange)(np.arange)
+multimethod(NumpyBackend, multimethods.array)(np.array)
+multimethod(NumpyBackend, multimethods.zeros)(np.zeros)
+multimethod(NumpyBackend, multimethods.ones)(np.ones)
+multimethod(NumpyBackend, multimethods.asarray)(np.asarray)

@@ -40,7 +40,8 @@ class MultiMethod:
                     continue
 
                 if coerce:
-                    array_args = tuple(backend.convertor(arg) for arg in array_args)
+                    array_args = tuple(backend.convertor(arg) if arg is not None else arg
+                                       for arg in array_args)
                     args, kwargs = self.argument_replacer(args, kwargs, array_args)
 
                 result = backend.methods[self](self, args, kwargs)
