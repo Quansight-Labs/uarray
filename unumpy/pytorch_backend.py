@@ -2,7 +2,7 @@ import unumpy.multimethods as multimethods
 from .multimethods import UFunc, ufunc_list
 import torch
 
-from uarray.backend import TypeCheckBackend, register_backend, instance_multimethod, multimethod
+from uarray.backend import TypeCheckBackend, register_backend, multimethod
 
 TorchBackend = TypeCheckBackend((torch.Tensor,), convertor=torch.tensor)
 register_backend(TorchBackend)
@@ -12,7 +12,7 @@ class PyTorchUfunc:
     def __init__(self, func):
         self.func = func
 
-    @instance_multimethod(TorchBackend, UFunc.__call__)
+    @multimethod(TorchBackend, UFunc.__call__)
     def __call__(self, *args, **kwargs):
         return self.func(*args, **kwargs)
 

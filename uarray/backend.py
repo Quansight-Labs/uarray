@@ -1,12 +1,15 @@
-from typing import Callable, Iterable, Dict, Tuple, Any, Set, Optional, Iterator, List
+from typing import Callable, Iterable, Dict, Tuple, Any, Set, Optional, Iterator, List, Type
 from abc import ABCMeta, abstractmethod
 import inspect
 from contextvars import ContextVar
 import itertools
-import functools
 
 ArgumentExtractorType = Callable[..., Tuple]
 ArgumentReplacerType = Callable[[Tuple, Dict, Tuple], Tuple[Tuple, Dict]]
+
+
+class BackendNotImplementedError(TypeError):
+    pass
 
 
 class MultiMethod:
@@ -30,7 +33,7 @@ class MultiMethod:
         fallback_backends: List[Backend] = []
 
         for backend, coerce in _backend_order():
-            if self in backend.methods:
+            if self.argument_extractor in backend.methods:
                 usable = backend.usable(array_args)
 
                 if usable is None or coerce is None:
@@ -40,11 +43,9 @@ class MultiMethod:
                     continue
 
                 if coerce:
-                    array_args = tuple(backend.convertor(arg) if arg is not None else arg
-                                       for arg in array_args)
-                    args, kwargs = self.argument_replacer(args, kwargs, array_args)
+                    args, kwargs = self.replace_arrays(backend, args, kwargs)
 
-                result = backend.methods[self](self, args, kwargs)
+                result = self._try_backend(backend, args, kwargs)
 
                 if result is NotImplemented:
                     if coerce:
@@ -52,21 +53,54 @@ class MultiMethod:
                     continue
 
                 return result
+            elif coerce:
+                fallback_backends = []
+                break
 
         for backend in fallback_backends:
-            result = backend.methods[self](self, args, kwargs)
+            result = self._try_backend(backend, args, kwargs)
 
             if result is NotImplemented:
                 continue
 
             return result
 
-        raise TypeError('No selected backends had an implementation for this method.')
+        raise BackendNotImplementedError('No selected backends had an implementation for this method.')
 
     def __get__(self, instance, owner):
         if instance is None:
             return self
-        return functools.partial(self.__call__, instance)
+        return BoundMultiMethod(self, instance, owner)
+
+    def _try_backend(self, backend, args, kwargs):
+        return backend.methods[self.argument_extractor](self, args, kwargs)
+
+    def replace_arrays(self, backend, args, kwargs):
+        array_args = self.argument_extractor(*args, **kwargs)
+        array_args = tuple(backend.convertor(arg) if arg is not None else arg
+                           for arg in array_args)
+        return self.argument_replacer(args, kwargs, array_args)
+
+
+class BoundMultiMethod(MultiMethod):
+    def __init__(self, method: MultiMethod, instance: Any, owner: Type):
+        self.method = method
+        self.instance = instance
+        self.owner = owner
+        argument_extractor = method.argument_extractor
+        argument_replacer = method.argument_replacer
+
+        super().__init__(argument_extractor, argument_replacer)
+
+    def __call__(self, *args, **kwargs):
+        return super().__call__(self.instance, *args, **kwargs)
+
+    def _try_backend(self, backend, args, kwargs):
+        if self.instance not in backend.instances:
+            return super()._try_backend(backend, args, kwargs)
+
+        backend_instance = backend.instances[self.instance]
+        return super()._try_backend(backend, (backend_instance, *args[1:]), kwargs)
 
 
 def argument_extractor(reverse_dispatcher: ArgumentReplacerType) -> Callable[[ArgumentExtractorType], MultiMethod]:
@@ -77,7 +111,7 @@ def argument_extractor(reverse_dispatcher: ArgumentReplacerType) -> Callable[[Ar
 
 
 ImplementationType = Callable[[MultiMethod, Iterable, Dict], Any]
-MethodLookupType = Dict[MultiMethod, ImplementationType]
+MethodLookupType = Dict[ArgumentExtractorType, ImplementationType]
 InstanceType = Any
 InstanceStubType = Any
 InstanceLookupType = Dict[InstanceStubType, InstanceType]
@@ -103,10 +137,10 @@ class Backend(metaclass=ABCMeta):
         return self._convertor
 
     def register_method(self, method: MultiMethod, implementation: ImplementationType):
-        self._methods[method] = implementation
+        self._methods[method.argument_extractor] = implementation
 
     def deregister_method(self, method: MultiMethod):
-        del self._methods[method]
+        del self._methods[method.argument_extractor]
 
     def register_instance(self, multiinstance: InstanceStubType, implementation: InstanceType):
         self._instances[multiinstance] = implementation
@@ -179,18 +213,6 @@ def multimethod(backend: Backend, method: MultiMethod):
     def wrapper(func):
         def inner(method, args, kwargs):
             return func(*args, **kwargs)
-
-        backend.register_method(method, inner)
-
-        return func
-
-    return wrapper
-
-
-def instance_multimethod(backend: Backend, method: MultiMethod):
-    def wrapper(func):
-        def inner(method, args, kwargs):
-            return func(backend.instances[args[0]], *args[1:], **kwargs)
 
         backend.register_method(method, inner)
 

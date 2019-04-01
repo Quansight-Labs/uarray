@@ -22,7 +22,7 @@ def open_reqs_file(file, reqs_path=Path('.')):
 
 
 extras_require = {}
-reqs = []
+reqs: list = []
 
 
 def parse_requires():
@@ -62,7 +62,6 @@ setup(
     ),
     long_description=long_desc,
     install_requires=reqs,
-    extras_require=extras_require,
     zip_safe=False,
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',

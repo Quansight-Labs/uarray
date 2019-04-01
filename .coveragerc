@@ -4,6 +4,6 @@ source =
     uarray
 [report]
 omit =
-    **/test/
+    **/tests/
     docs/
     uarray/_version.py
