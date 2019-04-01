@@ -8,13 +8,13 @@ steps:
     displayName: Prepare conda
 
   - script: |
-      source activate myEnvironment
+      source activate uarray
       conda install --yes -c xnd/label/dev gumath
       pip install -e .[all]
     displayName: Install package
 
   - script: |
-      source activate myEnvironment
+      source activate uarray
       pytest
     displayName: Run tests
 
