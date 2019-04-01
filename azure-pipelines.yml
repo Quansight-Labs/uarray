@@ -2,18 +2,20 @@ pool:
   vmImage: "Ubuntu 16.04"
 
 steps:
-  - task: CondaEnvironment@1
-    inputs:
-      environmentName: uarray
-      packageSpecs: 'python=3.7'
-      updateConda: true
-      
   - script: |
+      echo "##vso[task.prependpath]$CONDA/bin"
+      conda create --yes --quiet --name uarray python=3.7
+    displayName: Prepare conda
+
+  - script: |
+      source activate uarray
       conda install --yes -c xnd/label/dev gumath
       pip install -e .[all]
     displayName: Install package
 
-  - script: pytest
+  - script: |
+      source activate uarray
+      pytest
     displayName: Run tests
 
   - task: PublishTestResults@2
