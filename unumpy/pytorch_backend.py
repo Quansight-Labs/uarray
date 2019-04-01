@@ -8,13 +8,38 @@ TorchBackend = TypeCheckBackend((torch.Tensor,), convertor=torch.tensor)
 register_backend(TorchBackend)
 
 
-class PyTorchUfunc:
-    def __init__(self, func):
-        self.func = func
+class PyTorchUfunc(TypeCheckBackend):
+    def __init__(self):
+        super().__init__(TorchBackend.types, TorchBackend._convertor)
 
     @multimethod(TorchBackend, UFunc.__call__)
     def __call__(self, *args, **kwargs):
-        return self.func(*args, **kwargs)
+        return NotImplemented
+
+    @multimethod(TorchBackend, UFunc.reduce)
+    def reduce(self, *args, **kwargs):
+        return NotImplemented
+
+
+_reduce_mapping = {
+    'add': torch.sum,
+    'multiply': torch.prod,
+    'minimum': torch.min,
+    'maximum': torch.max,
+}
+
+
+def dummy_reduce(torch_name):
+    def reduce(a, axis=0, dtype=None, out=None, keepdims=False):
+        if out is not None:
+            return NotImplemented
+
+        if axis is None:
+            axis = tuple(range(a.dim()))
+
+        return _reduce_mapping[torch_name](a, dim=axis, keepdim=keepdims)
+
+    return reduce
 
 
 for ufunc_name in ufunc_list:
@@ -24,9 +49,14 @@ for ufunc_name in ufunc_list:
         torch_name = ufunc_name
 
     if hasattr(torch, torch_name):
-        temp = PyTorchUfunc(getattr(torch, torch_name))
+        temp = PyTorchUfunc()
         TorchBackend.register_instance(getattr(multimethods, ufunc_name),
                                        temp)
+
+        multimethod(temp, UFunc.__call__)(getattr(torch, torch_name))
+
+        if torch_name in _reduce_mapping:
+            multimethod(temp, UFunc.reduce)(dummy_reduce(torch_name))
 
 multimethod(TorchBackend, multimethods.arange)(torch.arange)
 multimethod(TorchBackend, multimethods.array)(torch.tensor)

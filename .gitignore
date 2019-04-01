@@ -18,3 +18,4 @@ docs/_build
 pytype_output
 htmlcov/
 *.egg-info/
+sandbox.py

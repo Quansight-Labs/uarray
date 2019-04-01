@@ -233,4 +233,28 @@ def asarray(a, dtype=None, order=None):
     return ()
 
 
+def sum(a, axis=None, dtype=None, out=None, keepdims=False):
+    return globals()['add'].reduce(a, axis=axis, dtype=dtype, out=out, keepdims=keepdims)
+
+
+def prod(a, axis=None, dtype=None, out=None, keepdims=False):
+    return globals()['multiply'].reduce(a, axis=axis, dtype=dtype, out=out, keepdims=keepdims)
+
+
+def min(a, axis=None, dtype=None, out=None, keepdims=False):
+    return globals()['minimum'].reduce(a, axis=axis, dtype=dtype, out=out, keepdims=keepdims)
+
+
+def max(a, axis=None, dtype=None, out=None, keepdims=False):
+    return globals()['maximum'].reduce(a, axis=axis, dtype=dtype, out=out, keepdims=keepdims)
+
+
+def any(a, axis=None, dtype=None, out=None, keepdims=False):
+    return globals()['logical_or'].reduce(a, axis=axis, dtype=dtype, out=out, keepdims=keepdims)
+
+
+def all(a, axis=None, dtype=None, out=None, keepdims=False):
+    return globals()['logical_and'].reduce(a, axis=axis, dtype=dtype, out=out, keepdims=keepdims)
+
+
 del ufunc_name

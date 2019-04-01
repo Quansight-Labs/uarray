@@ -34,16 +34,17 @@ class MultiMethod:
 
         for backend, coerce in _backend_order():
             if self.argument_extractor in backend.methods:
-                usable = backend.usable(array_args)
+                if coerce:
+                    args, kwargs = self.replace_arrays(backend, args, kwargs)
+                    usable = True
+                else:
+                    usable = backend.usable(array_args)
 
                 if usable is None or coerce is None:
                     fallback_backends.append(backend)
 
-                if not usable and not coerce:
+                if not usable:
                     continue
-
-                if coerce:
-                    args, kwargs = self.replace_arrays(backend, args, kwargs)
 
                 result = self._try_backend(backend, args, kwargs)
 
@@ -100,6 +101,9 @@ class BoundMultiMethod(MultiMethod):
             return super()._try_backend(backend, args, kwargs)
 
         backend_instance = backend.instances[self.instance]
+        if isinstance(backend_instance, Backend) and self.argument_extractor in backend_instance.methods:
+            return super()._try_backend(backend_instance, args[1:], kwargs)
+
         return super()._try_backend(backend, (backend_instance, *args[1:]), kwargs)
 
 
