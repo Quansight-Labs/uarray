@@ -22,7 +22,7 @@ Note that uarray supports Python versions >= 3.5. If you're running `conda` and 
 pulled from there, use
 
 ```
-conda env create -f ./environment.yml
+conda env create -f .meta/environment.yml
 ```
 
 This will create an environment named `uarray` which you can use for development.
