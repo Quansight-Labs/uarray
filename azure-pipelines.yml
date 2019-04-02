@@ -4,7 +4,7 @@ pool:
 steps:
   - script: |
       echo "##vso[task.prependpath]$CONDA/bin"
-      conda env create -f ./environment.yml
+      conda env create -f --yes ./environment.yml
     displayName: Prepare conda
 
   - script: |
