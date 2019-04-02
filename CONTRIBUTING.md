@@ -18,7 +18,14 @@ git clone https://github.com/<your-github-username>/uarray
 pip install -e ".[all]"
 ```
 
-Note that uarray supports Python versions >= 3.5.
+Note that uarray supports Python versions >= 3.5. If you're running `conda` and would prefer to have dependencies
+pulled from there, use
+
+```
+conda env create -f ./environment.yml
+```
+
+This will create an environment named `uarray` which you can use for development.
 
 ## Testing
 

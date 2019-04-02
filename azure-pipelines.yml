@@ -4,12 +4,11 @@ pool:
 steps:
   - script: |
       echo "##vso[task.prependpath]$CONDA/bin"
-      conda create --yes --quiet --name uarray python=3.7
+      conda env create -f ./environment.yml
     displayName: Prepare conda
 
   - script: |
       source activate uarray
-      conda install --yes -c xnd/label/dev gumath
       pip install -e .[all]
     displayName: Install package
 
