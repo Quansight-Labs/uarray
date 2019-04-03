@@ -201,7 +201,7 @@ _preferred_backend: ContextVar[Tuple[BackendCoerceType, ...]] = ContextVar('_pre
 
 class _SetBackend:
     def __init__(self, backend: Backend, coerce: Optional[bool] = None):
-        self.token = _preferred_backend.set(_preferred_backend.get() + ((backend, coerce),))
+        self.token = _preferred_backend.set(((backend, coerce),) + _preferred_backend.get())
 
     def __enter__(self):
         pass
