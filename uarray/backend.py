@@ -161,9 +161,9 @@ BackendCoerceType = Tuple[Backend, Optional[bool]]
 
 def _backend_order() -> Iterator[BackendCoerceType]:
     pref = _preferred_backend.get()
+    skip = _skipped_backend.get()
 
-    yield from pref
-    yield from itertools.product(_backends, (False,))
+    yield from filter(lambda x: x[0] not in skip, itertools.chain(pref, itertools.product(_backends, (False,))))
 
 
 class TypeCheckBackend(Backend):
@@ -197,6 +197,7 @@ class TypeCheckBackend(Backend):
 
 
 _preferred_backend: ContextVar[Tuple[BackendCoerceType, ...]] = ContextVar('_preferred_backend', default=())
+_skipped_backend: ContextVar[Set[Backend]] = ContextVar('_skipped_backend', default=set())
 
 
 class _SetBackend:
@@ -210,7 +211,21 @@ class _SetBackend:
         _preferred_backend.reset(self.token)
 
 
+class _SkipBackend:
+    def __init__(self, backend: Backend):
+        new_skipped = set(_skipped_backend.get())
+        new_skipped.add(backend)
+        self.token = _skipped_backend.set(new_skipped)
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        _skipped_backend.reset(self.token)
+
+
 set_backend = _SetBackend
+skip_backend = _SkipBackend
 
 
 def multimethod(backend: Backend, method: MultiMethod):
