@@ -1,10 +1,11 @@
-from typing import Callable, Iterable, Dict, Tuple, Any, Set, Optional, Iterator, List, Type
+from typing import Callable, Iterable, Dict, Tuple, Any, Set, Optional, Iterator, List, Type, Union
 from abc import ABCMeta, abstractmethod
 import inspect
 from contextvars import ContextVar
 import itertools
+import functools
 
-ArgumentExtractorType = Callable[..., Tuple]
+ArgumentExtractorType = Callable[..., Tuple["DispatchableInstance", ...]]
 ArgumentReplacerType = Callable[[Tuple, Dict, Tuple], Tuple[Tuple, Dict]]
 
 
@@ -28,17 +29,13 @@ class MultiMethod:
         return repr(self.argument_extractor)
 
     def __call__(self, *args, **kwargs):
-        array_args = self.argument_extractor(*args, **kwargs)
-
         fallback_backends: List[Backend] = []
 
         for backend, coerce in _backend_order():
-            if self.argument_extractor in backend.methods:
-                if coerce:
-                    args, kwargs = self.replace_arrays(backend, args, kwargs)
-                    usable = True
-                else:
-                    usable = backend.usable(array_args)
+            if self.argument_extractor in backend.dispatch_methods:
+                current_args, current_kwargs, dispatchable_args = self.replace_dispatchables(
+                    backend, args, kwargs, coerce=coerce)
+                usable = coerce or backend.usable(dispatchable_args)
 
                 if usable is None or coerce is None:
                     fallback_backends.append(backend)
@@ -46,7 +43,7 @@ class MultiMethod:
                 if not usable:
                     continue
 
-                result = self._try_backend(backend, args, kwargs)
+                result = self._try_backend(backend, current_args, current_kwargs)
 
                 if result is NotImplemented:
                     if coerce:
@@ -59,7 +56,9 @@ class MultiMethod:
                 break
 
         for backend in fallback_backends:
-            result = self._try_backend(backend, args, kwargs)
+            current_args, current_kwargs, dispatchable_args = self.replace_dispatchables(
+                backend, args, kwargs, coerce=True)
+            result = self._try_backend(backend, current_args, current_kwargs)
 
             if result is NotImplemented:
                 continue
@@ -73,14 +72,32 @@ class MultiMethod:
             return self
         return BoundMultiMethod(self, instance, owner)
 
-    def _try_backend(self, backend, args, kwargs):
-        return backend.methods[self.argument_extractor](self, args, kwargs)
+    def _try_backend(self, backend: "Backend", args: Tuple, kwargs: Dict):
+        return backend.dispatch_methods[self.argument_extractor](self, args, kwargs)
 
-    def replace_arrays(self, backend, args, kwargs):
-        array_args = self.argument_extractor(*args, **kwargs)
-        array_args = tuple(backend.convertor(arg) if arg is not None else arg
-                           for arg in array_args)
-        return self.argument_replacer(args, kwargs, array_args)
+    def replace_dispatchables(self, backend: "Backend", args, kwargs, coerce: Optional[bool] = False):
+        dispatchable_args = self.argument_extractor(*args, **kwargs)
+        replaced_args = tuple(self._replace_single(backend, arg, coerce=coerce) for arg in dispatchable_args)
+        return (*self.argument_replacer(args, kwargs, replaced_args), dispatchable_args)
+
+    def _replace_single(self, backend: "Backend", arg: Union["DispatchableInstance", Any],
+                        coerce: Optional[bool] = False):
+        if not isinstance(arg, DispatchableInstance):
+            return arg
+
+        arg_type = arg.dispatch_type
+
+        if coerce:
+            if arg.value is None:
+                return None
+
+            for try_type in arg_type.__mro__:
+                if try_type in backend.convertors:
+                    return backend.convertors[try_type](arg.value)
+
+            raise BackendNotImplementedError('No selected backends had an implementation for this method.')
+
+        return arg.value
 
 
 class BoundMultiMethod(MultiMethod):
@@ -96,16 +113,6 @@ class BoundMultiMethod(MultiMethod):
     def __call__(self, *args, **kwargs):
         return super().__call__(self.instance, *args, **kwargs)
 
-    def _try_backend(self, backend, args, kwargs):
-        if self.instance not in backend.instances:
-            return super()._try_backend(backend, args, kwargs)
-
-        backend_instance = backend.instances[self.instance]
-        if isinstance(backend_instance, Backend) and self.argument_extractor in backend_instance.methods:
-            return super()._try_backend(backend_instance, args[1:], kwargs)
-
-        return super()._try_backend(backend, (backend_instance, *args[1:]), kwargs)
-
 
 def argument_extractor(reverse_dispatcher: ArgumentReplacerType) -> Callable[[ArgumentExtractorType], MultiMethod]:
     def inner(dispatcher: ArgumentExtractorType) -> MultiMethod:
@@ -115,42 +122,34 @@ def argument_extractor(reverse_dispatcher: ArgumentReplacerType) -> Callable[[Ar
 
 
 ImplementationType = Callable[[MultiMethod, Iterable, Dict], Any]
-MethodLookupType = Dict[ArgumentExtractorType, ImplementationType]
-InstanceType = Any
 InstanceStubType = Any
-InstanceLookupType = Dict[InstanceStubType, InstanceType]
-ConvertorType = Callable[[Any], Any]
+ConvertorType = Callable[["DispatchableInstance"], Any]
+MethodLookupType = Dict[ArgumentExtractorType, ImplementationType]
+TypeLookupType = Dict[Type["DispatchableType"], ConvertorType]
+InstanceLookupType = Dict["DispatchableInstance", InstanceStubType]
 
 
 class Backend(metaclass=ABCMeta):
-    def __init__(self, convertor: ConvertorType = None):
-        self._methods: MethodLookupType = {}
-        self._instances: InstanceLookupType = {}
-        self._convertor = convertor
+    def __init__(self):
+        self._dispatch_methods: MethodLookupType = {}
+        self._convertors: TypeLookupType = {}
 
     @property
-    def methods(self):
-        return self._methods
+    def dispatch_methods(self):
+        return self._dispatch_methods
 
     @property
-    def instances(self):
-        return self._instances
-
-    @property
-    def convertor(self):
-        return self._convertor
+    def convertors(self):
+        return self._convertors
 
     def register_method(self, method: MultiMethod, implementation: ImplementationType):
-        self._methods[method.argument_extractor] = implementation
+        self._dispatch_methods[method.argument_extractor] = implementation
 
-    def deregister_method(self, method: MultiMethod):
-        del self._methods[method.argument_extractor]
-
-    def register_instance(self, multiinstance: InstanceStubType, implementation: InstanceType):
-        self._instances[multiinstance] = implementation
+    def register_convertor(self, dispatch_type: Type["DispatchableType"], convertor: ConvertorType):
+        self._convertors[dispatch_type] = convertor
 
     @abstractmethod
-    def usable(self, array_args: Iterable) -> Optional[bool]:
+    def usable(self, dispatchable_args: Tuple["DispatchableInstance"]) -> Optional[bool]:
         pass
 
 
@@ -167,28 +166,31 @@ def _backend_order() -> Iterator[BackendCoerceType]:
 
 
 class TypeCheckBackend(Backend):
-    def __init__(self, types: Iterable[type], convertor: ConvertorType = None, allow_subclasses: bool = True,
+    def __init__(self, types: Iterable[type], allow_subclasses: bool = True,
                  fallback_types: Iterable[type] = (), allow_fallback_subclasses: Optional[bool] = None):
         self.types = tuple(types)
         self.allow_subclasses = allow_subclasses
-        self.fallback_types = tuple(fallback_types)
+        self.fallback_types = tuple((*fallback_types, *types))
         self.allow_fallback_subclasses = (allow_subclasses if allow_fallback_subclasses is None else
                                           allow_fallback_subclasses)
-        super().__init__(convertor)
+        super().__init__()
 
-    def usable(self, array_args: Iterable) -> Optional[bool]:
+    def usable(self, dispatchable_args: Tuple["DispatchableInstance"]) -> Optional[bool]:
+        args = tuple(map(lambda x: x.value if isinstance(x, DispatchableInstance) else x, dispatchable_args))
+
         if self.allow_subclasses:
-            usable = all(isinstance(arr, self.types) for arr in array_args if arr is not None)
+            usable = all(isinstance(arr, self.types) for arr in args if arr is not None)
         else:
-            usable = all(type(arr) in self.types for arr in array_args if arr is not None)
+            usable = all(type(arr) in self.types for arr in args if arr is not None)
 
         if usable:
             return True
 
         if self.allow_fallback_subclasses:
-            fallback = all(isinstance(arr, self.fallback_types) for arr in array_args if arr is not None)
+            fallback = all(isinstance(arr, self.fallback_types)
+                           for arr in args if arr is not None)
         else:
-            fallback = all(type(arr) in self.fallback_types for arr in array_args if arr is not None)
+            fallback = all(type(arr) in self.fallback_types for arr in args if arr is not None)
 
         if fallback:
             return None
@@ -248,8 +250,40 @@ def deregister_backend(backend: Backend):
     _backends.remove(backend)
 
 
-class Dispatchable(metaclass=ABCMeta):
+class DispatchableInstance:
+    def __init__(self, dispatch_type: Union["DispatchableInstance", Type["DispatchableType"]],
+                 value: Optional[Any] = None):
+        if isinstance(dispatch_type, DispatchableInstance):
+            self._type: Type[DispatchableType] = dispatch_type._type
+            self._value = value
+            return
+
+        self._type: Type[DispatchableType] = dispatch_type
+        self._value = value
+
+    @property
+    def dispatch_type(self):
+        return self._type
+
+    @property
+    def value(self):
+        return self._value
+
+
+class DispatchableType:
     def __init__(self):
-        if type(self) is Dispatchable:
-            raise RuntimeError('Do not instantiate this class directly. '
-                               'It is only meant to be inherited.')
+        if type(self) is DispatchableType:
+            raise RuntimeError('Do not instantiate this class directly, '
+                               'only through the metaclass DispatchableType.')
+
+
+def all_of_type(arg_type: Type[DispatchableType]):
+    def outer(func):
+        @functools.wraps(func)
+        def inner(*args, **kwargs):
+            extracted_args = func(*args, **kwargs)
+            return tuple(DispatchableInstance(arg_type, arg) for arg in extracted_args)
+
+        return inner
+
+    return outer

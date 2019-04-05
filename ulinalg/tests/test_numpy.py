@@ -1,6 +1,7 @@
 import pytest
 import ulinalg as ula
 import uarray as ua
+from ulinalg.numpy_backend import NumpyBackend
 
 np = pytest.importorskip('numpy')
 
@@ -36,7 +37,7 @@ def test_coercion_optional():
 
     arr = A()
 
-    with ua.set_backend(ula.numpy_backend.NumpyBackend, coerce=None):
+    with ua.set_backend(NumpyBackend, coerce=None):
         assert isinstance(ula.svd(arr, compute_uv=False), np.ndarray)
 
     with pytest.raises(TypeError):

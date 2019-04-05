@@ -1,11 +1,15 @@
-from uarray.backend import argument_extractor, Dispatchable
+from uarray.backend import argument_extractor, DispatchableType, all_of_type
 
 
 def _identity_argreplacer(args, kwargs, arrays):
     return args, kwargs
 
 
-class UFunc(Dispatchable):
+class ndarray(DispatchableType):
+    pass
+
+
+class ufunc(DispatchableType):
     def __init__(self, name, nin, nout):
         self.name = name
         self._nin = nin
@@ -53,6 +57,7 @@ class UFunc(Dispatchable):
         return (self, *in_arrays), out_kwargs
 
     @argument_extractor(_ufunc_argreplacer)
+    @all_of_type(ndarray)
     def __call__(self, *args, out=None):
         in_args = tuple(args)
         if not isinstance(out, tuple):
@@ -69,10 +74,12 @@ class UFunc(Dispatchable):
         return tuple(out_args), out_kwargs
 
     @argument_extractor(_reduce_argreplacer)
+    @all_of_type(ndarray)
     def reduce(self, a, axis=0, dtype=None, out=None, keepdims=False):
         return (a, out)
 
     @argument_extractor(_reduce_argreplacer)
+    @all_of_type(ndarray)
     def accumulate(self, a, axis=0, dtype=None, out=None):
         return (a, out)
 
@@ -205,7 +212,7 @@ _args_mapper = {
 }
 
 for ufunc_name in ufunc_list:
-    globals()[ufunc_name] = UFunc(ufunc_name, *_args_mapper[ufunc_name])
+    globals()[ufunc_name] = ufunc(ufunc_name, *_args_mapper[ufunc_name])
 
 
 @argument_extractor(_identity_argreplacer)

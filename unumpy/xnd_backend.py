@@ -2,27 +2,44 @@ import xnd
 import gumath.functions as fn
 import gumath as gu
 import unumpy.multimethods as multimethods
-from .multimethods import UFunc, ufunc_list
+from .multimethods import ufunc, ufunc_list, ndarray
+from typing import Dict
+import functools
 
 from uarray.backend import TypeCheckBackend, register_backend, multimethod
 
-XndBackend = TypeCheckBackend((xnd.xnd,), convertor=xnd.array)
+XndBackend = TypeCheckBackend((xnd.xnd,))
 register_backend(XndBackend)
 
+_ufunc_mapping: Dict[ufunc, gu.gufunc] = {}
 
-@multimethod(XndBackend, UFunc.reduce)
+
+def replace_self(func):
+    @functools.wraps(func)
+    def inner(self, *args, **kwargs):
+        if self not in _ufunc_mapping:
+            return NotImplemented
+
+        return func(_ufunc_mapping[self], *args, **kwargs)
+
+    return inner
+
+
+@multimethod(XndBackend, ufunc.reduce)
+@replace_self
 def reduce_(self, a, axis=0, dtype=None, out=None, keepdims=False):
-    if out is not None or not isinstance(self, gu.gufunc):
+    if out is not None:
         return NotImplemented
     return gu.reduce(self, a, axes=axis, dtype=dtype)
 
 
-multimethod(XndBackend, UFunc.__call__)(gu.gufunc.__call__)
+multimethod(XndBackend, ufunc.__call__)(replace_self(gu.gufunc.__call__))
 
 for ufunc_name in ufunc_list:
     if hasattr(fn, ufunc_name):
-        XndBackend.register_instance(getattr(multimethods, ufunc_name),
-                                     getattr(fn, ufunc_name))
+        _ufunc_mapping[getattr(multimethods, ufunc_name)] = getattr(fn, ufunc_name)
 
 multimethod(XndBackend, multimethods.array)(xnd.array)
-multimethod(XndBackend, multimethods.asarray)(xnd.array.from_buffer)
+multimethod(XndBackend, multimethods.asarray)(xnd.array)
+
+XndBackend.register_convertor(ndarray, xnd.array)

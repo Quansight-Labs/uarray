@@ -26,7 +26,7 @@ def dummy_method(dummy_backend):
 
 @pytest.fixture(scope='function')
 def dummy_backend():
-    backend = TypeCheckBackend((DummyClass,), DummyClass)
+    backend = TypeCheckBackend((DummyClass,))
     register_backend(backend)
     yield backend
     deregister_backend(backend)
@@ -39,11 +39,7 @@ def test_normal(dummy_backend, dummy_method):
         implementation_called[0] = True
 
     dummy_backend.register_method(dummy_method, implementation)
-
-    try:
-        dummy_method(DummyClass())
-    finally:
-        dummy_backend.deregister_method(dummy_method)
+    dummy_method(DummyClass())
 
     assert implementation_called[0]
 
@@ -77,7 +73,7 @@ def test_subclasses(dummy_backend, dummy_method):
 
     dummy_backend.register_method(dummy_method, implementation)
     dummy_method(InheritedClass())
-    dummy_backend.allow_subclasses = False
+    dummy_backend.__init__((DummyClass,), allow_subclasses=False)
 
     with pytest.raises(BackendNotImplementedError):
         dummy_method(InheritedClass())

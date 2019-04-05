@@ -1,5 +1,6 @@
 import unumpy as np
 import torch
+import unumpy.pytorch_backend
 
 
 def test_add():

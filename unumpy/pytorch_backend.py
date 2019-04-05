@@ -1,45 +1,54 @@
 import unumpy.multimethods as multimethods
-from .multimethods import UFunc, ufunc_list
+from .multimethods import ufunc, ufunc_list, ndarray
 import torch
+from typing import Dict, Callable
 
 from uarray.backend import TypeCheckBackend, register_backend, multimethod
 
-TorchBackend = TypeCheckBackend((torch.Tensor,), convertor=torch.tensor)
+TorchBackend = TypeCheckBackend((torch.Tensor,))
 register_backend(TorchBackend)
 
 
-class PyTorchUfunc(TypeCheckBackend):
-    def __init__(self):
-        super().__init__(TorchBackend.types, TorchBackend._convertor)
-
-    @multimethod(TorchBackend, UFunc.__call__)
-    def __call__(self, *args, **kwargs):
-        return NotImplemented
-
-    @multimethod(TorchBackend, UFunc.reduce)
-    def reduce(self, *args, **kwargs):
-        return NotImplemented
-
-
 _reduce_mapping = {
-    'add': torch.sum,
-    'multiply': torch.prod,
-    'minimum': torch.min,
-    'maximum': torch.max,
+    multimethods.add: torch.sum,  # type: ignore
+    multimethods.multiply: torch.prod,  # type: ignore
+    multimethods.minimum: torch.min,  # type: ignore
+    multimethods.maximum: torch.max,  # type: ignore
 }
 
+_ufunc_mapping: Dict[ufunc, Callable] = {}
 
-def dummy_reduce(torch_name):
-    def reduce(a, axis=0, dtype=None, out=None, keepdims=False):
+
+@multimethod(TorchBackend, ufunc.__call__)
+def __call__(self, *args, out=None):
+    if self not in _ufunc_mapping:
+        return NotImplemented
+    return _ufunc_mapping[self](*args, out=out)
+
+
+@multimethod(TorchBackend, ufunc.reduce)
+def reduce(self, a, axis=0, dtype=None, out=None, keepdims=False):
+    if self not in _reduce_mapping:
+        return NotImplemented
+
+    if axis is None:
+        axis = tuple(range(a.dim()))
+
+    if isinstance(axis, tuple):
+        ret = a
+        for dim in tuple(reversed(sorted(axis))):
+            ret = _reduce_mapping[self](ret, dim=dim, keepdim=keepdims)
+
+            if isinstance(ret, tuple):
+                ret = ret[0]
+
         if out is not None:
-            return NotImplemented
+            out[...] = ret
+            return out
 
-        if axis is None:
-            axis = tuple(range(a.dim()))
+        return ret
 
-        return _reduce_mapping[torch_name](a, dim=axis, keepdim=keepdims)
-
-    return reduce
+    return _reduce_mapping[self](a, dim=axis, keepdim=keepdims, out=out)
 
 
 for ufunc_name in ufunc_list:
@@ -49,14 +58,7 @@ for ufunc_name in ufunc_list:
         torch_name = ufunc_name
 
     if hasattr(torch, torch_name):
-        temp = PyTorchUfunc()
-        TorchBackend.register_instance(getattr(multimethods, ufunc_name),
-                                       temp)
-
-        multimethod(temp, UFunc.__call__)(getattr(torch, torch_name))
-
-        if torch_name in _reduce_mapping:
-            multimethod(temp, UFunc.reduce)(dummy_reduce(torch_name))
+        _ufunc_mapping[getattr(multimethods, ufunc_name)] = getattr(torch, torch_name)
 
 multimethod(TorchBackend, multimethods.arange)(torch.arange)
 multimethod(TorchBackend, multimethods.array)(torch.tensor)
@@ -66,15 +68,12 @@ multimethod(TorchBackend, multimethods.array)(torch.tensor)
 def asarray(a, dtype=None, order=None):
     if torch.is_tensor(a):
         if a.dtype != dtype:
-            return torch.tensor(a, dtype=dtype)
-        else:
-            ret = a.detach()
+            ret = torch.tensor(a, dtype=dtype)
+            if a.requires_grad:
+                ret.requires_grad_()
+            return ret
 
-        if a.requires_grad:
-            ret.requires_grad_()
-
-        return ret
-
+        return a
     try:
         import numpy as np
 
@@ -88,3 +87,4 @@ def asarray(a, dtype=None, order=None):
 
 multimethod(TorchBackend, multimethods.zeros)(torch.zeros)
 multimethod(TorchBackend, multimethods.ones)(torch.ones)
+TorchBackend.register_convertor(ndarray, asarray)
