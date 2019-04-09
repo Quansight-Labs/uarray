@@ -5,6 +5,24 @@ def _identity_argreplacer(args, kwargs, arrays):
     return args, kwargs
 
 
+def _ureduce_argreplacer(args, kwargs, arrays):
+    out_args = list(args)
+    out_args[1] = arrays[0]
+
+    out_kwargs = {**kwargs, 'out': arrays[1]}
+
+    return tuple(out_args), out_kwargs
+
+
+def _reduce_argreplacer(args, kwargs, arrays):
+    out_args = list(args)
+    out_args[0] = arrays[0]
+
+    out_kwargs = {**kwargs, 'out': arrays[1]}
+
+    return tuple(out_args), out_kwargs
+
+
 class ndarray(DispatchableType):
     pass
 
@@ -65,20 +83,12 @@ class ufunc(DispatchableType):
 
         return in_args + out
 
-    def _reduce_argreplacer(args, kwargs, arrays):
-        out_args = list(args)
-        out_args[1] = arrays[0]
-
-        out_kwargs = {**kwargs, 'out': arrays[1]}
-
-        return tuple(out_args), out_kwargs
-
-    @argument_extractor(_reduce_argreplacer)
+    @argument_extractor(_ureduce_argreplacer)
     @all_of_type(ndarray)
     def reduce(self, a, axis=0, dtype=None, out=None, keepdims=False):
         return (a, out)
 
-    @argument_extractor(_reduce_argreplacer)
+    @argument_extractor(_ureduce_argreplacer)
     @all_of_type(ndarray)
     def accumulate(self, a, axis=0, dtype=None, out=None):
         return (a, out)
@@ -240,28 +250,41 @@ def asarray(a, dtype=None, order=None):
     return ()
 
 
+def reduce_impl(red_ufunc: ufunc):
+    def inner(a, **kwargs):
+        return red_ufunc.reduce(a, **kwargs)
+
+    return inner
+
+
+@argument_extractor(_reduce_argreplacer, default=reduce_impl(globals()['add']))
 def sum(a, axis=None, dtype=None, out=None, keepdims=False):
-    return globals()['add'].reduce(a, axis=axis, dtype=dtype, out=out, keepdims=keepdims)
+    return (a, out)
 
 
+@argument_extractor(_reduce_argreplacer, default=reduce_impl(globals()['multiply']))
 def prod(a, axis=None, dtype=None, out=None, keepdims=False):
-    return globals()['multiply'].reduce(a, axis=axis, dtype=dtype, out=out, keepdims=keepdims)
+    return (a, out)
 
 
-def min(a, axis=None, dtype=None, out=None, keepdims=False):
-    return globals()['minimum'].reduce(a, axis=axis, dtype=dtype, out=out, keepdims=keepdims)
+@argument_extractor(_reduce_argreplacer, default=reduce_impl(globals()['minimum']))
+def min(a, axis=None, out=None, keepdims=False):
+    return (a, out)
 
 
-def max(a, axis=None, dtype=None, out=None, keepdims=False):
-    return globals()['maximum'].reduce(a, axis=axis, dtype=dtype, out=out, keepdims=keepdims)
+@argument_extractor(_reduce_argreplacer, default=reduce_impl(globals()['maximum']))
+def max(a, axis=None, out=None, keepdims=False):
+    return (a, out)
 
 
-def any(a, axis=None, dtype=None, out=None, keepdims=False):
-    return globals()['logical_or'].reduce(a, axis=axis, dtype=dtype, out=out, keepdims=keepdims)
+@argument_extractor(_reduce_argreplacer, default=reduce_impl(globals()['logical_or']))
+def any(a, axis=None, out=None, keepdims=False):
+    return (a, out)
 
 
-def all(a, axis=None, dtype=None, out=None, keepdims=False):
-    return globals()['logical_and'].reduce(a, axis=axis, dtype=dtype, out=out, keepdims=keepdims)
+@argument_extractor(_reduce_argreplacer, default=reduce_impl(globals()['logical_and']))
+def all(a, axis=None, out=None, keepdims=False):
+    return (a, out)
 
 
 del ufunc_name

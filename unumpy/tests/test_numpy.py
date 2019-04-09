@@ -47,13 +47,16 @@ def test_functions(backend, method, args, kwargs):
 
 
 def replace_args_kwargs(method, backend, args, kwargs):
-    instance = ()
-    while not isinstance(method, ua.MultiMethod):
-        if method.__call__ is method:
-            raise TypeError('Nowhere up the chain was there a MultiMethod.')
-
-        instance = (method,)
+    while not isinstance(method, (ua.MultiMethod, ua.BoundMultiMethod)):
         method = method.__call__
+
+        if method is method.__call__:
+            raise ValueError("Nowhere up the chain is there a multimethod.")
+
+    instance = ()
+    while isinstance(method, ua.BoundMultiMethod):
+        instance += (method.instance,)
+        method = method.method
 
     args, kwargs, *_ = method.replace_dispatchables(backend, instance + args, kwargs, coerce=True)
     return args[len(instance):], kwargs

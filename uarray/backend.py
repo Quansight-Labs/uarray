@@ -14,9 +14,11 @@ class BackendNotImplementedError(TypeError):
 
 
 class MultiMethod:
-    def __init__(self, argument_extractor: ArgumentExtractorType, argument_replacer: ArgumentReplacerType):
+    def __init__(self, argument_extractor: ArgumentExtractorType, argument_replacer: ArgumentReplacerType,
+                 default: Optional[Callable] = None):
         self.argument_extractor = argument_extractor
         self.argument_replacer = argument_replacer
+        self.default = default
         self.__name__ = argument_extractor.__name__
         self.__module__ = argument_extractor.__module__
         self.__doc__ = argument_extractor.__doc__
@@ -32,28 +34,24 @@ class MultiMethod:
         fallback_backends: List[Backend] = []
 
         for backend, coerce in _backend_order():
-            if self.argument_extractor in backend.dispatch_methods:
-                current_args, current_kwargs, dispatchable_args = self.replace_dispatchables(
-                    backend, args, kwargs, coerce=coerce)
-                usable = coerce or backend.usable(dispatchable_args)
+            current_args, current_kwargs, dispatchable_args = self.replace_dispatchables(
+                backend, args, kwargs, coerce=coerce)
+            usable = coerce or backend.usable(dispatchable_args)
 
-                if usable is None or coerce is None:
-                    fallback_backends.append(backend)
+            if usable is None or coerce is None:
+                fallback_backends.append(backend)
 
-                if not usable:
-                    continue
+            if not usable:
+                continue
 
-                result = self._try_backend(backend, current_args, current_kwargs)
+            result = self._try_backend(backend, current_args, current_kwargs)
 
-                if result is NotImplemented:
-                    if coerce:
-                        break
-                    continue
+            if result is NotImplemented:
+                if coerce:
+                    break
+                continue
 
-                return result
-            elif coerce:
-                fallback_backends = []
-                break
+            return result
 
         for backend in fallback_backends:
             current_args, current_kwargs, dispatchable_args = self.replace_dispatchables(
@@ -73,7 +71,21 @@ class MultiMethod:
         return BoundMultiMethod(self, instance, owner)
 
     def _try_backend(self, backend: "Backend", args: Tuple, kwargs: Dict):
-        return backend.dispatch_methods[self.argument_extractor](self, args, kwargs)
+        result = NotImplemented
+
+        if self in backend.dispatch_methods:
+            result = backend.dispatch_methods[self](self, args, kwargs)
+
+        if result is NotImplemented and self.default is not None:
+            try:
+                result = self.default(*args, **kwargs)
+            except BackendNotImplementedError:
+                pass
+
+        if result is NotImplemented and None in backend.dispatch_methods:
+            result = backend.dispatch_methods[None](self, args, kwargs)
+
+        return result
 
     def replace_dispatchables(self, backend: "Backend", args, kwargs, coerce: Optional[bool] = False):
         dispatchable_args = self.argument_extractor(*args, **kwargs)
@@ -100,23 +112,20 @@ class MultiMethod:
         return arg.value
 
 
-class BoundMultiMethod(MultiMethod):
+class BoundMultiMethod:
     def __init__(self, method: MultiMethod, instance: Any, owner: Type):
         self.method = method
         self.instance = instance
         self.owner = owner
-        argument_extractor = method.argument_extractor
-        argument_replacer = method.argument_replacer
-
-        super().__init__(argument_extractor, argument_replacer)
 
     def __call__(self, *args, **kwargs):
-        return super().__call__(self.instance, *args, **kwargs)
+        return self.method.__call__(self.instance, *args, **kwargs)
 
 
-def argument_extractor(reverse_dispatcher: ArgumentReplacerType) -> Callable[[ArgumentExtractorType], MultiMethod]:
+def argument_extractor(reverse_dispatcher: ArgumentReplacerType,
+                       default: Optional[Callable] = None) -> Callable[[ArgumentExtractorType], MultiMethod]:
     def inner(dispatcher: ArgumentExtractorType) -> MultiMethod:
-        return MultiMethod(dispatcher, reverse_dispatcher)
+        return MultiMethod(dispatcher, reverse_dispatcher, default=default)
 
     return inner
 
@@ -124,7 +133,7 @@ def argument_extractor(reverse_dispatcher: ArgumentReplacerType) -> Callable[[Ar
 ImplementationType = Callable[[MultiMethod, Iterable, Dict], Any]
 InstanceStubType = Any
 ConvertorType = Callable[["DispatchableInstance"], Any]
-MethodLookupType = Dict[ArgumentExtractorType, ImplementationType]
+MethodLookupType = Dict[Optional[MultiMethod], ImplementationType]
 TypeLookupType = Dict[Type["DispatchableType"], ConvertorType]
 InstanceLookupType = Dict["DispatchableInstance", InstanceStubType]
 
@@ -143,7 +152,7 @@ class Backend(metaclass=ABCMeta):
         return self._convertors
 
     def register_method(self, method: MultiMethod, implementation: ImplementationType):
-        self._dispatch_methods[method.argument_extractor] = implementation
+        self._dispatch_methods[method] = implementation
 
     def register_convertor(self, dispatch_type: Type["DispatchableType"], convertor: ConvertorType):
         self._convertors[dispatch_type] = convertor

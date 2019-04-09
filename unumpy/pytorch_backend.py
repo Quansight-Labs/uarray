@@ -39,16 +39,16 @@ def reduce(self, a, axis=0, dtype=None, out=None, keepdims=False):
         for dim in tuple(reversed(sorted(axis))):
             ret = _reduce_mapping[self](ret, dim=dim, keepdim=keepdims)
 
-            if isinstance(ret, tuple):
-                ret = ret[0]
-
         if out is not None:
             out[...] = ret
-            return out
+            ret = out
 
-        return ret
+    ret = _reduce_mapping[self](a, dim=axis, keepdim=keepdims, out=out)
 
-    return _reduce_mapping[self](a, dim=axis, keepdim=keepdims, out=out)
+    if isinstance(ret, tuple):
+        ret = ret[0]
+
+    return ret
 
 
 for ufunc_name in ufunc_list:
