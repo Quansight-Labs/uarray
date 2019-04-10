@@ -2,45 +2,48 @@ jobs:
 - job: Tests
   pool:
     vmImage: 'ubuntu-16.04'
+
   steps:
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: "3.7"
-        architecture: "x64"
+  - script: |
+      echo "##vso[task.prependpath]$CONDA/bin"
+      conda env create -f .conda/environment.yml
+    displayName: Prepare conda
 
-    - script: pip install -e .[all]
-      displayName: Install package
+  - script: |
+      source activate uarray
+      pip install -e . --no-deps
+    displayName: Install package
 
-    - script: pytest
-      displayName: Run tests
+  - script: |
+      source activate uarray
+      pytest
+    displayName: Run tests
 
-    - task: PublishTestResults@2
-      condition: always()
-      inputs:
-        testResultsFiles: "**/test-*.xml"
-        testRunTitle: "Publish test results"
-
-    - task: PublishCodeCoverageResults@1
-      inputs:
-        codeCoverageTool: Cobertura
-        summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/coverage.xml"
-        reportDirectory: "$(System.DefaultWorkingDirectory)/**/htmlcov"
+  - task: PublishCodeCoverageResults@1
+    inputs:
+      codeCoverageTool: Cobertura
+      summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/coverage.xml"
+      reportDirectory: "$(System.DefaultWorkingDirectory)/**/htmlcov"
 - job: Docs
   pool:
     vmImage: 'ubuntu-16.04'
   steps:
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: "3.7"
-        architecture: "x64"
+  - script: |
+      echo "##vso[task.prependpath]$CONDA/bin"
+      conda env create -f .conda/environment.yml
+    displayName: Prepare conda
 
-    - script: pip install -e .[docs]
-      displayName: Install package
+  - script: |
+      source activate uarray
+      pip install -e . --no-deps
+    displayName: Install package
 
-    - script: sphinx-build -W -b html docs/ _build/html
-      displayName: Build docs
+  - script: |
+      source activate uarray
+      sphinx-build -W -b html docs/ _build/html
+    displayName: Build docs
 
-    - task: PublishPipelineArtifact@0
-      inputs:
-        artifactName: 'Documentation'
-        targetPath: '$(System.DefaultWorkingDirectory)/_build/html'
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'Documentation'
+      targetPath: '$(System.DefaultWorkingDirectory)/_build/html'

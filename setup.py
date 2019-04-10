@@ -4,9 +4,12 @@ from setuptools import setup, find_packages
 import versioneer
 from pathlib import Path
 import sys
+import os
+
+cwd = Path(os.path.dirname(os.path.abspath(__file__)))
 
 
-def open_reqs_file(file, reqs_path=Path('.')):
+def open_reqs_file(file, reqs_path=Path(cwd)):
     with (reqs_path / file).open() as f:
         reqs = list(f.read().strip().split('\n'))
 
@@ -22,11 +25,11 @@ def open_reqs_file(file, reqs_path=Path('.')):
 
 
 extras_require = {}
-reqs = []
+reqs: list = []
 
 
 def parse_requires():
-    reqs_path = Path('./requirements')
+    reqs_path = cwd / 'requirements'
     reqs.extend(open_reqs_file('requirements.txt'))
 
     if sys.version_info < (3, 7):

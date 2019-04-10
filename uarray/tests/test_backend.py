@@ -1,6 +1,6 @@
 import pytest
 
-from uarray import TypeCheckBackend, MultiMethod, register_backend, deregister_backend
+from uarray import TypeCheckBackend, MultiMethod, register_backend, deregister_backend, BackendNotImplementedError
 
 
 class DummyClass:
@@ -19,56 +19,52 @@ def dummy_rd(args, kwargs, rep_args):
     return out_args, out_kwargs
 
 
-dummy_method = MultiMethod(dummy_fd, dummy_rd)
-
-dummy_backend = TypeCheckBackend((DummyClass,), DummyClass)
-
-
-def setup_module():
-    register_backend(dummy_backend)
+@pytest.fixture(scope='function')
+def dummy_method(dummy_backend):
+    return MultiMethod(dummy_fd, dummy_rd)
 
 
-def teardown_module():
-    deregister_backend(dummy_backend)
+@pytest.fixture(scope='function')
+def dummy_backend():
+    backend = TypeCheckBackend((DummyClass,))
+    register_backend(backend)
+    yield backend
+    deregister_backend(backend)
 
 
-def test_normal():
+def test_normal(dummy_backend, dummy_method):
     implementation_called = [False]
 
     def implementation(method, args, kwargs):
         implementation_called[0] = True
 
     dummy_backend.register_method(dummy_method, implementation)
-
-    try:
-        dummy_method(DummyClass())
-    finally:
-        dummy_backend.deregister_method(dummy_method)
+    dummy_method(DummyClass())
 
     assert implementation_called[0]
 
 
-def test_invalidtype():
+def test_invalidtype(dummy_method):
     class InvalidClass:
         pass
 
-    with pytest.raises(TypeError):
+    with pytest.raises(BackendNotImplementedError):
         dummy_method(InvalidClass())
 
 
 def test_invalidmethod():
     invalid_method = MultiMethod(dummy_fd, dummy_rd)
 
-    with pytest.raises(TypeError):
+    with pytest.raises(BackendNotImplementedError):
         invalid_method(DummyClass())
 
 
-def test_method_repr():
+def test_method_repr(dummy_method):
     assert str(dummy_fd) == str(dummy_method)
     assert repr(dummy_fd) == repr(dummy_method)
 
 
-def test_subclasses():
+def test_subclasses(dummy_backend, dummy_method):
     class InheritedClass(DummyClass):
         pass
 
@@ -76,26 +72,18 @@ def test_subclasses():
         pass
 
     dummy_backend.register_method(dummy_method, implementation)
+    dummy_method(InheritedClass())
+    dummy_backend.__init__((DummyClass,), allow_subclasses=False)
 
-    try:
+    with pytest.raises(BackendNotImplementedError):
         dummy_method(InheritedClass())
-        dummy_backend.allow_subclasses = False
-
-        with pytest.raises(TypeError):
-            dummy_method(InheritedClass())
-    finally:
-        dummy_backend.allow_subclasses = True
-        dummy_backend.deregister_method(dummy_method)
 
 
-def test_method_notimplemented():
+def test_method_notimplemented(dummy_backend, dummy_method):
     def implementation(method, args, kwargs):
         return NotImplemented
 
-    try:
-        dummy_backend.register_method(dummy_method, implementation)
+    dummy_backend.register_method(dummy_method, implementation)
 
-        with pytest.raises(TypeError):
-            dummy_method(DummyClass())
-    finally:
-        dummy_backend.deregister_method(dummy_method)
+    with pytest.raises(BackendNotImplementedError):
+        dummy_method(DummyClass())

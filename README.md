@@ -24,13 +24,13 @@ downstream packages and algorithms that use these arrays don't need
 the implementation details of the array. They just need a set of basic
 operations to work (the interface).
 
-The goal of _uarray_ is to constract an interface to a general array
+The goal of _uarray_ is to construct an interface to a general array
 concept and build a high-level multiple-dispatch mechanism to
-re-direct function calls whose implementations are dependent on the
+redirect function calls whose implementations are dependent on the
 specific kind of array. The desire is for down-stream libraries to be
 able to use/expect `uarray` objects based on the interface and then have
-their implementation configurable. On-going discussions are happening
-on the NumPy mailing list in order to retro-fit NumPy as this array
+their implementation configurable. Ongoing discussions are happening
+on the NumPy mailing list in order to retrofit NumPy as this array
 interface. _uarray_ is an alternative approach with different
 contraints and benefits.
 
@@ -38,7 +38,7 @@ Python array computing needs multiple-dispatch. Ufuncs are
 fundamentally multiple-dispatch systems, but only at the lowest level.
 It is time to raise the visibility of this into Python. This effort
 differs from [XND](https://xnd.io/) in that XND is low-level and
-cross-langauge. The _uarray_ is "high-level" and Python only. The
+cross-language. The _uarray_ is "high-level" and Python only. The
 concepts could be applied to other languages but we do not try to
 solve that problem with this library. XND can be _used_ by some
 implementations of the uarray concept.
@@ -48,7 +48,7 @@ that can help library writers write to a standard interface while
 allowing backend implementers to innovate in performance. This effort
 is being incubated at Quansight Labs which is an R&D group inside of
 Quansight that hires developers, community/product managers, and
-tech-writers to build and maintain shared open-source infrastructure.
+tech writers to build and maintain shared open-source infrastructure.
 It is funded by donations and grants. The efforts are highly
 experimental at this stage and we are looking for funding for the
 effort in order to make better progress.
@@ -61,28 +61,12 @@ This project is in active development and not ready for production use. However,
 pip install uarray
 ```
 
+or
+
 ```bash
 conda install -c conda-forge -c uarray uarray
 ```
 
-### Releases
+## Contributing
 
-Make sure to update `pyproject.toml` and `.conda/meta.yaml` to the
-correct version on a new release.
-
-Flit makes `pypi` releases quite simple. Flit will use your
-`~/.pypirc` or environment variables `FLIT_USERNAME`, `FLIT_PASSWORD`,
-and `FLIT_INDEX`.
-
-```bash
-flit publish
-```
-
-Conda releases use the `.conda/meta.yaml` recipe.
-
-```bash
-conda install conda-build anaconda-client
-anaconda login
-conda build -c conda-forge .conda/
-anaconda upload --user uarray <path to conda build>
-```
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for more information on how to contribute to `uarray`.
