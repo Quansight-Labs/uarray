@@ -11,14 +11,16 @@ Welcome to ``uarray``'s documentation
 
 .. warning::
     This document is meant to elicit discussion from the broader community and to help
-    drive the direction that ``uarray`` goes towards. Examples proviced here may not be
+    drive the direction that ``uarray`` goes towards. Examples provided here may not be
     immediately stable.
 
 ``uarray`` is a backend/dispatch mechanism with a focus on array computing and the
-needs of the wider array community. It is meant to address the shortcomings of `NEP-18
+needs of the wider array community, by allowing a clean way to register an implementation
+for any Python object (functions, classes, class methods, properties, dtypes, ....), it
+also provides an important building block for `NEP-22 <http://www.numpy.org/neps/nep-0022-ndarray-duck-typing-overview.html>`_.
+It is meant to address the shortcomings of `NEP-18
 <http://www.numpy.org/neps/nep-0018-array-function-protocol.html>`_ and `NEP-13
-<https://www.numpy.org/neps/nep-0013-ufunc-overrides.html>`_; while also being a
-comprehensive solution to `NEP-22 <http://www.numpy.org/neps/nep-0022-ndarray-duck-typing-overview.html>`_,
+<https://www.numpy.org/neps/nep-0013-ufunc-overrides.html>`_; 
 while still holding nothing in ``uarray`` itself that's specific to array computing
 or the NumPy API.
 
@@ -38,7 +40,8 @@ multimethods. Also, ``unumpy`` can be developed completely separately to
 ``uarray``, although the ideal place to have it would be NumPy itself.
 
 However, the benefit to having it separate is that it could span multiple
-NumPy versions, even before NEP-18 (or even NEP-13) was available.
+NumPy versions, even before NEP-18 (or even NEP-13) was available. Another
+benefit is that it can have a faster release cycle to help it achieve this.
 
 Separate Imports
 ^^^^^^^^^^^^^^^^
@@ -109,7 +112,7 @@ Addressing past flaws
 The progress on NumPy's side for defining an override mechanism has been slow, with
 NEP-13 being first introduced in 2013, and with the wealth of dispatchable objects
 (including arrays, ufuns and dtypes), and with the advent of libraries like Dask,
-CuPy, XArray, PyData/Sparse and Xnd, it has become clear that the need for alternative
+CuPy, Xarray, PyData/Sparse and XND, it has become clear that the need for alternative
 array-like implementations is growing. There are even other libraries like PyTorch, and
 TensorFlow that'd be possible to express in NumPy API-like terms. Another example includes
 the Keras API.
@@ -127,8 +130,10 @@ Object-Orientation
 functional interface is provided for ease of use, including decorators. 
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+    :maxdepth: 3
+    :hidden:
+
+    getting_started
 
 
 

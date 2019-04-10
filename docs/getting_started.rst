@@ -1,4 +1,2 @@
 Getting started with ``uarray``
 ===============================
-
-
