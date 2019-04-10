@@ -1,3 +1,5 @@
+.. _uarray_api:
+
 ``uarray`` API
 ==============
 

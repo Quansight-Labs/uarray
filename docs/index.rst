@@ -1,7 +1,4 @@
-.. uarray documentation master file, created by
-   sphinx-quickstart on Tue Mar 12 19:05:25 2019.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+.. currentmodule:: uarray
 
 Welcome to ``uarray``'s documentation
 =====================================
@@ -14,13 +11,18 @@ Welcome to ``uarray``'s documentation
     drive the direction that ``uarray`` goes towards. Examples provided here may not be
     immediately stable.
 
+.. note::
+    This page describes the overall philosophy behind ``uarray``. For usage instructions,
+    see the :ref:`getting started <getting_started>` page or the :ref:`API Docs <uarray_api>`.
+
 ``uarray`` is a backend/dispatch mechanism with a focus on array computing and the
-needs of the wider array community, by allowing a clean way to register an implementation
-for any Python object (functions, classes, class methods, properties, dtypes, ....), it
-also provides an important building block for `NEP-22 <http://www.numpy.org/neps/nep-0022-ndarray-duck-typing-overview.html>`_.
+needs of the wider array community, by allowing a clean way to register an
+implementation for any Python object (functions, classes, class methods, properties,
+dtypes, ....), it also provides an important building block for
+`NEP-22 <http://www.numpy.org/neps/nep-0022-ndarray-duck-typing-overview.html>`_.
 It is meant to address the shortcomings of `NEP-18
 <http://www.numpy.org/neps/nep-0018-array-function-protocol.html>`_ and `NEP-13
-<https://www.numpy.org/neps/nep-0013-ufunc-overrides.html>`_; 
+<https://www.numpy.org/neps/nep-0013-ufunc-overrides.html>`_;
 while still holding nothing in ``uarray`` itself that's specific to array computing
 or the NumPy API.
 
@@ -110,11 +112,7 @@ A user would simply do the following:
         # Write all your code here
         # It will prefer the Dask backend
 
-When both of the above are combined, the backend will be skipped. The reason
-behind this is that the ``skip_backend`` decorator is meant to help avoid cases
-of infinite recursion, and so takes precedence.
-
-There is no default backend, to ``uarray``, NumPy is just another backend. One
+There is no default backend, to ``uarray_``, NumPy is just another backend. One
 can register backends, which will all be tried in indeterminate order when no
 backend is selected.
 
@@ -126,8 +124,9 @@ NEP-13 being first introduced in 2013, and with the wealth of dispatchable objec
 (including arrays, ufuns and dtypes), and with the advent of libraries like Dask,
 CuPy, Xarray, PyData/Sparse and XND, it has become clear that the need for alternative
 array-like implementations is growing. There are even other libraries like PyTorch, and
-TensorFlow that'd be possible to express in NumPy API-like terms. Another example includes
-the Keras API, for which an overridable ``ukeras`` could be created, similar to ``unumpy``.
+TensorFlow that'd be possible to express in NumPy API-like terms. Another example
+includes the Keras API, for which an overridable ``ukeras`` could be created, similar
+to ``unumpy``.
 
 ``uarray`` is intended to have fast development to fill the need posed by these
 communities, while keeping itself as general as possible, and quickly reach maturity,
@@ -139,9 +138,10 @@ Object-Orientation
 ^^^^^^^^^^^^^^^^^^
 
 ``uarray`` and its submodules are written in an object-oriented fashion first, but a
-functional interface is provided for ease of use, including decorators. 
+functional interface is provided for ease of use, including decorators.
 
 .. toctree::
+    :hidden:
     :maxdepth: 3
 
     getting_started
@@ -156,3 +156,5 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+.. _uarray: generated/uarray

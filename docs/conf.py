@@ -43,6 +43,7 @@ extensions: List[str] = [
     'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
     'sphinx.ext.autosummary',
+    'sphinx.ext.doctest',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -177,3 +178,9 @@ epub_title = project
 epub_exclude_files = ['search.html']
 
 autosummary_generate = True
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3/', None),
+    'numpy': ('https://docs.scipy.org/doc/numpy/', None),
+    'scipy': ('https://docs.scipy.org/doc/scipy/reference/', None)
+}

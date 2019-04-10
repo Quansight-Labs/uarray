@@ -186,6 +186,10 @@ InstanceLookupType = Dict["DispatchableInstance", InstanceStubType]
 class Backend(metaclass=ABCMeta):
     """
     An abstract base class for all backend types.
+
+    See Also
+    --------
+    TypeCheckBackend: A specific kind of Backend.
     """
     def __init__(self):
         self._implementations: MethodLookupType = {}
@@ -309,10 +313,15 @@ class Backend(metaclass=ABCMeta):
             The args and kwargs to replace.
         coerce: Optional[bool]
             Whether or not to coerce the arrays during replacement. Default is False.
+
+        Returns
+        -------
+        args, kwargs: The replaced args/kwargs.
+        dispatchable_args: The extracted dispatchable args.
         """
         dispatchable_args = method.argument_extractor(*args, **kwargs)
         replaced_args = tuple(self._replace_single(arg, coerce=coerce) for arg in dispatchable_args)
-        return (*method.argument_replacer(args, kwargs, replaced_args), replaced_args)
+        return (*method.argument_replacer(args, kwargs, replaced_args), dispatchable_args)
 
     def _replace_single(self, arg: Union["DispatchableInstance", Any],
                         coerce: Optional[bool] = False):
@@ -432,6 +441,7 @@ class set_backend:
     See Also
     --------
     skip_backend: A context manager that allows skipping of backends.
+    DispatchableInstance: Items to be coerced must be marked by a DispatchableInstance.
     """
     def __init__(self, backend: Backend, coerce: Optional[bool] = None):
         self.token = None
