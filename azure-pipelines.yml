@@ -43,6 +43,11 @@ jobs:
       sphinx-build -W -b html docs/ _build/html
     displayName: Build docs
 
+  - script: |
+      source activate uarray
+      doc8
+    displayName: Lint docs
+
   - task: PublishPipelineArtifact@0
     inputs:
       artifactName: 'Documentation'
