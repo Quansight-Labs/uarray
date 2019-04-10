@@ -1,26 +1,46 @@
-pool:
-  vmImage: "Ubuntu 16.04"
+jobs:
+- job: Tests
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: "3.7"
+        architecture: "x64"
 
-steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: "3.7"
-      architecture: "x64"
+    - script: pip install -e .[all]
+      displayName: Install package
 
-  - script: pip install -e .[all]
-    displayName: Install package
+    - script: pytest
+      displayName: Run tests
 
-  - script: pytest
-    displayName: Run tests
+    - task: PublishTestResults@2
+      condition: always()
+      inputs:
+        testResultsFiles: "**/test-*.xml"
+        testRunTitle: "Publish test results"
 
-  - task: PublishTestResults@2
-    condition: always()
-    inputs:
-      testResultsFiles: "**/test-*.xml"
-      testRunTitle: "Publish test results"
+    - task: PublishCodeCoverageResults@1
+      inputs:
+        codeCoverageTool: Cobertura
+        summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/coverage.xml"
+        reportDirectory: "$(System.DefaultWorkingDirectory)/**/htmlcov"
+- job: Docs
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: "3.7"
+        architecture: "x64"
 
-  - task: PublishCodeCoverageResults@1
-    inputs:
-      codeCoverageTool: Cobertura
-      summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/coverage.xml"
-      reportDirectory: "$(System.DefaultWorkingDirectory)/**/htmlcov"
+    - script: pip install -e .[docs]
+      displayName: Install package
+
+    - script: sphinx-build -W -b html docs/ _build/html
+      displayName: Run tests
+
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'Documentation'
+        targetPath: '$(System.DefaultWorkingDirectory)/_build/html'
