@@ -143,9 +143,10 @@ functional interface is provided for ease of use, including decorators.
 
 .. toctree::
     :maxdepth: 3
-    :hidden:
 
     getting_started
+
+    generated/uarray.rst
 
 
 

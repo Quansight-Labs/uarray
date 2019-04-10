@@ -58,7 +58,7 @@ def replace_args_kwargs(method, backend, args, kwargs):
         instance += (method.instance,)
         method = method.method
 
-    args, kwargs, *_ = method.replace_dispatchables(backend, instance + args, kwargs, coerce=True)
+    args, kwargs, *_ = backend.replace_dispatchables(method, instance + args, kwargs, coerce=True)
     return args[len(instance):], kwargs
 
 

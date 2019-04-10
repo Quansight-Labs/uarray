@@ -4,7 +4,7 @@ try:
     import torch
     from unumpy.pytorch_backend import TorchBackend
 
-    from uarray import multimethod
+    from uarray import register_implementation
     import ulinalg.multimethods as multimethods
 
     __all__: List[str] = []
@@ -17,7 +17,7 @@ try:
         else:
             return s
 
-    multimethod(TorchBackend, multimethods.svd)(svd_impl)
+    register_implementation(TorchBackend, multimethods.svd)(svd_impl)
 
 except ImportError:
     pass

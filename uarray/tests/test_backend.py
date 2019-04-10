@@ -38,7 +38,7 @@ def test_normal(dummy_backend, dummy_method):
     def implementation(method, args, kwargs):
         implementation_called[0] = True
 
-    dummy_backend.register_method(dummy_method, implementation)
+    dummy_backend.register_implementation(dummy_method, implementation)
     dummy_method(DummyClass())
 
     assert implementation_called[0]
@@ -71,7 +71,7 @@ def test_subclasses(dummy_backend, dummy_method):
     def implementation(method, args, kwargs):
         pass
 
-    dummy_backend.register_method(dummy_method, implementation)
+    dummy_backend.register_implementation(dummy_method, implementation)
     dummy_method(InheritedClass())
     dummy_backend.__init__((DummyClass,), allow_subclasses=False)
 
@@ -83,7 +83,7 @@ def test_method_notimplemented(dummy_backend, dummy_method):
     def implementation(method, args, kwargs):
         return NotImplemented
 
-    dummy_backend.register_method(dummy_method, implementation)
+    dummy_backend.register_implementation(dummy_method, implementation)
 
     with pytest.raises(BackendNotImplementedError):
         dummy_method(DummyClass())

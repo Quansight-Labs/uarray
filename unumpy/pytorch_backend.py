@@ -3,7 +3,7 @@ from .multimethods import ufunc, ufunc_list, ndarray
 import torch
 from typing import Dict, Callable
 
-from uarray.backend import TypeCheckBackend, register_backend, multimethod
+from uarray.backend import TypeCheckBackend, register_backend, register_implementation
 
 TorchBackend = TypeCheckBackend((torch.Tensor,))
 register_backend(TorchBackend)
@@ -19,14 +19,14 @@ _reduce_mapping = {
 _ufunc_mapping: Dict[ufunc, Callable] = {}
 
 
-@multimethod(TorchBackend, ufunc.__call__)
+@register_implementation(TorchBackend, ufunc.__call__)
 def __call__(self, *args, out=None):
     if self not in _ufunc_mapping:
         return NotImplemented
     return _ufunc_mapping[self](*args, out=out)
 
 
-@multimethod(TorchBackend, ufunc.reduce)
+@register_implementation(TorchBackend, ufunc.reduce)
 def reduce(self, a, axis=0, dtype=None, out=None, keepdims=False):
     if self not in _reduce_mapping:
         return NotImplemented
@@ -60,11 +60,11 @@ for ufunc_name in ufunc_list:
     if hasattr(torch, torch_name):
         _ufunc_mapping[getattr(multimethods, ufunc_name)] = getattr(torch, torch_name)
 
-multimethod(TorchBackend, multimethods.arange)(torch.arange)
-multimethod(TorchBackend, multimethods.array)(torch.tensor)
+register_implementation(TorchBackend, multimethods.arange)(torch.arange)
+register_implementation(TorchBackend, multimethods.array)(torch.tensor)
 
 
-@multimethod(TorchBackend, multimethods.asarray)
+@register_implementation(TorchBackend, multimethods.asarray)
 def asarray(a, dtype=None, order=None):
     if torch.is_tensor(a):
         if a.dtype != dtype:
@@ -85,6 +85,6 @@ def asarray(a, dtype=None, order=None):
     return torch.tensor(a, dtype=dtype)
 
 
-multimethod(TorchBackend, multimethods.zeros)(torch.zeros)
-multimethod(TorchBackend, multimethods.ones)(torch.ones)
+register_implementation(TorchBackend, multimethods.zeros)(torch.zeros)
+register_implementation(TorchBackend, multimethods.ones)(torch.ones)
 TorchBackend.register_convertor(ndarray, asarray)

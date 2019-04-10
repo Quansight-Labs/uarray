@@ -40,5 +40,5 @@ def test_coercion_optional():
     with ua.set_backend(NumpyBackend, coerce=None):
         assert isinstance(ula.svd(arr, compute_uv=False), np.ndarray)
 
-    with pytest.raises(TypeError):
+    with pytest.raises(ua.BackendNotImplementedError):
         ula.svd(arr, compute_uv=False)

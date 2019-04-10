@@ -6,7 +6,7 @@ from .multimethods import ufunc, ufunc_list, ndarray
 from typing import Dict
 import functools
 
-from uarray.backend import TypeCheckBackend, register_backend, multimethod
+from uarray.backend import TypeCheckBackend, register_backend, register_implementation
 
 XndBackend = TypeCheckBackend((xnd.xnd,))
 register_backend(XndBackend)
@@ -25,7 +25,7 @@ def replace_self(func):
     return inner
 
 
-@multimethod(XndBackend, ufunc.reduce)
+@register_implementation(XndBackend, ufunc.reduce)
 @replace_self
 def reduce_(self, a, axis=0, dtype=None, out=None, keepdims=False):
     if out is not None:
@@ -33,13 +33,13 @@ def reduce_(self, a, axis=0, dtype=None, out=None, keepdims=False):
     return gu.reduce(self, a, axes=axis, dtype=dtype)
 
 
-multimethod(XndBackend, ufunc.__call__)(replace_self(gu.gufunc.__call__))
+register_implementation(XndBackend, ufunc.__call__)(replace_self(gu.gufunc.__call__))
 
 for ufunc_name in ufunc_list:
     if hasattr(fn, ufunc_name):
         _ufunc_mapping[getattr(multimethods, ufunc_name)] = getattr(fn, ufunc_name)
 
-multimethod(XndBackend, multimethods.array)(xnd.array)
-multimethod(XndBackend, multimethods.asarray)(xnd.array)
+register_implementation(XndBackend, multimethods.array)(xnd.array)
+register_implementation(XndBackend, multimethods.asarray)(xnd.array)
 
 XndBackend.register_convertor(ndarray, xnd.array)
