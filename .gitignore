@@ -13,6 +13,7 @@ coverage.xml
 **/.coverage
 dist
 **/*.pyc
+_build/
 docs/_build
 .idea/
 pytype_output
