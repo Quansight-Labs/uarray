@@ -59,14 +59,18 @@ Extensibility *and* Choice
 If some effort is put into the dispatch machinery, it's possible to
 dispatch over arbitrary objects --- including arrays, dtypes, and
 so on. A method defines the type of each dispatchable argument, and
-backends are *only* passed types they know how to dispatch over.
+backends are *only* passed types they know how to dispatch over, when
+deciding whether or not to use that backend. For example, if a backend
+doesn't know how to dispatch over dtypes, it won't be asked to decide
+based on that front.
 
 Methods can have a default implementation in terms of other methods,
 but they're still overridable.
 
 This means that only one framework is needed to, for example, dispatch
 over ``ufunc`` s, arrays, dtypes and all other primitive objects in NumPy,
-while keeping the core ``uarray`` code independent of NumPy and even ``unumpy``.
+while keeping the core ``uarray`` code independent of NumPy and even
+``unumpy``.
 
 Backends can span modules, so SciPy could jump in and define its own methods
 on NumPy objects and make them overridable within the NumPy backend.
@@ -106,6 +110,14 @@ A user would simply do the following:
         # Write all your code here
         # It will prefer the Dask backend
 
+When both of the above are combined, the backend will be skipped. The reason
+behind this is that the ``skip_backend`` decorator is meant to help avoid cases
+of infinite recursion, and so takes precedence.
+
+There is no default backend, to ``uarray``, NumPy is just another backend. One
+can register backends, which will all be tried in indeterminate order when no
+backend is selected.
+
 Addressing past flaws
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -115,7 +127,7 @@ NEP-13 being first introduced in 2013, and with the wealth of dispatchable objec
 CuPy, Xarray, PyData/Sparse and XND, it has become clear that the need for alternative
 array-like implementations is growing. There are even other libraries like PyTorch, and
 TensorFlow that'd be possible to express in NumPy API-like terms. Another example includes
-the Keras API.
+the Keras API, for which an overridable ``ukeras`` could be created, similar to ``unumpy``.
 
 ``uarray`` is intended to have fast development to fill the need posed by these
 communities, while keeping itself as general as possible, and quickly reach maturity,
