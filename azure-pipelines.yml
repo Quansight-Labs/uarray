@@ -38,7 +38,7 @@ jobs:
       displayName: Install package
 
     - script: sphinx-build -W -b html docs/ _build/html
-      displayName: Run tests
+      displayName: Build docs
 
     - task: PublishPipelineArtifact@0
       inputs:
