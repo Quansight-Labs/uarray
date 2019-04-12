@@ -172,11 +172,43 @@ InstanceLookupType = Dict["DispatchableInstance", InstanceStubType]
 
 class Backend:
     """
-    An abstract base class for all backend types.
+    A class you can register methods against.
 
-    See Also
+    Examples
     --------
-    TypeCheckBackend: A specific kind of Backend.
+    We start with the example from the :obj:`MultiMethod` documentation, but with the
+    difference that we *don't* provide a default implementation.
+
+    >>> import uarray as ua
+    >>> def potato_extractor(a, b):
+    ...     return (a,) # b is not is dispatchable, so we return a only, as a tuple.
+
+    >>> def potato_replacer(args, kwargs, dispatch_args):
+    ...     # This replaces a within the args/kwargs
+    ...     return dispatch_args + args[1:], kwargs
+    >>> potato_mm = ua.MultiMethod(potato_extractor, potato_replacer)
+    >>> potato_mm(1, '2')
+    Traceback (most recent call last):
+        ...
+    uarray.backend.BackendNotImplementedError: ...
+
+    Notice how we get an error when we try to invoke a :obj:`MultiMethod` without a default
+    implementation. Let's see what happens when we add a backend:
+
+    >>> be = ua.Backend()
+    >>> @ua.register_implementation(potato_mm, be)
+    ... def potato_impl(a, b):
+    ...     if not isinstance(a, int):
+    ...         return NotImplemented
+    ...     return a, b
+    >>> with ua.set_backend(be):
+    ...     potato_mm(1, '2')
+    (1, '2')
+    >>> with ua.set_backend(be):
+    ...     potato_mm('1', '2')
+    Traceback (most recent call last):
+        ...
+    uarray.backend.BackendNotImplementedError: ...
     """
 
     def __init__(self):
@@ -216,8 +248,7 @@ class Backend:
         >>> be.register_implementation(potato, potato_impl)
         Traceback (most recent call last):
             ...
-        ValueError: Cannot register a different method once one is already registered.
-
+        ValueError: ...
         Raises
         ------
         ValueError
@@ -273,7 +304,7 @@ class Backend:
         >>> be.register_convertor(DispatchableInt, lambda x: -2)
         Traceback (most recent call last):
             ...
-        ValueError: Cannot register a different convertor once one is already registered.
+        ValueError: ...
         """
         if dispatch_type in self._convertors:
             raise ValueError('Cannot register a different convertor once one is already registered.')
@@ -420,14 +451,16 @@ class skip_backend:
         _skipped_backend.reset(self.token)
 
 
-CompatCheckType = Callable[[Iterable], bool]
+CompatCheckType = Callable[[Iterable["DispatchableInstance"]], bool]
 
 
 def register_implementation(method: MultiMethod, backend: Backend, compat_check: Optional[CompatCheckType] = None):
     """
     Create an implementation for a given backend/method. The implementation
     should have the same signature as the method, or perhaps with some optional
-    keyword arguments missing.
+    keyword arguments missing. The ``compat_check`` parameter takes in an iterable
+    of dispatchable instances and returns a :obj:`bool` indicating whether or not
+    the backend supports this configuration.
     """
     def wrapper(func):
         @functools.wraps(func)
