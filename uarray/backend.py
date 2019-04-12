@@ -399,9 +399,9 @@ class set_backend:
     ----------
     backend : Backend
         The backend to set.
-    coerce : Optional[bool], optional
-        Whether to coerce the input arguments, where ``None`` lets this
-        backend be used as a fallback with coercion on failure.
+    coerce : bool, optional
+        Whether to coerce the input arguments, and force this backend.
+        Default is ``False``.
 
     See Also
     --------
