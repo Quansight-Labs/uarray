@@ -16,8 +16,6 @@
 
     Backend
 
-    TypeCheckBackend
-
 .. rubric:: Functions
 .. autosummary::
     :toctree:

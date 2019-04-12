@@ -24,8 +24,7 @@ class MultiMethod:
     Parameters
     ----------
     argument_extractor : ArgumentExtractorType
-        This is a callable that extracts the arguments using which dispatch can be performed from this
-        multimethod.
+        This is a callable that extracts the arguments over which the dispatch will be performed.
     argument_replacer : ArgumentReplacerType
         This takes in args, kwargs and dispatchable args, and replaces all dispatchable arguments within
         the args and kwargs, and then returns them.
@@ -223,7 +222,7 @@ class Backend:
         ----------
         method : MultiMethod
             The method to register the implementation for.
-        implementation: ImplementationType
+        implementation : ImplementationType
             The implementation of this method. It takes in (method, args, kwargs) and returns
             either a result or ``NotImplemented``. Any exceptions (except :obj:`BackendNotImplementedError`)
             will be propagated.
@@ -272,7 +271,7 @@ class Backend:
         dispatch_type : Type["DispatchableInstance"]
             The type of dispatchable to register the convertor for. The convertor will convert the
             instance if coercion is enabled.
-        implementation: ImplementationType
+        implementation : ImplementationType
             The implementation of this method. It takes in a single value and converts it.
 
         Raises
@@ -321,7 +320,7 @@ class Backend:
             The method to replace the args/kwargs for.
         args, kwargs
             The args and kwargs to replace.
-        coerce: Optional[bool], optional
+        coerce : Optional[bool], optional
             Whether or not to coerce the arrays during replacement. Default is False.
 
         Returns
@@ -400,7 +399,7 @@ class set_backend:
     ----------
     backend : Backend
         The backend to set.
-    coerce: Optional[bool], optional
+    coerce : Optional[bool], optional
         Whether to coerce the input arguments, where ``None`` lets this
         backend be used as a fallback with coercion on failure.
 
@@ -458,7 +457,7 @@ def register_implementation(method: MultiMethod, backend: Backend, compat_check:
     """
     Create an implementation for a given backend/method. The implementation
     should have the same signature as the method, or perhaps with some optional
-    keyword arguments missing. The ``compat_check`` parameter takes in an iterable
+    arguments missing. The ``compat_check`` parameter takes in an iterable
     of dispatchable instances and returns a :obj:`bool` indicating whether or not
     the backend supports this configuration.
     """
