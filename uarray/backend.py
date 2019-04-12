@@ -1,5 +1,4 @@
-from typing import Callable, Iterable, Dict, Tuple, Any, Set, Optional, Iterator, List, Type, Union
-from abc import ABCMeta, abstractmethod
+from typing import Callable, Iterable, Dict, Tuple, Any, Set, Optional, Iterator, Type, Union
 import inspect
 from contextvars import ContextVar
 import itertools
@@ -30,39 +29,45 @@ class MultiMethod:
     argument_replacer : ArgumentReplacerType
         This takes in args, kwargs and dispatchable args, and replaces all dispatchable arguments within
         the args and kwargs, and then returns them.
-    default : Optional[Callable]
+    default : Optional[Callable], optional
         This is the default implementation for this multimethod, possibly in terms of other multimethods.
 
     Examples
     --------
     >>> import uarray as ua
-    >>> def potato(a, b):
-    ...     return (a,) # b is not is dispatchable, so we return a only
-    >>> def potato_rd(args, kwargs, dispatch_args):
+
+    We first define an argument extractor, which extracts the relevant dispatchable arguments from the
+    arguments of the function. Note that the extracted arguments don't have to be direct arguments to
+    the function, they can be anything contained within as well. For example, if `a` was a `list` and
+    we wanted to treat everything within it as dispatchable, we could return `tuple(a)`.
+
+    >>> def potato_extractor(a, b):
+    ...     return (a,) # b is not is dispatchable, so we return a only, as a tuple.
+
+    Next, we define the argument replacer. This replaces the dispatchable arguments within the function
+    with the ones that are supplied externally.
+
+    >>> def potato_replacer(args, kwargs, dispatch_args):
     ...     # This replaces a within the args/kwargs
     ...     return dispatch_args + args[1:], kwargs
+
+    The next step is to define an (optional) default implementation of the method.
+
     >>> def potato_impl(a, b):
     ...     # The default implementation passes through all arguments
     ...     return a, b
-    >>> potato_mm = ua.MultiMethod(potato, potato_rd, default=potato_impl)
+
+    Then, we build the :obj:`MultiMethod` from these and test it.
+
+    >>> potato_mm = ua.MultiMethod(potato_extractor, potato_replacer, default=potato_impl)
     >>> potato_mm(1, '2')
     (1, '2')
-    >>> be = ua.TypeCheckBackend((int,)) # Register implementation, define "supported dispatchable types"
-    >>> @ua.register_implementation(be, potato_mm)
-    ... def potato_impl_be(a, b):
-    ...     return 'potato'
-    >>> with ua.set_backend(be):
-    ...     potato_mm(1, '2')
-    'potato'
-    >>> potato_mm(1, '2')
-    (1, '2')
-    >>> be2 = ua.TypeCheckBackend(())
-    >>> potato_mm2 = ua.MultiMethod(potato, potato_rd)
-    >>> with ua.set_backend(be2):
-    ...     potato_mm2(1, '2')
-    Traceback (most recent call last):
-        ...
-    uarray.backend.BackendNotImplementedError: No selected backends had an implementation for this method.
+
+    See Also
+    --------
+    :obj:`Backend`
+        A way to override :obj:`MultiMethod` s.
+
     """
 
     def __init__(self, argument_extractor: ArgumentExtractorType, argument_replacer: ArgumentReplacerType,
@@ -82,39 +87,20 @@ class MultiMethod:
         return repr(self.argument_extractor)
 
     def __call__(self, *args, **kwargs):
-        fallback_backends: List[Backend] = []
-
+        result = NotImplemented
         for backend, coerce in _backend_order():
-            current_args, current_kwargs, dispatchable_args = backend.replace_dispatchables(
-                self, args, kwargs, coerce=coerce)
-            usable = coerce or backend.usable(dispatchable_args)
+            result = backend.try_backend(self, args, kwargs, coerce=coerce)
 
-            if usable is None or coerce is None:
-                fallback_backends.append(backend)
+            if coerce or result is not NotImplemented:
+                break
 
-            if not usable:
-                continue
+        if result is NotImplemented and self.default is not None:
+            result = self.default(*args, **kwargs)
 
-            result = backend.try_backend(self, current_args, current_kwargs)
+        if result is NotImplemented:
+            raise BackendNotImplementedError('No selected backends had an implementation for this method.')
 
-            if result is NotImplemented:
-                if coerce:
-                    break
-                continue
-
-            return result
-
-        for backend in fallback_backends:
-            current_args, current_kwargs, dispatchable_args = backend.replace_dispatchables(
-                self, args, kwargs, coerce=True)
-            result = backend.try_backend(self, current_args, current_kwargs)
-
-            if result is NotImplemented:
-                continue
-
-            return result
-
-        raise BackendNotImplementedError('No selected backends had an implementation for this method.')
+        return result
 
     def __get__(self, instance, owner):
         if instance is None:
@@ -126,13 +112,14 @@ class BoundMultiMethod:
     """
     Used internally for the implementation of the descriptor protocol.
     """
+
     def __init__(self, method: Union[MultiMethod, "BoundMultiMethod"], instance: Any, owner: Type):
         self.method = method
         self.instance = instance
         self.owner = owner
 
     def __call__(self, *args, **kwargs):
-        return self.method.__call__(self.instance, *args, **kwargs)
+        return self.method(self.instance, *args, **kwargs)
 
     def __get__(self, instance, owner):
         if instance is None:
@@ -150,7 +137,7 @@ def create_multimethod(reverse_dispatcher: ArgumentReplacerType,
     argument_replacer : ArgumentReplacerType
         This takes in args, kwargs and dispatchable args, and replaces all dispatchable arguments within
         the args and kwargs, and then returns them.
-    default : Optional[Callable]
+    default : Optional[Callable], optional
         This is the default implementation for this multimethod, possibly in terms of other multimethods.
 
     Examples
@@ -175,7 +162,7 @@ def create_multimethod(reverse_dispatcher: ArgumentReplacerType,
     return inner
 
 
-ImplementationType = Callable[[MultiMethod, Iterable, Dict], Any]
+ImplementationType = Callable[[MultiMethod, Iterable, Dict, Iterable], Any]
 InstanceStubType = Any
 ConvertorType = Callable[["DispatchableInstance"], Any]
 MethodLookupType = Dict[Optional[MultiMethod], ImplementationType]
@@ -183,7 +170,7 @@ TypeLookupType = Dict[Type["DispatchableInstance"], ConvertorType]
 InstanceLookupType = Dict["DispatchableInstance", InstanceStubType]
 
 
-class Backend(metaclass=ABCMeta):
+class Backend:
     """
     An abstract base class for all backend types.
 
@@ -191,6 +178,7 @@ class Backend(metaclass=ABCMeta):
     --------
     TypeCheckBackend: A specific kind of Backend.
     """
+
     def __init__(self):
         self._implementations: MethodLookupType = {}
         self._convertors: TypeLookupType = {}
@@ -217,8 +205,8 @@ class Backend(metaclass=ABCMeta):
         >>> @ua.create_multimethod(potato_rd)
         ... def potato(a, b):
         ...     return (a,) # a, b is not is dispatchable, so we return a only
-        >>> be = ua.TypeCheckBackend((int,))  # Define "supported dispatchable types"
-        >>> def potato_impl(method, args, kwargs):
+        >>> be = ua.Backend()  # Define "supported dispatchable types"
+        >>> def potato_impl(method, args, kwargs, dispatchable_args):
         ...     # method will be potato
         ...     return args, kwargs
         >>> be.register_implementation(potato, potato_impl)
@@ -266,7 +254,7 @@ class Backend(metaclass=ABCMeta):
         >>> import uarray as ua
         >>> class DispatchableInt(ua.DispatchableInstance):
         ...     pass
-        >>> be = ua.TypeCheckBackend((int,))
+        >>> be = ua.Backend()
         >>> # All ints piped to -2
         >>> be.register_convertor(DispatchableInt, lambda x: -2)
         >>> def potato_rd(args, kwargs, dispatch_args):
@@ -276,7 +264,7 @@ class Backend(metaclass=ABCMeta):
         ... def potato(a, b):
         ...     # Here, we register a as dispatchable and mark it as an int
         ...     return (DispatchableInt(a),)
-        >>> @ua.register_implementation(be, potato)
+        >>> @ua.register_implementation(potato, be)
         ... def potato_impl(a, b):
         ...     return a, b
         >>> with ua.set_backend(be, coerce=True):
@@ -292,15 +280,6 @@ class Backend(metaclass=ABCMeta):
 
         self._convertors[dispatch_type] = convertor
 
-    @abstractmethod
-    def usable(self, dispatchable_args: Tuple["DispatchableInstance"]) -> Optional[bool]:
-        """
-        An abstract property that, given the dispatchable args, returns either a boolean
-        indicating whether the backend can be used, or ``None`` if it should be used as
-        a fallback.
-        """
-        pass
-
     def replace_dispatchables(self, method: MultiMethod, args, kwargs, coerce: Optional[bool] = False):
         """
         Replace dispatchables for a this method, using the convertor, if coercion is used.
@@ -311,7 +290,7 @@ class Backend(metaclass=ABCMeta):
             The method to replace the args/kwargs for.
         args, kwargs
             The args and kwargs to replace.
-        coerce: Optional[bool]
+        coerce: Optional[bool], optional
             Whether or not to coerce the arrays during replacement. Default is False.
 
         Returns
@@ -321,7 +300,7 @@ class Backend(metaclass=ABCMeta):
         """
         dispatchable_args = method.argument_extractor(*args, **kwargs)
         replaced_args = tuple(self._replace_single(arg, coerce=coerce) for arg in dispatchable_args)
-        return (*method.argument_replacer(args, kwargs, replaced_args), dispatchable_args)
+        return (*method.argument_replacer(args, kwargs, replaced_args), replaced_args)
 
     def _replace_single(self, arg: Union["DispatchableInstance", Any],
                         coerce: Optional[bool] = False):
@@ -340,86 +319,42 @@ class Backend(metaclass=ABCMeta):
 
         return arg.value
 
-    def try_backend(self, method: MultiMethod, args: Tuple, kwargs: Dict):
+    def try_backend(self, method: MultiMethod, args: Tuple, kwargs: Dict, coerce: bool):
         """
         Try this backend for a given args and kwargs. Returns either a
         result or ``NotImplemented``. All exceptions are propagated.
         """
+        current_args, current_kwargs, dispatchable_args = self.replace_dispatchables(
+            method, args, kwargs, coerce=coerce)
+
         result = NotImplemented
 
         if method in self._implementations:
-            result = self._implementations[method](method, args, kwargs)
+            result = self._implementations[method](method, current_args, current_kwargs, dispatchable_args)
+
+        if result is NotImplemented and None in self._implementations:
+            result = self._implementations[None](method, current_args, current_kwargs, dispatchable_args)
 
         if result is NotImplemented and method.default is not None:
             try:
-                result = method.default(*args, **kwargs)
+                with set_backend(self, coerce=coerce):
+                    result = method.default(*current_args, **current_kwargs)
             except BackendNotImplementedError:
                 pass
-
-        if result is NotImplemented and None in self._implementations:
-            result = self._implementations[None](method, args, kwargs)
 
         return result
 
 
 _backends: Set[Backend] = set()
 
-BackendCoerceType = Tuple[Backend, Optional[bool]]
+BackendCoerceType = Tuple[Backend, bool]
 
 
 def _backend_order() -> Iterator[BackendCoerceType]:
     pref = _preferred_backend.get()
     skip = _skipped_backend.get()
 
-    yield from filter(lambda x: x[0] not in skip, itertools.chain(pref, itertools.product(_backends, (False,))))
-
-
-class TypeCheckBackend(Backend):
-    """
-    A backend that's based on type-checking based dispatch.
-
-    Parameters
-    ----------
-    types : Iterable[Type]
-        The types this backend supports.
-    allow_subclasses: bool, optional
-        Whether to allow subclasses when checking the types. Default is ``True``.
-    fallback_types: Iterable[Type], optional
-        The types for which this backend is a fallback.
-    allow_fallback_subclasses: Optional[bool], optional
-        Whether to allow subclasses for fallback types. Default is ``None``, which means
-        "use whatever value ``allow_subclasses`` has."
-    """
-    def __init__(self, types: Iterable[Type], allow_subclasses: bool = True,
-                 fallback_types: Iterable[Type] = (), allow_fallback_subclasses: Optional[bool] = None):
-        self.types = tuple(types)
-        self.allow_subclasses = allow_subclasses
-        self.fallback_types = tuple((*fallback_types, *types))
-        self.allow_fallback_subclasses = (allow_subclasses if allow_fallback_subclasses is None else
-                                          allow_fallback_subclasses)
-        super().__init__()
-
-    def usable(self, dispatchable_args: Tuple["DispatchableInstance"]) -> Optional[bool]:
-        args = tuple(map(lambda x: x.value if isinstance(x, DispatchableInstance) else x, dispatchable_args))
-
-        if self.allow_subclasses:
-            usable = all(isinstance(arr, self.types) for arr in args if arr is not None)
-        else:
-            usable = all(type(arr) in self.types for arr in args if arr is not None)
-
-        if usable:
-            return True
-
-        if self.allow_fallback_subclasses:
-            fallback = all(isinstance(arr, self.fallback_types)
-                           for arr in args if arr is not None)
-        else:
-            fallback = all(type(arr) in self.fallback_types for arr in args if arr is not None)
-
-        if fallback:
-            return None
-
-        return False
+    return filter(lambda x: x[0] not in skip, itertools.chain(pref, itertools.product(_backends, (False,))))
 
 
 _preferred_backend: ContextVar[Tuple[BackendCoerceType, ...]] = ContextVar('_preferred_backend', default=())
@@ -443,7 +378,8 @@ class set_backend:
     skip_backend: A context manager that allows skipping of backends.
     DispatchableInstance: Items to be coerced must be marked by a DispatchableInstance.
     """
-    def __init__(self, backend: Backend, coerce: Optional[bool] = None):
+
+    def __init__(self, backend: Backend, coerce: bool = False):
         self.token = None
         self.backend = backend
         self.coerce = coerce
@@ -470,6 +406,7 @@ class skip_backend:
     --------
     set_backend: A context manager that allows setting of preferred backend.
     """
+
     def __init__(self, backend: Backend):
         self.backend = backend
         self.token = None
@@ -483,7 +420,10 @@ class skip_backend:
         _skipped_backend.reset(self.token)
 
 
-def register_implementation(backend: Backend, method: MultiMethod):
+CompatCheckType = Callable[[Iterable], bool]
+
+
+def register_implementation(method: MultiMethod, backend: Backend, compat_check: Optional[CompatCheckType] = None):
     """
     Create an implementation for a given backend/method. The implementation
     should have the same signature as the method, or perhaps with some optional
@@ -491,7 +431,9 @@ def register_implementation(backend: Backend, method: MultiMethod):
     """
     def wrapper(func):
         @functools.wraps(func)
-        def inner(method, args, kwargs):
+        def inner(method, args, kwargs, dispatchable_args):
+            if compat_check is not None and not compat_check(dispatchable_args):
+                return NotImplemented
             return func(*args, **kwargs)
 
         backend.register_implementation(method, inner)
@@ -503,10 +445,6 @@ def register_implementation(backend: Backend, method: MultiMethod):
 
 def register_backend(backend: Backend):
     _backends.add(backend)
-
-
-def deregister_backend(backend: Backend):
-    _backends.remove(backend)
 
 
 class DispatchableInstance:
@@ -524,7 +462,7 @@ class DispatchableInstance:
     >>> import uarray as ua
     >>> class DispatchableInt(ua.DispatchableInstance):
     ...     pass
-    >>> be = ua.TypeCheckBackend((int,))
+    >>> be = ua.Backend()
     >>> # All ints piped to -2
     >>> be.register_convertor(DispatchableInt, lambda x: -2)
     >>> def potato_rd(args, kwargs, dispatch_args):
@@ -534,13 +472,14 @@ class DispatchableInstance:
     ... def potato(a, b):
     ...     # Here, we register a as dispatchable and mark it as an int
     ...     return (DispatchableInt(a),)
-    >>> @ua.register_implementation(be, potato)
+    >>> @ua.register_implementation(potato, be)
     ... def potato_impl(a, b):
     ...     return a, b
     >>> with ua.set_backend(be, coerce=True):
     ...     potato(1, '2')
     (-2, '2')
     """
+
     def __init__(self, value: Any):
         if type(self) is DispatchableInstance:
             raise RuntimeError('Do not instantiate this class directly, '
@@ -558,7 +497,7 @@ def all_of_type(arg_type: Type[DispatchableInstance]):
     >>> import uarray as ua
     >>> class DispatchableInt(ua.DispatchableInstance):
     ...     pass
-    >>> be = ua.TypeCheckBackend((int,))
+    >>> be = ua.Backend()
     >>> # All ints piped to -2
     >>> be.register_convertor(DispatchableInt, lambda x: -2)
     >>> def potato_rd(args, kwargs, dispatch_args):
@@ -569,7 +508,7 @@ def all_of_type(arg_type: Type[DispatchableInstance]):
     ... def potato(a, b):
     ...     # Here, we register a as dispatchable and mark it as an int
     ...     return (a,)
-    >>> @ua.register_implementation(be, potato)
+    >>> @ua.register_implementation(potato, be)
     ... def potato_impl(a, b):
     ...     return a, b
     >>> with ua.set_backend(be, coerce=True):

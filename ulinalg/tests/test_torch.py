@@ -1,5 +1,6 @@
 import pytest
 import ulinalg as ula
+import ulinalg.torch_backend
 
 
 torch = pytest.importorskip('torch')

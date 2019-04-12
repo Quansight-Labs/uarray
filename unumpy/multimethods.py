@@ -258,31 +258,37 @@ def reduce_impl(red_ufunc: ufunc):
 
 
 @create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['add']))
+@all_of_type(ndarray)
 def sum(a, axis=None, dtype=None, out=None, keepdims=False):
     return (a, out)
 
 
 @create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['multiply']))
+@all_of_type(ndarray)
 def prod(a, axis=None, dtype=None, out=None, keepdims=False):
     return (a, out)
 
 
 @create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['minimum']))
+@all_of_type(ndarray)
 def min(a, axis=None, out=None, keepdims=False):
     return (a, out)
 
 
 @create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['maximum']))
+@all_of_type(ndarray)
 def max(a, axis=None, out=None, keepdims=False):
     return (a, out)
 
 
 @create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['logical_or']))
+@all_of_type(ndarray)
 def any(a, axis=None, out=None, keepdims=False):
     return (a, out)
 
 
 @create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['logical_and']))
+@all_of_type(ndarray)
 def all(a, axis=None, out=None, keepdims=False):
     return (a, out)
 

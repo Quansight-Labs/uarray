@@ -2,15 +2,18 @@ import pytest
 
 import uarray as ua
 import unumpy as np
+import numpy as onp
+import torch
+import xnd
 from unumpy.numpy_backend import NumpyBackend
-from unumpy.pytorch_backend import TorchBackend
+from unumpy.torch_backend import TorchBackend
 from unumpy.xnd_backend import XndBackend
 
 
 @pytest.fixture(scope='session', params=[
-    NumpyBackend,
-    TorchBackend,
-    XndBackend,
+    (NumpyBackend, (onp.ndarray, onp.generic)),
+    (TorchBackend, torch.Tensor),
+    (XndBackend, xnd.xnd),
 ])
 def backend(request):
     backend = request.param
@@ -23,7 +26,7 @@ def backend(request):
     (np.arange, (5, 20, 5), {},)
 ])
 def test_ufuncs_coerce(backend, method, args, kwargs):
-    ret_type = backend.types
+    backend, types = backend
     try:
         with ua.set_backend(backend, coerce=True):
             ret = method(*args, **kwargs)
@@ -32,7 +35,7 @@ def test_ufuncs_coerce(backend, method, args, kwargs):
             raise
         pytest.xfail(reason='The backend has no implementation for this ufunc.')
 
-    assert isinstance(ret, ret_type)
+    assert isinstance(ret, types)
 
 
 @pytest.mark.parametrize('method, args, kwargs', [
@@ -40,10 +43,10 @@ def test_ufuncs_coerce(backend, method, args, kwargs):
     (np.sin, ([1.0],), {}),  # type: ignore
 ])
 def test_functions(backend, method, args, kwargs):
-    ret_type = backend.types
+    backend, types = backend
     args_new, kwargs_new = replace_args_kwargs(method, backend, args, kwargs)
     ret = method(*args_new, **kwargs_new)
-    assert isinstance(ret, ret_type)
+    assert isinstance(ret, types)
 
 
 def replace_args_kwargs(method, backend, args, kwargs):
@@ -71,7 +74,7 @@ def replace_args_kwargs(method, backend, args, kwargs):
     (np.max, ([1, 3, 2],), {}),
 ])
 def test_ufunc_reductions(backend, method, args, kwargs):
-    ret_type = backend.types
+    backend, types = backend
     try:
         with ua.set_backend(backend, coerce=True):
             ret = method(*args, **kwargs)
@@ -80,4 +83,4 @@ def test_ufunc_reductions(backend, method, args, kwargs):
             raise
         pytest.xfail(reason='The backend has no implementation for this ufunc.')
 
-    assert isinstance(ret, ret_type)
+    assert isinstance(ret, types)

@@ -2,9 +2,7 @@ from typing import List
 
 try:
     import torch
-    from unumpy.pytorch_backend import TorchBackend
-
-    from uarray import register_implementation
+    from unumpy.torch_backend import register_torch
     import ulinalg.multimethods as multimethods
 
     __all__: List[str] = []
@@ -17,7 +15,7 @@ try:
         else:
             return s
 
-    register_implementation(TorchBackend, multimethods.svd)(svd_impl)
+    register_torch(multimethods.svd)(svd_impl)
 
 except ImportError:
     pass
