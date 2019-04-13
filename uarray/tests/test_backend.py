@@ -1,6 +1,6 @@
 import pytest
 
-from uarray import TypeCheckBackend, MultiMethod, register_backend, deregister_backend, BackendNotImplementedError
+import uarray as ua
 
 
 class DummyClass:
@@ -21,41 +21,32 @@ def dummy_rd(args, kwargs, rep_args):
 
 @pytest.fixture(scope='function')
 def dummy_method(dummy_backend):
-    return MultiMethod(dummy_fd, dummy_rd)
+    return ua.MultiMethod(dummy_fd, dummy_rd)
 
 
 @pytest.fixture(scope='function')
 def dummy_backend():
-    backend = TypeCheckBackend((DummyClass,))
-    register_backend(backend)
-    yield backend
-    deregister_backend(backend)
+    backend = ua.Backend()
+    with ua.set_backend(backend):
+        yield backend
 
 
 def test_normal(dummy_backend, dummy_method):
     implementation_called = [False]
 
-    def implementation(method, args, kwargs):
+    def implementation(method, args, kwargs, dispatchable_args):
         implementation_called[0] = True
 
-    dummy_backend.register_method(dummy_method, implementation)
+    dummy_backend.register_implementation(dummy_method, implementation)
     dummy_method(DummyClass())
 
     assert implementation_called[0]
 
 
-def test_invalidtype(dummy_method):
-    class InvalidClass:
-        pass
-
-    with pytest.raises(BackendNotImplementedError):
-        dummy_method(InvalidClass())
-
-
 def test_invalidmethod():
-    invalid_method = MultiMethod(dummy_fd, dummy_rd)
+    invalid_method = ua.MultiMethod(dummy_fd, dummy_rd)
 
-    with pytest.raises(BackendNotImplementedError):
+    with pytest.raises(ua.BackendNotImplementedError):
         invalid_method(DummyClass())
 
 
@@ -64,26 +55,11 @@ def test_method_repr(dummy_method):
     assert repr(dummy_fd) == repr(dummy_method)
 
 
-def test_subclasses(dummy_backend, dummy_method):
-    class InheritedClass(DummyClass):
-        pass
-
-    def implementation(method, args, kwargs):
-        pass
-
-    dummy_backend.register_method(dummy_method, implementation)
-    dummy_method(InheritedClass())
-    dummy_backend.__init__((DummyClass,), allow_subclasses=False)
-
-    with pytest.raises(BackendNotImplementedError):
-        dummy_method(InheritedClass())
-
-
 def test_method_notimplemented(dummy_backend, dummy_method):
-    def implementation(method, args, kwargs):
+    def implementation(method, args, kwargs, dispatchable_args):
         return NotImplemented
 
-    dummy_backend.register_method(dummy_method, implementation)
+    dummy_backend.register_implementation(dummy_method, implementation)
 
-    with pytest.raises(BackendNotImplementedError):
+    with pytest.raises(ua.BackendNotImplementedError):
         dummy_method(DummyClass())

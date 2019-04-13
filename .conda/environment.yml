@@ -5,6 +5,7 @@ channels:
   - defaults
   - conda-forge
 dependencies:
+  - nomkl
   - python=3.7
   - sphinx
   - sphinx_rtd_theme
@@ -14,5 +15,6 @@ dependencies:
   - pytorch-cpu
   - scipy
   - gumath
+  - doc8
   - pip:
     - pytest-mypy

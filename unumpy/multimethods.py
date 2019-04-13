@@ -1,4 +1,4 @@
-from uarray.backend import argument_extractor, DispatchableType, all_of_type
+from uarray.backend import create_multimethod, DispatchableInstance, all_of_type
 
 
 def _identity_argreplacer(args, kwargs, arrays):
@@ -23,16 +23,16 @@ def _reduce_argreplacer(args, kwargs, arrays):
     return tuple(out_args), out_kwargs
 
 
-class ndarray(DispatchableType):
+class ndarray(DispatchableInstance):
     pass
 
 
-class ufunc(DispatchableType):
+class ufunc(DispatchableInstance):
     def __init__(self, name, nin, nout):
         self.name = name
         self._nin = nin
         self._nout = nout
-        super().__init__()
+        super().__init__(self)
 
     def __str__(self):
         return f"<ufunc '{self.name}'>"
@@ -46,12 +46,12 @@ class ufunc(DispatchableType):
         return self._nout
 
     @property  # type: ignore
-    @argument_extractor(_identity_argreplacer)
+    @create_multimethod(_identity_argreplacer)
     def types(self):
         return ()
 
     @property  # type: ignore
-    @argument_extractor(_identity_argreplacer)
+    @create_multimethod(_identity_argreplacer)
     def identity(self):
         return ()
 
@@ -74,7 +74,7 @@ class ufunc(DispatchableType):
 
         return (self, *in_arrays), out_kwargs
 
-    @argument_extractor(_ufunc_argreplacer)
+    @create_multimethod(_ufunc_argreplacer)
     @all_of_type(ndarray)
     def __call__(self, *args, out=None):
         in_args = tuple(args)
@@ -83,12 +83,12 @@ class ufunc(DispatchableType):
 
         return in_args + out
 
-    @argument_extractor(_ureduce_argreplacer)
+    @create_multimethod(_ureduce_argreplacer)
     @all_of_type(ndarray)
     def reduce(self, a, axis=0, dtype=None, out=None, keepdims=False):
         return (a, out)
 
-    @argument_extractor(_ureduce_argreplacer)
+    @create_multimethod(_ureduce_argreplacer)
     @all_of_type(ndarray)
     def accumulate(self, a, axis=0, dtype=None, out=None):
         return (a, out)
@@ -225,27 +225,27 @@ for ufunc_name in ufunc_list:
     globals()[ufunc_name] = ufunc(ufunc_name, *_args_mapper[ufunc_name])
 
 
-@argument_extractor(_identity_argreplacer)
+@create_multimethod(_identity_argreplacer)
 def arange(start, stop, step, dtype=None):
     return ()
 
 
-@argument_extractor(_identity_argreplacer)
+@create_multimethod(_identity_argreplacer)
 def array(object, dtype=None, copy=True, order='K', subok=False, ndmin=0):
     return ()
 
 
-@argument_extractor(_identity_argreplacer)
+@create_multimethod(_identity_argreplacer)
 def zeros(shape, dtype=float, order='C'):
     return ()
 
 
-@argument_extractor(_identity_argreplacer)
+@create_multimethod(_identity_argreplacer)
 def ones(shape, dtype=float, order='C'):
     return ()
 
 
-@argument_extractor(_identity_argreplacer)
+@create_multimethod(_identity_argreplacer)
 def asarray(a, dtype=None, order=None):
     return ()
 
@@ -257,32 +257,38 @@ def reduce_impl(red_ufunc: ufunc):
     return inner
 
 
-@argument_extractor(_reduce_argreplacer, default=reduce_impl(globals()['add']))
+@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['add']))
+@all_of_type(ndarray)
 def sum(a, axis=None, dtype=None, out=None, keepdims=False):
     return (a, out)
 
 
-@argument_extractor(_reduce_argreplacer, default=reduce_impl(globals()['multiply']))
+@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['multiply']))
+@all_of_type(ndarray)
 def prod(a, axis=None, dtype=None, out=None, keepdims=False):
     return (a, out)
 
 
-@argument_extractor(_reduce_argreplacer, default=reduce_impl(globals()['minimum']))
+@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['minimum']))
+@all_of_type(ndarray)
 def min(a, axis=None, out=None, keepdims=False):
     return (a, out)
 
 
-@argument_extractor(_reduce_argreplacer, default=reduce_impl(globals()['maximum']))
+@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['maximum']))
+@all_of_type(ndarray)
 def max(a, axis=None, out=None, keepdims=False):
     return (a, out)
 
 
-@argument_extractor(_reduce_argreplacer, default=reduce_impl(globals()['logical_or']))
+@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['logical_or']))
+@all_of_type(ndarray)
 def any(a, axis=None, out=None, keepdims=False):
     return (a, out)
 
 
-@argument_extractor(_reduce_argreplacer, default=reduce_impl(globals()['logical_and']))
+@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['logical_and']))
+@all_of_type(ndarray)
 def all(a, axis=None, out=None, keepdims=False):
     return (a, out)
 

@@ -1,7 +1,9 @@
 import pytest
 import ulinalg as ula
+import ulinalg.numpy_backend
 import uarray as ua
-from ulinalg.numpy_backend import NumpyBackend
+from unumpy.numpy_backend import NumpyBackend
+import unumpy.torch_backend  # noqa: F401
 
 np = pytest.importorskip('numpy')
 
@@ -19,13 +21,13 @@ def test_svd2():
 def test_coercion():
     torch = pytest.importorskip('torch')
     arr = torch.eye(5)
-    with ua.set_backend(ula.numpy_backend.NumpyBackend, coerce=True):
+    with ua.set_backend(NumpyBackend, coerce=True):
         assert isinstance(ula.svd(arr, compute_uv=False), np.ndarray)
 
     assert isinstance(ula.svd(arr, compute_uv=False), torch.Tensor)
 
 
-def test_coercion_optional():
+def test_coercion2():
     my_list = [list(range(5))] * 5
 
     class A:
@@ -37,8 +39,8 @@ def test_coercion_optional():
 
     arr = A()
 
-    with ua.set_backend(NumpyBackend, coerce=None):
+    with ua.set_backend(NumpyBackend, coerce=True):
         assert isinstance(ula.svd(arr, compute_uv=False), np.ndarray)
 
-    with pytest.raises(TypeError):
+    with pytest.raises(ua.BackendNotImplementedError):
         ula.svd(arr, compute_uv=False)

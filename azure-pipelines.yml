@@ -1,7 +1,9 @@
-pool:
-  vmImage: "Ubuntu 16.04"
+jobs:
+- job: Tests
+  pool:
+    vmImage: 'ubuntu-16.04'
 
-steps:
+  steps:
   - script: |
       echo "##vso[task.prependpath]$CONDA/bin"
       conda env create -f .conda/environment.yml
@@ -9,7 +11,7 @@ steps:
 
   - script: |
       source activate uarray
-      pip install -e .[all]
+      pip install -e . --no-deps
     displayName: Install package
 
   - script: |
@@ -17,14 +19,36 @@ steps:
       pytest
     displayName: Run tests
 
-  - task: PublishTestResults@2
-    condition: always()
-    inputs:
-      testResultsFiles: "**/test-*.xml"
-      testRunTitle: "Publish test results"
-
   - task: PublishCodeCoverageResults@1
     inputs:
       codeCoverageTool: Cobertura
       summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/coverage.xml"
       reportDirectory: "$(System.DefaultWorkingDirectory)/**/htmlcov"
+- job: Docs
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+  - script: |
+      echo "##vso[task.prependpath]$CONDA/bin"
+      conda env create -f .conda/environment.yml
+    displayName: Prepare conda
+
+  - script: |
+      source activate uarray
+      pip install -e . --no-deps
+    displayName: Install package
+
+  - script: |
+      source activate uarray
+      sphinx-build -W -b html docs/ _build/html
+    displayName: Build docs
+
+  - script: |
+      source activate uarray
+      doc8
+    displayName: Lint docs
+
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'Documentation'
+      targetPath: '$(System.DefaultWorkingDirectory)/_build/html'
