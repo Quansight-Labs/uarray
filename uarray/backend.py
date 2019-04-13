@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Dict, Tuple, Any, Set, Optional, Iterator, Type, Union
+from typing import Callable, Iterable, Dict, Tuple, Any, Set, Optional, Type, Union
 import inspect
 from contextvars import ContextVar
 import itertools
@@ -37,8 +37,8 @@ class MultiMethod:
 
     We first define an argument extractor, which extracts the relevant dispatchable arguments from the
     arguments of the function. Note that the extracted arguments don't have to be direct arguments to
-    the function, they can be anything contained within as well. For example, if `a` was a `list` and
-    we wanted to treat everything within it as dispatchable, we could return `tuple(a)`.
+    the function, they can be anything contained within as well. For example, if ``a`` was a ``list`` and
+    we wanted to treat everything within it as dispatchable, we could return ``tuple(a)``.
 
     >>> def potato_extractor(a, b):
     ...     return (a,) # b is not is dispatchable, so we return a only, as a tuple.
@@ -64,7 +64,7 @@ class MultiMethod:
 
     See Also
     --------
-    :obj:`Backend`
+    Backend
         A way to override :obj:`MultiMethod` s.
 
     """
@@ -87,13 +87,14 @@ class MultiMethod:
 
     def __call__(self, *args, **kwargs):
         result = NotImplemented
-        for backend, coerce in _backend_order():
+        backends = tuple(_backend_order())
+        for backend, coerce in backends:
             result = backend.try_backend(self, args, kwargs, coerce=coerce)
 
-            if coerce or result is not NotImplemented:
+            if result is not NotImplemented:
                 break
 
-        if result is NotImplemented and self.default is not None:
+        if not len(backends) and self.default is not None:
             result = self.default(*args, **kwargs)
 
         if result is NotImplemented:
@@ -367,7 +368,7 @@ class Backend:
 
         if result is NotImplemented and method.default is not None:
             try:
-                with set_backend(self, coerce=coerce):
+                with set_backend(self, coerce=coerce, only=True):
                     result = method.default(*current_args, **current_kwargs)
             except BackendNotImplementedError:
                 pass
@@ -380,7 +381,12 @@ _backends: Set[Backend] = set()
 BackendCoerceType = Tuple[Backend, bool]
 
 
-def _backend_order() -> Iterator[BackendCoerceType]:
+def _backend_order() -> Iterable[BackendCoerceType]:
+    only = _only_backend.get()
+
+    if only is not None:
+        return (only,)
+
     pref = _preferred_backend.get()
     skip = _skipped_backend.get()
 
@@ -389,6 +395,7 @@ def _backend_order() -> Iterator[BackendCoerceType]:
 
 _preferred_backend: ContextVar[Tuple[BackendCoerceType, ...]] = ContextVar('_preferred_backend', default=())
 _skipped_backend: ContextVar[Set[Backend]] = ContextVar('_skipped_backend', default=set())
+_only_backend: ContextVar[Optional[BackendCoerceType]] = ContextVar('_only_backend', default=None)
 
 
 class set_backend:
@@ -401,7 +408,10 @@ class set_backend:
         The backend to set.
     coerce : bool, optional
         Whether to coerce the input arguments, and force this backend.
-        Default is ``False``.
+        Default is ``False``. Implies ``only``.
+    only : bool, optional
+        Whether to set this as the only allowed backend. Default is
+        ``False``.
 
     See Also
     --------
@@ -409,16 +419,23 @@ class set_backend:
     DispatchableInstance: Items to be coerced must be marked by a DispatchableInstance.
     """
 
-    def __init__(self, backend: Backend, coerce: bool = False):
+    def __init__(self, backend: Backend, coerce: bool = False, only: bool = False):
         self.token = None
         self.backend = backend
         self.coerce = coerce
+        self.only = coerce or only
 
     def __enter__(self):
-        self.token = _preferred_backend.set(((self.backend, self.coerce),) + _preferred_backend.get())
+        if not self.only:
+            self.token = _preferred_backend.set(((self.backend, self.coerce),) + _preferred_backend.get())
+        else:
+            self.token = _only_backend.set((self.backend, self.coerce))
 
     def __exit__(self, exception_type, exception_value, traceback):
-        _preferred_backend.reset(self.token)
+        if not self.only:
+            _preferred_backend.reset(self.token)
+        else:
+            _only_backend.reset(self.token)
 
 
 class skip_backend:
