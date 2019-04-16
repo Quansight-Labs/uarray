@@ -1,7 +1,12 @@
 .. currentmodule:: uarray
 
-Welcome to ``uarray``'s documentation
-=====================================
+``uarray``
+==========
+
+.. image:: logo.png
+   :alt: Logo
+   :align: center
+   :width: 20em
 
 .. warning::
     ``uarray`` is a developer tool, it is not meant to be used directly by end-users.
