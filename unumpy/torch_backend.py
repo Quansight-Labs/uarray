@@ -76,7 +76,7 @@ register_torch(multimethods.array)(torch.tensor)
 @register_torch(multimethods.asarray)
 def asarray(a, dtype=None, order=None):
     if torch.is_tensor(a):
-        if a.dtype != dtype:
+        if dtype is None or a.dtype != dtype:
             ret = torch.tensor(a, dtype=dtype)
             if a.requires_grad:
                 ret.requires_grad_()
