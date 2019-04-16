@@ -383,12 +383,12 @@ BackendCoerceType = Tuple[Backend, bool]
 
 def _backend_order() -> Iterable[BackendCoerceType]:
     only = _only_backend.get()
+    skip = _skipped_backend.get()
 
-    if only is not None:
+    if only is not None and only not in skip:
         return (only,)
 
     pref = _preferred_backend.get()
-    skip = _skipped_backend.get()
 
     return filter(lambda x: x[0] not in skip, itertools.chain(pref, itertools.product(_backends, (False,))))
 
@@ -493,6 +493,16 @@ def register_implementation(method: MultiMethod, backend: Backend, compat_check:
 
 
 def register_backend(backend: Backend):
+    """
+    This utility method registers the backend for permanent use. It
+    will be tried in the list of backends automatically, unless the
+    ``only`` flag is set on a backend.
+
+    Parameters
+    ----------
+    backend : Backend
+        The backend to register.
+    """
     _backends.add(backend)
 
 
