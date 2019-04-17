@@ -148,6 +148,8 @@ functional interface is provided for ease of use, including decorators.
 
     generated/uarray.rst
 
+    unumpy_using
+
 
 
 Indices and tables
