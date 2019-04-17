@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Dict, Tuple, Any, Set, Optional, Type, Union
+from typing import Callable, Iterable, Dict, Tuple, Any, Set, Optional, Type, Union, List
 import inspect
 from contextvars import ContextVar
 import itertools
@@ -93,9 +93,9 @@ class MultiMethod:
 
             if result is not NotImplemented:
                 break
-
-        if not len(backends) and self.default is not None:
-            result = self.default(*args, **kwargs)
+        else:
+            if self.default is not None:
+                result = self.default(*args, **kwargs)
 
         if result is NotImplemented:
             raise BackendNotImplementedError('No selected backends had an implementation for this method.')
@@ -330,8 +330,19 @@ class Backend:
         dispatchable_args: The extracted dispatchable args.
         """
         dispatchable_args = method.argument_extractor(*args, **kwargs)
-        replaced_args = tuple(self._replace_single(arg, coerce=coerce) for arg in dispatchable_args)
-        return (*method.argument_replacer(args, kwargs, replaced_args), replaced_args)
+        replaced_args: List = []
+        filtered_dispatchable_args: List = []
+        for arg in dispatchable_args:
+            replaced_arg = self._replace_single(arg, coerce=coerce)
+            replaced_args.append(replaced_arg)
+
+            if not isinstance(arg, DispatchableInstance):
+                filtered_dispatchable_args.append(replaced_arg)
+            elif type(arg) in self._convertors:
+                filtered_dispatchable_args.append(type(arg)(replaced_arg))
+
+        args, kwargs = method.argument_replacer(args, kwargs, tuple(replaced_args))
+        return args, kwargs, filtered_dispatchable_args
 
     def _replace_single(self, arg: Union["DispatchableInstance", Any],
                         coerce: Optional[bool] = False):
