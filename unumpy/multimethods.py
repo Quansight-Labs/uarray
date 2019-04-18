@@ -5,11 +5,15 @@ def _identity_argreplacer(args, kwargs, arrays):
     return args, kwargs
 
 
+def _self_argreplacer(args, kwargs, dispatchables):
+    return dispatchables + args[1:], kwargs
+
+
 def _ureduce_argreplacer(args, kwargs, arrays):
     out_args = list(args)
-    out_args[1] = arrays[0]
+    out_args[:2] = arrays[:2]
 
-    out_kwargs = {**kwargs, 'out': arrays[1]}
+    out_kwargs = {**kwargs, 'out': arrays[2]}
 
     return tuple(out_args), out_kwargs
 
@@ -28,11 +32,14 @@ class ndarray(DispatchableInstance):
 
 
 class ufunc(DispatchableInstance):
-    def __init__(self, name, nin, nout):
+    def __init__(self, name, *args):
+        if isinstance(name, ufunc) and not len(args):
+            super().__init__(name)
+            return
+
         self.name = name
-        self._nin = nin
-        self._nout = nout
-        super().__init__(self)
+        self._nin, self._nout = args
+        super().__init__(None)
 
     def __str__(self):
         return f"<ufunc '{self.name}'>"
@@ -46,14 +53,14 @@ class ufunc(DispatchableInstance):
         return self._nout
 
     @property  # type: ignore
-    @create_multimethod(_identity_argreplacer)
+    @create_multimethod(_self_argreplacer)
     def types(self):
-        return ()
+        return (ufunc(self))
 
     @property  # type: ignore
-    @create_multimethod(_identity_argreplacer)
+    @create_multimethod(_self_argreplacer)
     def identity(self):
-        return ()
+        return (ufunc(self))
 
     @property
     def nargs(self):
@@ -66,13 +73,13 @@ class ufunc(DispatchableInstance):
     def _ufunc_argreplacer(args, kwargs, arrays):
         self = args[0]
         args = args[1:]
-        in_arrays = arrays[:self.nin]
-        out_arrays = arrays[self.nin:]
+        in_arrays = arrays[1:self.nin+1]
+        out_arrays = arrays[self.nin+1:]
         if self.nout == 1:
             out_arrays = out_arrays[0]
         out_kwargs = {**kwargs, 'out': out_arrays}
 
-        return (self, *in_arrays), out_kwargs
+        return (arrays[0], *in_arrays), out_kwargs
 
     @create_multimethod(_ufunc_argreplacer)
     @all_of_type(ndarray)
@@ -81,17 +88,17 @@ class ufunc(DispatchableInstance):
         if not isinstance(out, tuple):
             out = (out,)
 
-        return in_args + out
+        return (ufunc(self),) + in_args + out
 
     @create_multimethod(_ureduce_argreplacer)
     @all_of_type(ndarray)
     def reduce(self, a, axis=0, dtype=None, out=None, keepdims=False):
-        return (a, out)
+        return (ufunc(self), a, out)
 
     @create_multimethod(_ureduce_argreplacer)
     @all_of_type(ndarray)
     def accumulate(self, a, axis=0, dtype=None, out=None):
-        return (a, out)
+        return (ufunc(self), a, out)
 
 
 ufunc_list = [
