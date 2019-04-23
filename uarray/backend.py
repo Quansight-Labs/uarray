@@ -1,7 +1,6 @@
 from typing import Callable, Iterable, Dict, Tuple, Any, Set, Optional, Type, Union, List
 import inspect
 from contextvars import ContextVar
-import itertools
 import functools
 
 ArgumentExtractorType = Callable[..., Tuple["DispatchableInstance", ...]]
@@ -87,8 +86,7 @@ class MultiMethod:
 
     def __call__(self, *args, **kwargs):
         result = NotImplemented
-        backends = tuple(_backend_order())
-        for backend, coerce in backends:
+        for backend, coerce in _backend_order():
             result = backend.try_backend(self, args, kwargs, coerce=coerce)
 
             if result is not NotImplemented:
@@ -389,24 +387,26 @@ class Backend:
 
 _backends: Set[Backend] = set()
 
-BackendCoerceType = Tuple[Backend, bool]
+BackendCoerceType = Tuple[Backend, Optional[bool]]
 
 
 def _backend_order() -> Iterable[BackendCoerceType]:
-    only = _only_backend.get()
     skip = _skipped_backend.get()
-
-    if only is not None and only not in skip:
-        return (only,)
-
     pref = _preferred_backend.get()
 
-    return filter(lambda x: x[0] not in skip, itertools.chain(pref, itertools.product(_backends, (False,))))
+    for backend, coerce in pref:
+        if backend not in skip:
+            yield backend, bool(coerce)
+
+        if coerce is None or coerce:
+            return
+
+    for backend in _backends:
+        yield backend, False
 
 
 _preferred_backend: ContextVar[Tuple[BackendCoerceType, ...]] = ContextVar('_preferred_backend', default=())
 _skipped_backend: ContextVar[Set[Backend]] = ContextVar('_skipped_backend', default=set())
-_only_backend: ContextVar[Optional[BackendCoerceType]] = ContextVar('_only_backend', default=None)
 
 
 class set_backend:
@@ -433,20 +433,13 @@ class set_backend:
     def __init__(self, backend: Backend, coerce: bool = False, only: bool = False):
         self.token = None
         self.backend = backend
-        self.coerce = coerce
-        self.only = coerce or only
+        self.coerce = True if coerce else None if only else False
 
     def __enter__(self):
-        if not self.only:
-            self.token = _preferred_backend.set(((self.backend, self.coerce),) + _preferred_backend.get())
-        else:
-            self.token = _only_backend.set((self.backend, self.coerce))
+        self.token = _preferred_backend.set(((self.backend, self.coerce),) + _preferred_backend.get())
 
     def __exit__(self, exception_type, exception_value, traceback):
-        if not self.only:
-            _preferred_backend.reset(self.token)
-        else:
-            _only_backend.reset(self.token)
+        _preferred_backend.reset(self.token)
 
 
 class skip_backend:
