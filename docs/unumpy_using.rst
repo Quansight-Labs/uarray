@@ -10,7 +10,8 @@ auto-selection of the backend based on the arguments passed into a function.
 Note that currently, coverage is very incomplete. However, we have attempted
 to provide at least one of each kind of object in ``unumpy`` for
 reference. There are :obj:`ufunc` s and :obj:`ndarray` s,  which are classes,
-methods on :obj:`ufunc` such as , and also functions such as :obj:`sum` .
+methods on :obj:`ufunc` such as :obj:`__call__ <ufunc.__call__>`, and
+:obj:`reduce <ufunc.reduce>` and also functions such as :obj:`sum`.
 
 The idea is that once things are more mature, it will be possible to switch
 out your backend with a simple import statement switch:
@@ -37,7 +38,8 @@ Currently, only the following functions are supported:
 
 You can use the :obj:`uarray.set_backend` decorator to set a backend and use the
 desired backend. Note that not every backend supports every method. For example,
-PyTorch does not have an exact :obj:`ufunc` equivalent, so we dispatch. The following
+PyTorch does not have an exact :obj:`ufunc` equivalent, so we dispatch to actual
+methods using a dictionary lookup. The following
 backends are supported:
 
 * :obj:`numpy_backend.NumPyBackend`
