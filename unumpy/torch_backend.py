@@ -36,26 +36,26 @@ def __call__(self, *args, out=None):
 
 
 @register_torch(ufunc.reduce)
-def reduce(self, a, axis=0, dtype=None, out=None, keepdims=False):
+def reduce(self, a, axis=0, dtype=None, out=None, keepdims=False, arg=False):
     if self not in _reduce_mapping:
         return NotImplemented
 
     if axis is None:
         axis = tuple(range(a.dim()))
+    elif not isinstance(axis, tuple):
+        axis = (axis,)
 
-    if isinstance(axis, tuple):
-        ret = a
-        for dim in tuple(reversed(sorted(axis))):
-            ret = _reduce_mapping[self](ret, dim=dim, keepdim=keepdims)
+    ret = a
+    for dim in tuple(reversed(sorted(axis))):
+        ret = _reduce_mapping[self](ret, dim=dim, keepdim=keepdims)
 
-        if out is not None:
-            out[...] = ret
-            ret = out
+        assert not arg or isinstance(ret, tuple)
+        if isinstance(ret, tuple):
+            ret = ret[int(arg)]
 
-    ret = _reduce_mapping[self](a, dim=axis, keepdim=keepdims, out=out)
-
-    if isinstance(ret, tuple):
-        ret = ret[0]
+    if out is not None:
+        out[...] = ret
+        ret = out
 
     return ret
 
@@ -96,4 +96,16 @@ def asarray(a, dtype=None, order=None):
 
 register_torch(multimethods.zeros)(torch.zeros)
 register_torch(multimethods.ones)(torch.ones)
+
+
+@register_torch(multimethods.argmax)
+def argmax(a, axis=None, out=None):
+    return reduce(getattr(multimethods, 'max'), a, axis=axis, out=out, arg=True)
+
+
+@register_torch(multimethods.argmin)
+def argmin(a, axis=None, out=None):
+    return reduce(getattr(multimethods, 'min'), a, axis=axis, out=out, arg=True)
+
+
 TorchBackend.register_convertor(ndarray, asarray)

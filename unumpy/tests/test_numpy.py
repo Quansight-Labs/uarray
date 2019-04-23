@@ -72,6 +72,8 @@ def replace_args_kwargs(method, backend, args, kwargs):
     (np.all, ([True, False],), {}),
     (np.min, ([1, 3, 2],), {}),
     (np.max, ([1, 3, 2],), {}),
+    (np.argmin, ([1, 3, 2],), {}),
+    (np.argmax, ([1, 3, 2],), {}),
 ])
 def test_ufunc_reductions(backend, method, args, kwargs):
     backend, types = backend

@@ -44,4 +44,8 @@ register_numpy(multimethods.array)(np.array)
 register_numpy(multimethods.zeros)(np.zeros)
 register_numpy(multimethods.ones)(np.ones)
 register_numpy(multimethods.asarray)(np.asarray)
+
+register_numpy(multimethods.argmin)(np.argmin)
+register_numpy(multimethods.argmax)(np.argmax)
+
 NumpyBackend.register_convertor(ndarray, np.asarray)
