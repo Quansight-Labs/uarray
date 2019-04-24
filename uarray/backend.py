@@ -389,7 +389,7 @@ _backends: Set[Backend] = set()
 
 
 class BackendOptions:
-    def __init__(self, backend: Backend, coerce: bool = False, only: bool = True, options: Optional[Any] = None):
+    def __init__(self, backend: Backend, coerce: bool = False, only: bool = False, options: Optional[Any] = None):
         """
         The backend plus any additional options associated with it.
 
@@ -401,7 +401,7 @@ class BackendOptions:
             Whether or not the backend is being coerced. Implies ``only``.
         only: bool, optional
             Whether or not this is the only backend to try.
-        options: Optional[Any]
+        options: Optional[Any], optional
             Any additional options to pass to the backend.
         """
         self.backend = backend
