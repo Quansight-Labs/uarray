@@ -16,6 +16,8 @@
 
     Backend
 
+    BackendOptions
+
 .. rubric:: Functions
 .. autosummary::
     :toctree:

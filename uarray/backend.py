@@ -86,8 +86,8 @@ class MultiMethod:
 
     def __call__(self, *args, **kwargs):
         result = NotImplemented
-        for backend, coerce in _backend_order():
-            result = backend.try_backend(self, args, kwargs, coerce=coerce)
+        for options in _backend_order():
+            result = options.backend.try_backend(self, args, kwargs, coerce=options.coerce)
 
             if result is not NotImplemented:
                 break
@@ -387,78 +387,110 @@ class Backend:
 
 _backends: Set[Backend] = set()
 
-BackendCoerceType = Tuple[Backend, Optional[bool]]
+
+class BackendOptions:
+    def __init__(self, backend: Backend, coerce: bool = False, only: bool = True, options: Optional[Any] = None):
+        """
+        The backend plus any additional options associated with it.
+
+        Parameters
+        ----------
+        backend : Backend
+            The associated backend.
+        coerce: bool, optional
+            Whether or not the backend is being coerced. Implies ``only``.
+        only: bool, optional
+            Whether or not this is the only backend to try.
+        options: Optional[Any]
+            Any additional options to pass to the backend.
+        """
+        self.backend = backend
+        self.coerce = coerce
+        self.only = only or coerce
+        self.options = options
 
 
-def _backend_order() -> Iterable[BackendCoerceType]:
+def _backend_order() -> Iterable[BackendOptions]:
+    be = _current_backend.get()
+    yield from _backend_order_iter()
+    _current_backend.set(be)
+
+
+def _backend_order_iter() -> Iterable[BackendOptions]:
     skip = _skipped_backend.get()
     pref = _preferred_backend.get()
 
-    for backend, coerce in pref:
-        if backend not in skip:
-            yield backend, bool(coerce)
+    for options in pref:
+        _current_backend.set(options)
+        if options.backend not in skip:
+            yield options
 
-        if coerce is None or coerce:
+        if options.only:
             return
 
     for backend in _backends:
-        yield backend, False
+        be = BackendOptions(backend)
+        _current_backend.set(be)
+        yield be
 
 
-_preferred_backend: ContextVar[Tuple[BackendCoerceType, ...]] = ContextVar('_preferred_backend', default=())
+_preferred_backend: ContextVar[Tuple[BackendOptions, ...]] = ContextVar('_preferred_backend', default=())
 _skipped_backend: ContextVar[Set[Backend]] = ContextVar('_skipped_backend', default=set())
+_current_backend: ContextVar[Optional[BackendOptions]] = ContextVar('_current_backend', default=None)
+
+
+def get_current_backend() -> Optional[BackendOptions]:
+    be = _current_backend.get()
+
+    if be is None:
+        return BackendOptions(next(iter(_backends))) if len(_backends) else None
+
+    return be
 
 
 class set_backend:
     """
-    A context manager that sets the preferred backend.
+    A context manager that sets the preferred backend. Uses :obj:`BackendOptions` to create
+    the options, and sets the backend with the preferred options.
 
     Parameters
     ----------
     backend : Backend
         The backend to set.
-    coerce : bool, optional
-        Whether to coerce the input arguments, and force this backend.
-        Default is ``False``. Implies ``only``.
-    only : bool, optional
-        Whether to set this as the only allowed backend. Default is
-        ``False``.
 
     See Also
     --------
+    BackendOptions: The backend plus options.
     skip_backend: A context manager that allows skipping of backends.
     DispatchableInstance: Items to be coerced must be marked by a DispatchableInstance.
     """
 
-    def __init__(self, backend: Backend, coerce: bool = False, only: bool = False):
-        self.token = None
-        self.backend = backend
-        self.coerce = True if coerce else None if only else False
+    def __init__(self, backend: Backend, *args, **kwargs):
+        self.value = BackendOptions(backend, *args, **kwargs)
 
     def __enter__(self):
-        self.token = _preferred_backend.set(((self.backend, self.coerce),) + _preferred_backend.get())
+        self.token = _preferred_backend.set((self.value,) + _preferred_backend.get())
 
     def __exit__(self, exception_type, exception_value, traceback):
         _preferred_backend.reset(self.token)
 
 
 class skip_backend:
-    """
-    Provides the ability to skip the preferred backend in a thread-safe manner.
-
-    When combined with :obj:`set_backend`, this context manager takes precedence.
-
-    Parameters
-    ----------
-    backend : Backend
-        The backend to skip.
-
-    See Also
-    --------
-    set_backend: A context manager that allows setting of preferred backend.
-    """
-
     def __init__(self, backend: Backend):
+        """
+        Provides the ability to skip the preferred backend in a thread-safe manner.
+
+        When combined with :obj:`set_backend`, this context manager takes precedence.
+
+        Parameters
+        ----------
+        backend : Backend
+            The backend to skip.
+
+        See Also
+        --------
+        set_backend: A context manager that allows setting of preferred backend.
+        """
         self.backend = backend
         self.token = None
 
