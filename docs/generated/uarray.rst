@@ -24,6 +24,8 @@
 
     register_backend
 
+    get_current_backend
+
 .. rubric:: Context Managers
 .. autosummary::
     :toctree:

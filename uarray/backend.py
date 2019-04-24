@@ -440,6 +440,15 @@ _current_backend: ContextVar[Optional[BackendOptions]] = ContextVar('_current_ba
 
 
 def get_current_backend() -> Optional[BackendOptions]:
+    """
+    Returns the current backend, with options. ``None`` indicates that
+    there is no possible backend that can be used.
+
+    See Also
+    --------
+    BackendOptions: The backend, plus any associated options.
+    set_backend: Set the current backend.
+    """
     be = _current_backend.get()
 
     if be is None:
@@ -461,6 +470,7 @@ class set_backend:
     See Also
     --------
     BackendOptions: The backend plus options.
+    get_current_backend: Get the current backend.
     skip_backend: A context manager that allows skipping of backends.
     DispatchableInstance: Items to be coerced must be marked by a DispatchableInstance.
     """
