@@ -55,12 +55,12 @@ class ufunc(DispatchableInstance):
     @property  # type: ignore
     @create_multimethod(_self_argreplacer)
     def types(self):
-        return (ufunc(self))
+        return (ufunc(self),)
 
     @property  # type: ignore
     @create_multimethod(_self_argreplacer)
     def identity(self):
-        return (ufunc(self))
+        return (ufunc(self),)
 
     @property
     def nargs(self):
