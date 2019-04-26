@@ -61,4 +61,4 @@ def asarray(a):
     return xnd.array(a)
 
 
-XndBackend.register_convertor(ndarray, asarray)
+ndarray.register_convertor(XndBackend, asarray)

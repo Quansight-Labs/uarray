@@ -108,4 +108,4 @@ def argmin(a, axis=None, out=None):
     return reduce(getattr(multimethods, 'min'), a, axis=axis, out=out, arg=True)
 
 
-TorchBackend.register_convertor(ndarray, asarray)
+ndarray.register_convertor(TorchBackend, asarray)
