@@ -52,3 +52,11 @@ jobs:
     inputs:
       artifactName: 'Documentation'
       targetPath: '$(System.DefaultWorkingDirectory)/_build/html'
+
+trigger:
+  branches:
+    include:
+    - master
+
+pr:
+- master

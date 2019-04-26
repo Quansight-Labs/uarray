@@ -1,5 +1,5 @@
-uarray.register\_implementation
-===============================
+register\_implementation
+========================
 
 .. currentmodule:: uarray
 

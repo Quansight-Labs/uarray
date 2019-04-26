@@ -1,5 +1,5 @@
-uarray.register\_backend
-========================
+register\_backend
+=================
 
 .. currentmodule:: uarray
 

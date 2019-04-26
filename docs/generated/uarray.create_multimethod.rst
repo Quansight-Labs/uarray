@@ -1,5 +1,5 @@
-uarray.create\_multimethod
-==========================
+create\_multimethod
+===================
 
 .. currentmodule:: uarray
 

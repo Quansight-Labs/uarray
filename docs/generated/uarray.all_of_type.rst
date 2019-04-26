@@ -1,5 +1,5 @@
-uarray.all\_of\_type
-====================
+all\_of\_type
+=============
 
 .. currentmodule:: uarray
 
