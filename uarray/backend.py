@@ -221,7 +221,6 @@ class Backend:
 
     def __init__(self):
         self._implementations: MethodLookupType = {}
-        self._convertors: TypeLookupType = {}
 
     def register_implementation(self, method: MultiMethod, implementation: ImplementationType):
         """
@@ -267,58 +266,6 @@ class Backend:
 
         self._implementations[method] = implementation
 
-    def register_convertor(self, dispatch_type: Type["DispatchableInstance"], convertor: ConvertorType):
-        """
-        Registers a convertor for a given type.
-
-        The convertor takes in a single value and converts it to a form suitable for consumption by
-        the backend's implementations. It's called when the user coerces the type and the backend
-        has also registered the type of the dispatchable.
-
-        Parameters
-        ----------
-        dispatch_type : Type["DispatchableInstance"]
-            The type of dispatchable to register the convertor for. The convertor will convert the
-            instance if coercion is enabled.
-        implementation : ImplementationType
-            The implementation of this method. It takes in a single value and converts it.
-
-        Raises
-        ------
-        ValueError
-            If there is already a convertor for this type.
-
-        Examples
-        --------
-        >>> import uarray as ua
-        >>> class DispatchableInt(ua.DispatchableInstance):
-        ...     pass
-        >>> be = ua.Backend()
-        >>> # All ints piped to -2
-        >>> be.register_convertor(DispatchableInt, lambda x: -2)
-        >>> def potato_rd(args, kwargs, dispatch_args):
-        ...     # This replaces a within the args/kwargs
-        ...     return dispatch_args + args[1:], kwargs
-        >>> @ua.create_multimethod(potato_rd)
-        ... def potato(a, b):
-        ...     # Here, we register a as dispatchable and mark it as an int
-        ...     return (DispatchableInt(a),)
-        >>> @ua.register_implementation(potato, be)
-        ... def potato_impl(a, b):
-        ...     return a, b
-        >>> with ua.set_backend(be, coerce=True):
-        ...     potato(1, '2')
-        (-2, '2')
-        >>> be.register_convertor(DispatchableInt, lambda x: -2)
-        Traceback (most recent call last):
-            ...
-        ValueError: ...
-        """
-        if dispatch_type in self._convertors:
-            raise ValueError('Cannot register a different convertor once one is already registered.')
-
-        self._convertors[dispatch_type] = convertor
-
     def replace_dispatchables(self, method: MultiMethod, args, kwargs, coerce: Optional[bool] = False):
         """
         Replace dispatchables for a this method, using the convertor, if coercion is used.
@@ -341,33 +288,16 @@ class Backend:
         replaced_args: List = []
         filtered_dispatchable_args: List = []
         for arg in dispatchable_args:
-            replaced_arg = self._replace_single(arg, coerce=coerce)
+            replaced_arg = arg.convert(self, coerce) if isinstance(arg, DispatchableInstance) else arg
             replaced_args.append(replaced_arg)
 
             if not isinstance(arg, DispatchableInstance):
-                filtered_dispatchable_args.append(replaced_arg)
-            elif type(arg) in self._convertors:
+                filtered_dispatchable_args.append(arg)
+            elif self in type(arg).convertors:
                 filtered_dispatchable_args.append(type(arg)(replaced_arg))
 
         args, kwargs = method.argument_replacer(args, kwargs, tuple(replaced_args))
         return args, kwargs, filtered_dispatchable_args
-
-    def _replace_single(self, arg: Union["DispatchableInstance", Any],
-                        coerce: Optional[bool] = False):
-        if not isinstance(arg, DispatchableInstance):
-            return arg
-
-        arg_type = type(arg)
-
-        if coerce:
-            if arg.value is None:
-                return None
-
-            for try_type in arg_type.__mro__:
-                if try_type in self._convertors:
-                    return self._convertors[try_type](arg.value)
-
-        return arg.value
 
     def try_backend(self, method: MultiMethod, args: Tuple, kwargs: Dict, coerce: bool):
         """
@@ -579,7 +509,7 @@ class DispatchableInstance:
     ...     pass
     >>> be = ua.Backend()
     >>> # All ints piped to -2
-    >>> be.register_convertor(DispatchableInt, lambda x: -2)
+    >>> DispatchableInt.register_convertor(be, lambda x: -2)
     >>> def potato_rd(args, kwargs, dispatch_args):
     ...     # This replaces a within the args/kwargs
     ...     return dispatch_args + args[1:], kwargs
@@ -594,6 +524,11 @@ class DispatchableInstance:
     ...     potato(1, '2')
     (-2, '2')
     """
+    convertors: Dict[Backend, ConvertorType] = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls.convertors = cls.convertors.copy()
 
     def __init__(self, value: Any):
         if type(self) is DispatchableInstance:
@@ -601,6 +536,66 @@ class DispatchableInstance:
                                'only through the subclasses.')
 
         self.value = value
+
+    @classmethod
+    def register_convertor(cls, backend: Backend, convertor: ConvertorType):
+        """
+        Registers a convertor for a given type.
+
+        The convertor takes in a single value and converts it to a form suitable for consumption by
+        the backend's implementations. It's called when the user coerces the type and the backend
+        has also registered the type of the dispatchable.
+
+        Parameters
+        ----------
+        dispatch_type : Type["DispatchableInstance"]
+            The type of dispatchable to register the convertor for. The convertor will convert the
+            instance if coercion is enabled.
+        implementation : ImplementationType
+            The implementation of this method. It takes in a single value and converts it.
+
+        Raises
+        ------
+        ValueError
+            If there is already a convertor for this type.
+
+        Examples
+        --------
+        >>> import uarray as ua
+        >>> class DispatchableInt(ua.DispatchableInstance):
+        ...     pass
+        >>> be = ua.Backend()
+        >>> DispatchableInt.register_convertor(be, lambda x: -2)
+        >>> DispatchableInt(2).convert(be, coerce=True)
+        -2
+        >>> be2 = ua.Backend()
+        >>> DispatchableInt.register_convertor(be2, lambda x: 3)
+        >>> DispatchableInt(2).convert(be2, coerce=True)
+        3
+        >>> DispatchableInt.register_convertor(be, lambda x: -2)
+        Traceback (most recent call last):
+            ...
+        ValueError: ...
+        """
+        if backend in cls.convertors:
+            raise ValueError('Cannot register a different convertor once one is already registered.')
+
+        cls.convertors[backend] = convertor
+
+    def convert(self, backend: Backend, coerce: Optional[bool] = False):
+        """
+        Convert a single argument using the given backend.
+        """
+        cls = type(self)
+
+        if coerce:
+            if self.value is None:
+                return None
+
+            if backend in cls.convertors:
+                return cls.convertors[backend](self.value)
+
+        return self.value
 
 
 def all_of_type(arg_type: Type[DispatchableInstance]):
@@ -614,7 +609,7 @@ def all_of_type(arg_type: Type[DispatchableInstance]):
     ...     pass
     >>> be = ua.Backend()
     >>> # All ints piped to -2
-    >>> be.register_convertor(DispatchableInt, lambda x: -2)
+    >>> DispatchableInt.register_convertor(be, lambda x: -2)
     >>> def potato_rd(args, kwargs, dispatch_args):
     ...     # This replaces a within the args/kwargs
     ...     return dispatch_args + args[1:], kwargs
