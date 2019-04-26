@@ -14,7 +14,6 @@ uarray.Backend
    .. autosummary::
       :toctree:
    
-      Backend.register_convertor
       Backend.register_implementation
       Backend.replace_dispatchables
       Backend.try_backend

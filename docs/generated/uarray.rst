@@ -18,6 +18,8 @@
 
     BackendOptions
 
+    DispatchableInstance
+
 .. rubric:: Functions
 .. autosummary::
     :toctree:

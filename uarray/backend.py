@@ -565,21 +565,13 @@ class DispatchableInstance:
         >>> class DispatchableInt(ua.DispatchableInstance):
         ...     pass
         >>> be = ua.Backend()
-        >>> # All ints piped to -2
         >>> DispatchableInt.register_convertor(be, lambda x: -2)
-        >>> def potato_rd(args, kwargs, dispatch_args):
-        ...     # This replaces a within the args/kwargs
-        ...     return dispatch_args + args[1:], kwargs
-        >>> @ua.create_multimethod(potato_rd)
-        ... def potato(a, b):
-        ...     # Here, we register a as dispatchable and mark it as an int
-        ...     return (DispatchableInt(a),)
-        >>> @ua.register_implementation(potato, be)
-        ... def potato_impl(a, b):
-        ...     return a, b
-        >>> with ua.set_backend(be, coerce=True):
-        ...     potato(1, '2')
-        (-2, '2')
+        >>> DispatchableInt(2).convert(be, coerce=True)
+        -2
+        >>> be2 = ua.Backend()
+        >>> DispatchableInt.register_convertor(be2, lambda x: 3)
+        >>> DispatchableInt(2).convert(be2, coerce=True)
+        3
         >>> DispatchableInt.register_convertor(be, lambda x: -2)
         Traceback (most recent call last):
             ...
@@ -591,6 +583,9 @@ class DispatchableInstance:
         cls.convertors[backend] = convertor
 
     def convert(self, backend: Backend, coerce: Optional[bool] = False):
+        """
+        Convert a single argument using the given backend.
+        """
         cls = type(self)
 
         if coerce:
