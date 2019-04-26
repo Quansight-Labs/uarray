@@ -9,14 +9,3 @@ uarray.MultiMethod
    .. automethod:: __init__
 
    
-   .. rubric:: Methods
-
-   .. autosummary::
-   
-      ~MultiMethod.__init__
-   
-   
-
-   
-   
-   

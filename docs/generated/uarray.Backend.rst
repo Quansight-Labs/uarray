@@ -12,12 +12,12 @@ uarray.Backend
    .. rubric:: Methods
 
    .. autosummary::
+      :toctree:
    
-      ~Backend.__init__
-      ~Backend.register_convertor
-      ~Backend.register_implementation
-      ~Backend.replace_dispatchables
-      ~Backend.try_backend
+      Backend.register_convertor
+      Backend.register_implementation
+      Backend.replace_dispatchables
+      Backend.try_backend
    
    
 

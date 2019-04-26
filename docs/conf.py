@@ -12,10 +12,13 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
+import os
+import sys
 # sys.path.insert(0, os.path.abspath('.'))
 from typing import List, Dict
+
+sys.path.insert(0, os.path.abspath('..'))
+from uarray import __version__  # noqa: E402
 
 
 # -- Project information -----------------------------------------------------
@@ -25,9 +28,9 @@ copyright = '2019, Quansight-Labs'
 author = 'Quansight-Labs'
 
 # The short X.Y version
-version = ''
+version = __version__
 # The full version, including alpha/beta/rc tags
-release = '0.4.0'
+release = __version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -40,6 +43,8 @@ release = '0.4.0'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions: List[str] = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
     'sphinx.ext.autosummary',

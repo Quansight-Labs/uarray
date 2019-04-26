@@ -30,6 +30,16 @@ class MultiMethod:
     default : Optional[Callable], optional
         This is the default implementation for this multimethod, possibly in terms of other multimethods.
 
+    Members
+    -------
+    argument_extractor : ArgumentExtractorType
+        This is a callable that extracts the arguments over which the dispatch will be performed.
+    argument_replacer : ArgumentReplacerType
+        This takes in args, kwargs and dispatchable args, and replaces all dispatchable arguments within
+        the args and kwargs, and then returns them.
+    default : Optional[Callable], optional
+        This is the default implementation for this multimethod, possibly in terms of other multimethods.
+
     Examples
     --------
     >>> import uarray as ua
