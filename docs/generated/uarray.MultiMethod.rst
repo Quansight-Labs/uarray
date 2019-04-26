@@ -1,11 +1,9 @@
-uarray.MultiMethod
-==================
+MultiMethod
+===========
 
 .. currentmodule:: uarray
 
 .. autoclass:: MultiMethod
-
    
-   .. automethod:: __init__
-
+   
    

@@ -185,6 +185,7 @@ epub_title = project
 epub_exclude_files = ['search.html']
 
 autosummary_generate = True
+autoclass_content = 'both'
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),

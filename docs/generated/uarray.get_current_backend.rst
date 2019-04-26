@@ -1,5 +1,5 @@
-uarray.get\_current\_backend
-============================
+get\_current\_backend
+=====================
 
 .. currentmodule:: uarray
 
