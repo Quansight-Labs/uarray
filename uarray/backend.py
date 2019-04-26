@@ -634,7 +634,7 @@ def all_of_type(arg_type: Type[DispatchableInstance]):
         @functools.wraps(func)
         def inner(*args, **kwargs):
             extracted_args = func(*args, **kwargs)
-            return tuple(arg_type(arg) for arg in extracted_args if not isinstance(arg, DispatchableInstance))
+            return tuple(arg_type(arg) if not isinstance(arg, DispatchableInstance) else arg for arg in extracted_args)
 
         return inner
 
