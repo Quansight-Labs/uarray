@@ -95,6 +95,7 @@ class MultiMethod:
         return repr(self.argument_extractor)
 
     def __call__(self, *args, **kwargs):
+        args, kwargs = _canonicalize(self, args, kwargs)
         result = NotImplemented
         for options in _backend_order():
             result = options.backend.try_backend(self, args, kwargs, coerce=options.coerce)
@@ -451,6 +452,25 @@ class skip_backend:
 
     def __exit__(self, exception_type, exception_value, traceback):
         _skipped_backend.reset(self.token)
+
+
+def _canonicalize(f, args, kwargs):
+    sig = inspect.signature(f)
+    bargs = sig.bind(*args, **kwargs)
+    # Pop out the named kwargs variable defaulting to {}
+    ret_kwargs = bargs.arguments.pop(inspect.getfullargspec(f).varkw, {})
+    # For all possible signature values
+    for k, v in sig.parameters.items():
+        # If the name exists in the bound arguments and has a default value
+        if k in bargs.arguments and v.default is not v.empty:
+            # Remove from the bound arguments dict
+            val = bargs.arguments.pop(k)
+            # If the value isn't the same as the default value add it to ret_kwargs
+            if val is not v.default:
+                ret_kwargs[k] = val
+
+    # bargs.args here will be made up of what's left in bargs.arguments
+    return bargs.args, ret_kwargs
 
 
 CompatCheckType = Callable[[Iterable["DispatchableInstance"]], bool]
