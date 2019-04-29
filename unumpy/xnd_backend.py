@@ -5,6 +5,7 @@ import unumpy.multimethods as multimethods
 from .multimethods import ufunc, ufunc_list, ndarray, DispatchableInstance
 from typing import Dict
 import functools
+import uarray as ua
 
 from uarray.backend import Backend, register_backend, register_implementation
 
@@ -13,8 +14,8 @@ register_backend(XndBackend)
 
 
 def compat_check(args):
-    args = [arg.value if isinstance(arg, DispatchableInstance) else arg for arg in args]
-    return all(isinstance(arg, xnd.xnd) for arg in args if arg is not None)
+    return all(isinstance(arg.value, xnd.xnd) for arg in args
+               if isinstance(arg, DispatchableInstance) and arg.value is not None)
 
 
 register_xnd = functools.partial(register_implementation, backend=XndBackend, compat_check=compat_check)
@@ -59,6 +60,40 @@ def asarray(a):
         return xnd.array.from_buffer(a)
 
     return xnd.array(a)
+
+
+def _generic(method, args, kwargs, dispatchable_args):
+    if not compat_check(dispatchable_args):
+        return NotImplemented
+
+    try:
+        import numpy as np
+        from .numpy_backend import NumpyBackend
+    except ImportError:
+        return NotImplemented
+
+    with ua.set_backend(NumpyBackend, coerce=True):
+        try:
+            out = method(*args, **kwargs)
+        except TypeError:
+            return NotImplemented
+
+    def convert(x):
+        if isinstance(out, tuple):
+            return tuple(convert(x) for x in out)
+
+        if isinstance(x, np.ndarray):
+            return xnd.array.from_buffer(out)
+        elif isinstance(x, np.generic):
+            try:
+                return xnd.array.from_buffer(memoryview(x))
+            except TypeError:
+                return NotImplemented
+
+    return convert(out)
+
+
+XndBackend.register_implementation(None, _generic)
 
 
 ndarray.register_convertor(XndBackend, asarray)

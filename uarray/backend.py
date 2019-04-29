@@ -223,7 +223,7 @@ class Backend:
     def __init__(self):
         self._implementations: MethodLookupType = {}
 
-    def register_implementation(self, method: MultiMethod, implementation: ImplementationType):
+    def register_implementation(self, method: Optional[MultiMethod], implementation: ImplementationType):
         """
         Register this backend's implementation for a given method.
 

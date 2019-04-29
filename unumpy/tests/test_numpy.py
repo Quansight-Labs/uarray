@@ -31,7 +31,7 @@ def test_ufuncs_coerce(backend, method, args, kwargs):
         with ua.set_backend(backend, coerce=True):
             ret = method(*args, **kwargs)
     except ua.BackendNotImplementedError:
-        if backend is NumpyBackend:
+        if backend in (NumpyBackend, XndBackend):
             raise
         pytest.xfail(reason='The backend has no implementation for this ufunc.')
 
@@ -81,7 +81,7 @@ def test_ufunc_reductions(backend, method, args, kwargs):
         with ua.set_backend(backend, coerce=True):
             ret = method(*args, **kwargs)
     except ua.BackendNotImplementedError:
-        if backend is NumpyBackend:
+        if backend in (NumpyBackend, XndBackend):
             raise
         pytest.xfail(reason='The backend has no implementation for this ufunc.')
 
