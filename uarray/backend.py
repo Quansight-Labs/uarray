@@ -528,7 +528,7 @@ class DispatchableInstance:
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-        cls.convertors = cls.convertors.copy()
+        cls.convertors = {}
 
     def __init__(self, value: Any):
         if type(self) is DispatchableInstance:
@@ -592,8 +592,12 @@ class DispatchableInstance:
             if self.value is None:
                 return None
 
-            if backend in cls.convertors:
-                return cls.convertors[backend](self.value)
+            for t in cls.__mro__:
+                if backend in cls.convertors:
+                    return cls.convertors[backend](self.value)
+
+                if t is DispatchableInstance:
+                    break
 
         return self.value
 
