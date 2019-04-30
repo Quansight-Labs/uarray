@@ -80,7 +80,7 @@ def _generic(method, args, kwargs, dispatchable_args):
 
     def convert(x):
         if isinstance(out, tuple):
-            return tuple(convert(x) for x in out)
+            return tuple(map(convert, out))
 
         if isinstance(x, np.ndarray):
             return xnd.array.from_buffer(out)

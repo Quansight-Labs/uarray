@@ -48,4 +48,12 @@ register_numpy(multimethods.asarray)(np.asarray)
 register_numpy(multimethods.argmin)(np.argmin)
 register_numpy(multimethods.argmax)(np.argmax)
 
+register_numpy(multimethods.nansum)(np.nansum)
+register_numpy(multimethods.nanprod)(np.nanprod)
+register_numpy(multimethods.nanmin)(np.nanmin)
+register_numpy(multimethods.nanmax)(np.nanmax)
+
+register_numpy(multimethods.std)(np.std)
+register_numpy(multimethods.var)(np.var)
+
 ndarray.register_convertor(NumpyBackend, np.asarray)

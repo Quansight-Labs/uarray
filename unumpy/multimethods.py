@@ -312,4 +312,40 @@ def argmax(a, axis=None, out=None):
     return (a, out)
 
 
+@create_multimethod(_reduce_argreplacer)
+@all_of_type(ndarray)
+def nanmin(a, axis=None, out=None):
+    return (a, out)
+
+
+@create_multimethod(_reduce_argreplacer)
+@all_of_type(ndarray)
+def nanmax(a, axis=None, out=None, keepdims=False):
+    return (a, out)
+
+
+@create_multimethod(_reduce_argreplacer)
+@all_of_type(ndarray)
+def nansum(a, axis=None, dtype=None, out=None, keepdims=False):
+    return (a, out)
+
+
+@create_multimethod(_reduce_argreplacer)
+@all_of_type(ndarray)
+def nanprod(a, axis=None, dtype=None, out=None, keepdims=False):
+    return (a, out)
+
+
+@create_multimethod(_reduce_argreplacer)
+@all_of_type(ndarray)
+def std(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False):
+    return (a, out)
+
+
+@create_multimethod(_reduce_argreplacer)
+@all_of_type(ndarray)
+def var(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False):
+    return (a, out)
+
+
 del ufunc_name
