@@ -62,5 +62,7 @@ register_numpy(multimethods.intersect1d)(np.intersect1d)
 register_numpy(multimethods.setxor1d)(np.setxor1d)
 register_numpy(multimethods.union1d)(np.union1d)
 
+register_numpy(multimethods.sort)(np.sort)
+register_numpy(multimethods.lexsort)(np.lexsort)
 
 ndarray.register_convertor(NumpyBackend, np.asarray)

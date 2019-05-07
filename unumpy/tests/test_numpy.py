@@ -19,6 +19,8 @@ EXCEPTIONS = [
     (DaskBackend, np.setdiff1d),
     (DaskBackend, np.setxor1d),
     (DaskBackend, np.union1d),
+    (DaskBackend, np.sort),
+
 ]
 
 
@@ -97,6 +99,9 @@ def replace_args_kwargs(method, backend, args, kwargs):
     (np.intersect1d, ([1, 3, 4, 3], [3, 1, 2, 1],), {}),
     (np.setdiff1d, ([1, 3, 4, 3], [3, 1, 2, 1],), {}),
     (np.setxor1d, ([1, 3, 4, 3], [3, 1, 2, 1],), {}),
+    (np.sort, ([3, 1, 2, 4],), {}),
+    (np.sort, (([1, 2, 2, 3],[3, 1, 2, 1]),), {}),
+
 ])
 def test_ufunc_reductions(backend, method, args, kwargs):
     backend, types = backend
