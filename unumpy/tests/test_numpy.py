@@ -5,15 +5,20 @@ import unumpy as np
 import numpy as onp
 import torch
 import xnd
+import dask.array as da
 from unumpy.numpy_backend import NumpyBackend
 from unumpy.torch_backend import TorchBackend
 from unumpy.xnd_backend import XndBackend
+from unumpy.dask_backend import DaskBackend
+
+FULLY_TESTED_BACKENDS = (NumpyBackend, XndBackend, DaskBackend)
 
 
 @pytest.fixture(scope='session', params=[
     (NumpyBackend, (onp.ndarray, onp.generic)),
     (TorchBackend, torch.Tensor),
     (XndBackend, xnd.xnd),
+    (DaskBackend, (da.core.Array, onp.generic)),
 ])
 def backend(request):
     backend = request.param
@@ -31,7 +36,7 @@ def test_ufuncs_coerce(backend, method, args, kwargs):
         with ua.set_backend(backend, coerce=True):
             ret = method(*args, **kwargs)
     except ua.BackendNotImplementedError:
-        if backend in (NumpyBackend, XndBackend):
+        if backend in FULLY_TESTED_BACKENDS:
             raise
         pytest.xfail(reason='The backend has no implementation for this ufunc.')
 
@@ -85,7 +90,7 @@ def test_ufunc_reductions(backend, method, args, kwargs):
         with ua.set_backend(backend, coerce=True):
             ret = method(*args, **kwargs)
     except ua.BackendNotImplementedError:
-        if backend in (NumpyBackend, XndBackend):
+        if backend in FULLY_TESTED_BACKENDS:
             raise
         pytest.xfail(reason='The backend has no implementation for this ufunc.')
 
