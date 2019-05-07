@@ -13,15 +13,15 @@ from unumpy.dask_backend import DaskBackend
 
 FULLY_TESTED_BACKENDS = (NumpyBackend, XndBackend, DaskBackend)
 
-EXCEPTIONS = [
+EXCEPTIONS = {
     (DaskBackend, np.in1d),
     (DaskBackend, np.intersect1d),
     (DaskBackend, np.setdiff1d),
     (DaskBackend, np.setxor1d),
     (DaskBackend, np.union1d),
     (DaskBackend, np.sort),
-
-]
+    (DaskBackend, np.lexsort),
+}
 
 
 @pytest.fixture(scope='session', params=[
@@ -100,8 +100,7 @@ def replace_args_kwargs(method, backend, args, kwargs):
     (np.setdiff1d, ([1, 3, 4, 3], [3, 1, 2, 1],), {}),
     (np.setxor1d, ([1, 3, 4, 3], [3, 1, 2, 1],), {}),
     (np.sort, ([3, 1, 2, 4],), {}),
-    (np.sort, (([1, 2, 2, 3],[3, 1, 2, 1]),), {}),
-
+    (np.lexsort, (([1, 2, 2, 3], [3, 1, 2, 1]),), {}),
 ])
 def test_ufunc_reductions(backend, method, args, kwargs):
     backend, types = backend

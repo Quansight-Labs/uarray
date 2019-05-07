@@ -414,10 +414,17 @@ def union1d(ar1, ar2):
 @create_multimethod(_reduce_argreplacer)
 @all_of_type(ndarray)
 def sort(a, axis=None, kind=None, order=None):
-    return(a, )
+    return(a,)
 
 
-@create_multimethod(_reduce_argreplacer)
+def _tuple_check_argreplacer(args, kwargs, arrays):
+    if len(arrays) == 1:
+        return arrays + args[1:], kwargs
+    else:
+        return (arrays,) + args[1:], kwargs
+
+
+@create_multimethod(_tuple_check_argreplacer)
 @all_of_type(ndarray)
 def lexsort(keys, axis=None):
     if isinstance(keys, tuple):
