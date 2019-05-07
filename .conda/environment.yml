@@ -5,7 +5,6 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  - nomkl
   - python=3.7
   - pip
   - sphinx
