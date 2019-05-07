@@ -5,7 +5,6 @@ import unumpy.multimethods as multimethods
 from .multimethods import ufunc, ufunc_list, ndarray, DispatchableInstance
 from typing import Dict
 import functools
-import uarray as ua
 
 from uarray.backend import Backend, register_backend, register_implementation
 
@@ -14,14 +13,16 @@ register_backend(DaskBackend)
 
 
 def compat_check(args):
-    return any(isinstance(arg.value, dask.array.core.Array) for arg in args
-               if isinstance(arg, DispatchableInstance) and arg.value is not None)
+    return not len(args) or \
+        any(isinstance(arg.value, dask.array.core.Array) for arg in args
+            if isinstance(arg, DispatchableInstance) and arg.value is not None)
 
 
 register_dask = functools.partial(register_implementation, backend=DaskBackend, compat_check=compat_check)
 
 # experimental support for ufunc from Dask
-_ufunc_mapping: Dict[ufunc, da.gufunc] = {}
+_ufunc_mapping: Dict[ufunc, np.ufunc] = {}
+
 
 def replace_self(func):
     @functools.wraps(func)
@@ -29,13 +30,17 @@ def replace_self(func):
         if self not in _ufunc_mapping:
             return NotImplemented
 
-        return func(_ufunc_mapping[self], *args, **kwargs)
+        try:
+            return func(_ufunc_mapping[self], *args, **kwargs)
+        except TypeError:
+            return NotImplemented
 
     return inner
 
 
-register_dask(ufunc.__call__)(replace_self(da.gufunc.__call__))
+register_dask(ufunc.__call__)(replace_self(np.ufunc.__call__))
 register_dask(ufunc.reduce)(replace_self(np.ufunc.reduce))
+register_dask(multimethods.arange)(lambda start, stop, step, **kwargs: da.arange(start, stop, step, **kwargs))
 
 
 for ufunc_name in ufunc_list:
@@ -50,12 +55,12 @@ def _generic(method, args, kwargs, dispatchable_args):
     if not compat_check(dispatchable_args):
         return NotImplemented
 
-    if hasattr(da, method.__name__):
-        getattr(da, method.__name__)(*args, **kwargs)
+    if not hasattr(da, method.__name__):
+        return NotImplemented
 
-    return NotImplemented
+    return getattr(da, method.__name__)(*args, **kwargs)
 
 
 DaskBackend.register_implementation(None, _generic)
 
-
+ndarray.register_convertor(DaskBackend, da.asarray)

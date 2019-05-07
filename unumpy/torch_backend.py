@@ -69,7 +69,7 @@ for ufunc_name in ufunc_list:
     if hasattr(torch, torch_name):
         _ufunc_mapping[getattr(multimethods, ufunc_name)] = getattr(torch, torch_name)
 
-register_torch(multimethods.arange)(torch.arange)
+register_torch(multimethods.arange)(lambda start, stop, step, **kwargs: torch.arange(start, stop, step, **kwargs))
 register_torch(multimethods.array)(torch.tensor)
 
 

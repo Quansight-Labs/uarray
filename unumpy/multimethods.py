@@ -233,7 +233,7 @@ for ufunc_name in ufunc_list:
 
 
 @create_multimethod(_identity_argreplacer)
-def arange(start, stop, step, dtype=None):
+def arange(start, stop=None, step=None, dtype=None):
     return ()
 
 
