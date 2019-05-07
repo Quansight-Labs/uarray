@@ -22,9 +22,16 @@ def _reduce_argreplacer(args, kwargs, arrays):
     out_args = list(args)
     out_args[0] = arrays[0]
 
-    out_kwargs = {**kwargs, 'out': arrays[1]}
+    if 'out' in kwargs:
+        out_kwargs = {**kwargs, 'out': arrays[1]}
+    else:
+        out_kwargs = kwargs
 
     return tuple(out_args), out_kwargs
+
+
+def _first2argreplacer(args, kwargs, arrays):
+    return arrays + args[2:], kwargs
 
 
 class ndarray(DispatchableInstance):
@@ -346,6 +353,62 @@ def std(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False):
 @all_of_type(ndarray)
 def var(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False):
     return (a, out)
+
+
+# set routines
+@create_multimethod(_reduce_argreplacer)
+@all_of_type(ndarray)
+def unique(a, return_index=False, return_inverse=False, return_counts=False, axis=None):
+    return (a,)
+
+
+@create_multimethod(_first2argreplacer)
+@all_of_type(ndarray)
+def in1d(element, test_elements, assume_unique=False, invert=False):
+    return (element, test_elements)
+
+
+def _isin_default(element, test_elements, assume_unique=False, invert=False):
+    return in1d(element, test_elements, assume_unique=assume_unique, invert=invert).reshape(element.shape)
+
+
+@create_multimethod(_first2argreplacer, default=_isin_default)
+@all_of_type(ndarray)
+def isin(element, test_elements, assume_unique=False, invert=False):
+    return (element, test_elements)
+
+
+@create_multimethod(_first2argreplacer)
+@all_of_type(ndarray)
+def intersect1d(ar1, ar2, assume_unique=False, return_indices=False):
+    return (ar1, ar2)
+
+
+def _setdiff1d_default(ar1, ar2, assume_unique=False):
+    if assume_unique:
+        ar1 = asarray(ar1).ravel()
+    else:
+        ar1 = unique(ar1)
+        ar2 = unique(ar2)
+    return ar1[in1d(ar1, ar2, assume_unique=True, invert=True)]
+
+
+@create_multimethod(_first2argreplacer, default=_setdiff1d_default)
+@all_of_type(ndarray)
+def setdiff1d(ar1, ar2, assume_unique=False):
+    return (ar1, ar2)
+
+
+@create_multimethod(_first2argreplacer)
+@all_of_type(ndarray)
+def setxor1d(ar1, ar2, assume_unique=False):
+    return (ar1, ar2)
+
+
+@create_multimethod(_first2argreplacer)
+@all_of_type(ndarray)
+def union1d(ar1, ar2):
+    return (ar1, ar2)
 
 
 del ufunc_name

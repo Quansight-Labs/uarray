@@ -56,4 +56,11 @@ register_numpy(multimethods.nanmax)(np.nanmax)
 register_numpy(multimethods.std)(np.std)
 register_numpy(multimethods.var)(np.var)
 
+register_numpy(multimethods.unique)(np.unique)
+register_numpy(multimethods.in1d)(np.in1d)
+register_numpy(multimethods.intersect1d)(np.intersect1d)
+register_numpy(multimethods.setxor1d)(np.setxor1d)
+register_numpy(multimethods.union1d)(np.union1d)
+
+
 ndarray.register_convertor(NumpyBackend, np.asarray)
