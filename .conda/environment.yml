@@ -17,6 +17,7 @@ dependencies:
   - pytorch-cpu
   - scipy
   - gumath
+  - dask
   - doc8
   - pip:
     - pytest-mypy
