@@ -13,6 +13,14 @@ from unumpy.dask_backend import DaskBackend
 
 FULLY_TESTED_BACKENDS = (NumpyBackend, XndBackend, DaskBackend)
 
+EXCEPTIONS = [
+    (DaskBackend, np.in1d),
+    (DaskBackend, np.intersect1d),
+    (DaskBackend, np.setdiff1d),
+    (DaskBackend, np.setxor1d),
+    (DaskBackend, np.union1d),
+]
+
 
 @pytest.fixture(scope='session', params=[
     (NumpyBackend, (onp.ndarray, onp.generic)),
@@ -83,6 +91,12 @@ def replace_args_kwargs(method, backend, args, kwargs):
     (np.nanmax, ([1, 3, 2],), {}),
     (np.std, ([1, 3, 2],), {}),
     (np.var, ([1, 3, 2],), {}),
+    (np.unique, ([1, 2, 2],), {}),
+    (np.in1d, ([1], [1, 2, 2],), {}),
+    (np.isin, ([1], [1, 2, 2],), {}),
+    (np.intersect1d, ([1, 3, 4, 3], [3, 1, 2, 1],), {}),
+    (np.setdiff1d, ([1, 3, 4, 3], [3, 1, 2, 1],), {}),
+    (np.setxor1d, ([1, 3, 4, 3], [3, 1, 2, 1],), {}),
 ])
 def test_ufunc_reductions(backend, method, args, kwargs):
     backend, types = backend
@@ -90,7 +104,7 @@ def test_ufunc_reductions(backend, method, args, kwargs):
         with ua.set_backend(backend, coerce=True):
             ret = method(*args, **kwargs)
     except ua.BackendNotImplementedError:
-        if backend in FULLY_TESTED_BACKENDS:
+        if backend in FULLY_TESTED_BACKENDS and (backend, method) not in EXCEPTIONS:
             raise
         pytest.xfail(reason='The backend has no implementation for this ufunc.')
 
