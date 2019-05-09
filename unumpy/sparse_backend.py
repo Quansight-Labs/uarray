@@ -12,12 +12,16 @@ register_backend(SparseBackend)
 
 
 def compat_check(args):
-    return not len(args) or \
-        all(isinstance(arg.value, sparse.SparseArray) for arg in args
-            if isinstance(arg, DispatchableInstance) and arg.value is not None)
+    return not len(args) or all(
+        isinstance(arg.value, sparse.SparseArray)
+        for arg in args
+        if isinstance(arg, DispatchableInstance) and arg.value is not None
+    )
 
 
-register_sparse = functools.partial(register_implementation, backend=SparseBackend, compat_check=compat_check)
+register_sparse = functools.partial(
+    register_implementation, backend=SparseBackend, compat_check=compat_check
+)
 
 _ufunc_mapping: Dict[ufunc, np.ufunc] = {}
 

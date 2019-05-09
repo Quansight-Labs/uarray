@@ -19,12 +19,12 @@ def dummy_rd(args, kwargs, rep_args):
     return out_args, out_kwargs
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def dummy_method(dummy_backend):
     return ua.MultiMethod(dummy_fd, dummy_rd)
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def dummy_backend():
     backend = ua.Backend()
     with ua.set_backend(backend):

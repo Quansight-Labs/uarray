@@ -12,12 +12,16 @@ register_backend(DaskBackend)
 
 
 def compat_check(args):
-    return not len(args) or \
-        any(isinstance(arg.value, da.core.Array) for arg in args
-            if isinstance(arg, DispatchableInstance) and arg.value is not None)
+    return not len(args) or any(
+        isinstance(arg.value, da.core.Array)
+        for arg in args
+        if isinstance(arg, DispatchableInstance) and arg.value is not None
+    )
 
 
-register_dask = functools.partial(register_implementation, backend=DaskBackend, compat_check=compat_check)
+register_dask = functools.partial(
+    register_implementation, backend=DaskBackend, compat_check=compat_check
+)
 
 # experimental support for ufunc from Dask
 _ufunc_mapping: Dict[ufunc, np.ufunc] = {}
@@ -39,7 +43,9 @@ def replace_self(func):
 
 register_dask(ufunc.__call__)(replace_self(np.ufunc.__call__))
 register_dask(ufunc.reduce)(replace_self(np.ufunc.reduce))
-register_dask(multimethods.arange)(lambda start, stop, step, **kwargs: da.arange(start, stop, step, **kwargs))
+register_dask(multimethods.arange)(
+    lambda start, stop, step, **kwargs: da.arange(start, stop, step, **kwargs)
+)
 
 
 for ufunc_name in ufunc_list:

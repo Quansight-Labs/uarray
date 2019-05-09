@@ -3,7 +3,7 @@ import ulinalg as ula
 import ulinalg.torch_backend
 
 
-torch = pytest.importorskip('torch')
+torch = pytest.importorskip("torch")
 
 
 def test_svd():

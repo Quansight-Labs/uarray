@@ -5,7 +5,7 @@ import uarray as ua
 from unumpy.numpy_backend import NumpyBackend
 import unumpy.torch_backend  # noqa: F401
 
-np = pytest.importorskip('numpy')
+np = pytest.importorskip("numpy")
 
 
 def test_svd():
@@ -19,7 +19,7 @@ def test_svd2():
 
 
 def test_coercion():
-    torch = pytest.importorskip('torch')
+    torch = pytest.importorskip("torch")
     arr = torch.eye(5)
     with ua.set_backend(NumpyBackend, coerce=True):
         assert isinstance(ula.svd(arr, compute_uv=False), np.ndarray)

@@ -1,5 +1,10 @@
 import numpy as np
-from uarray.backend import Backend, register_backend, register_implementation, DispatchableInstance
+from uarray.backend import (
+    Backend,
+    register_backend,
+    register_implementation,
+    DispatchableInstance,
+)
 from .multimethods import ufunc, ufunc_list, ndarray
 import unumpy.multimethods as multimethods
 import functools
@@ -14,10 +19,14 @@ _ufunc_mapping: Dict[ufunc, np.ufunc] = {}
 
 def compat_check(args):
     args = [arg.value if isinstance(arg, DispatchableInstance) else arg for arg in args]
-    return all(isinstance(arg, (np.ndarray, np.generic)) for arg in args if arg is not None)
+    return all(
+        isinstance(arg, (np.ndarray, np.generic)) for arg in args if arg is not None
+    )
 
 
-register_numpy = functools.partial(register_implementation, backend=NumpyBackend, compat_check=compat_check)
+register_numpy = functools.partial(
+    register_implementation, backend=NumpyBackend, compat_check=compat_check
+)
 
 
 def replace_self(func):

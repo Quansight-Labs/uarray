@@ -15,8 +15,9 @@ from unumpy.sparse_backend import SparseBackend
 LIST_BACKENDS = [
     (NumpyBackend, (onp.ndarray, onp.generic)),
     (TorchBackend, torch.Tensor),
-    pytest.param((XndBackend, xnd.xnd),
-                 marks=pytest.mark.xfail(reason='Xnd currently broken.')),
+    pytest.param(
+        (XndBackend, xnd.xnd), marks=pytest.mark.xfail(reason="Xnd currently broken.")
+    ),
     (DaskBackend, (da.core.Array, onp.generic)),
     (SparseBackend, (sparse.SparseArray, onp.generic)),
 ]
@@ -24,6 +25,7 @@ LIST_BACKENDS = [
 try:
     from unumpy.cupy_backend import CupyBackend
     import cupy as cp
+
     LIST_BACKENDS.append(pytest.param((CupyBackend, (cp.ndarray, cp.generic))))
 except ImportError:
     pass
@@ -42,17 +44,20 @@ EXCEPTIONS = {
 }
 
 
-@pytest.fixture(scope='session', params=LIST_BACKENDS)
+@pytest.fixture(scope="session", params=LIST_BACKENDS)
 def backend(request):
     backend = request.param
     return backend
 
 
-@pytest.mark.parametrize('method, args, kwargs', [
-    (np.add, ([1], [2]), {}),  # type: ignore
-    (np.sin, ([1.0],), {}),  # type: ignore
-    (np.arange, (5, 20, 5), {},)
-])
+@pytest.mark.parametrize(
+    "method, args, kwargs",
+    [
+        (np.add, ([1], [2]), {}),  # type: ignore
+        (np.sin, ([1.0],), {}),  # type: ignore
+        (np.arange, (5, 20, 5), {}),
+    ],
+)
 def test_ufuncs_coerce(backend, method, args, kwargs):
     backend, types = backend
     try:
@@ -61,15 +66,18 @@ def test_ufuncs_coerce(backend, method, args, kwargs):
     except ua.BackendNotImplementedError:
         if backend in FULLY_TESTED_BACKENDS:
             raise
-        pytest.xfail(reason='The backend has no implementation for this ufunc.')
+        pytest.xfail(reason="The backend has no implementation for this ufunc.")
 
     assert isinstance(ret, types)
 
 
-@pytest.mark.parametrize('method, args, kwargs', [
-    (np.add, ([1], [2]), {}),  # type: ignore
-    (np.sin, ([1.0],), {}),  # type: ignore
-])
+@pytest.mark.parametrize(
+    "method, args, kwargs",
+    [
+        (np.add, ([1], [2]), {}),  # type: ignore
+        (np.sin, ([1.0],), {}),  # type: ignore
+    ],
+)
 def test_functions(backend, method, args, kwargs):
     backend, types = backend
     args_new, kwargs_new = replace_args_kwargs(method, backend, args, kwargs)
@@ -89,33 +97,42 @@ def replace_args_kwargs(method, backend, args, kwargs):
         instance += (method.instance,)
         method = method.method
 
-    args, kwargs, *_ = backend.replace_dispatchables(method, instance + args, kwargs, coerce=True)
-    return args[len(instance):], kwargs
+    args, kwargs, *_ = backend.replace_dispatchables(
+        method, instance + args, kwargs, coerce=True
+    )
+    return args[len(instance) :], kwargs
 
 
-@pytest.mark.parametrize('method, args, kwargs', [
-    (np.sum, ([1],), {}),
-    (np.prod, ([1.0],), {}),
-    (np.any, ([True, False],), {}),
-    (np.all, ([True, False],), {}),
-    (np.min, ([1, 3, 2],), {}),
-    (np.max, ([1, 3, 2],), {}),
-    (np.argmin, ([1, 3, 2],), {}),
-    (np.argmax, ([1, 3, 2],), {}),
-    (np.nanmin, ([1, 3, 2],), {}),
-    (np.nanmax, ([1, 3, 2],), {}),
-    (np.std, ([1, 3, 2],), {}),
-    (np.var, ([1, 3, 2],), {}),
-    (np.unique, ([1, 2, 2],), {}),
-    (np.in1d, ([1], [1, 2, 2],), {}),
-    (np.isin, ([1], [1, 2, 2],), {}),
-    (np.intersect1d, ([1, 3, 4, 3], [3, 1, 2, 1],), {}),
-    (np.setdiff1d, ([1, 3, 4, 3], [3, 1, 2, 1],), {}),
-    (np.setxor1d, ([1, 3, 4, 3], [3, 1, 2, 1],), {}),
-    (np.sort, ([3, 1, 2, 4],), {}),
-    pytest.param(np.lexsort, (([1, 2, 2, 3], [3, 1, 2, 1]),), {},
-                 marks=pytest.mark.xfail(reason='Lexsort doesn\'t fully work for CuPy.')),
-])
+@pytest.mark.parametrize(
+    "method, args, kwargs",
+    [
+        (np.sum, ([1],), {}),
+        (np.prod, ([1.0],), {}),
+        (np.any, ([True, False],), {}),
+        (np.all, ([True, False],), {}),
+        (np.min, ([1, 3, 2],), {}),
+        (np.max, ([1, 3, 2],), {}),
+        (np.argmin, ([1, 3, 2],), {}),
+        (np.argmax, ([1, 3, 2],), {}),
+        (np.nanmin, ([1, 3, 2],), {}),
+        (np.nanmax, ([1, 3, 2],), {}),
+        (np.std, ([1, 3, 2],), {}),
+        (np.var, ([1, 3, 2],), {}),
+        (np.unique, ([1, 2, 2],), {}),
+        (np.in1d, ([1], [1, 2, 2]), {}),
+        (np.isin, ([1], [1, 2, 2]), {}),
+        (np.intersect1d, ([1, 3, 4, 3], [3, 1, 2, 1]), {}),
+        (np.setdiff1d, ([1, 3, 4, 3], [3, 1, 2, 1]), {}),
+        (np.setxor1d, ([1, 3, 4, 3], [3, 1, 2, 1]), {}),
+        (np.sort, ([3, 1, 2, 4],), {}),
+        pytest.param(
+            np.lexsort,
+            (([1, 2, 2, 3], [3, 1, 2, 1]),),
+            {},
+            marks=pytest.mark.xfail(reason="Lexsort doesn't fully work for CuPy."),
+        ),
+    ],
+)
 def test_ufunc_reductions(backend, method, args, kwargs):
     backend, types = backend
     try:
@@ -124,6 +141,6 @@ def test_ufunc_reductions(backend, method, args, kwargs):
     except ua.BackendNotImplementedError:
         if backend in FULLY_TESTED_BACKENDS and (backend, method) not in EXCEPTIONS:
             raise
-        pytest.xfail(reason='The backend has no implementation for this ufunc.')
+        pytest.xfail(reason="The backend has no implementation for this ufunc.")
 
     assert isinstance(ret, types)
