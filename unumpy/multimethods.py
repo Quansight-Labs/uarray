@@ -496,4 +496,20 @@ def lexsort(keys, axis=None):
         return (keys,)
 
 
+def _args_argreplacer(args, kwargs, arrays):
+    return arrays, kwargs
+
+
+@create_multimethod(_args_argreplacer)
+@all_of_type(ndarray)
+def broadcast_arrays(*args, subok=False):
+    return args
+
+
+@create_multimethod(_reduce_argreplacer)
+@all_of_type(ndarray)
+def broadcast_to(array, shape, subok=False):
+    return (array,)
+
+
 del ufunc_name

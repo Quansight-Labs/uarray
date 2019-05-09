@@ -78,7 +78,7 @@ def test_ufuncs_coerce(backend, method, args, kwargs):
         (np.sin, ([1.0],), {}),  # type: ignore
     ],
 )
-def test_functions(backend, method, args, kwargs):
+def test_ufuncs(backend, method, args, kwargs):
     backend, types = backend
     args_new, kwargs_new = replace_args_kwargs(method, backend, args, kwargs)
     ret = method(*args_new, **kwargs_new)
@@ -131,9 +131,10 @@ def replace_args_kwargs(method, backend, args, kwargs):
             {},
             marks=pytest.mark.xfail(reason="Lexsort doesn't fully work for CuPy."),
         ),
+        (np.broadcast_to, ([1, 2], (2, 2)), {}),
     ],
 )
-def test_ufunc_reductions(backend, method, args, kwargs):
+def test_functions_coerce(backend, method, args, kwargs):
     backend, types = backend
     try:
         with ua.set_backend(backend, coerce=True):
@@ -144,3 +145,19 @@ def test_ufunc_reductions(backend, method, args, kwargs):
         pytest.xfail(reason="The backend has no implementation for this ufunc.")
 
     assert isinstance(ret, types)
+
+
+@pytest.mark.parametrize(
+    "method, args, kwargs", [(np.broadcast_arrays, ([1, 2], [[3, 4]]), {})]
+)
+def test_multiple_output(backend, method, args, kwargs):
+    backend, types = backend
+    try:
+        with ua.set_backend(backend, coerce=True):
+            ret = method(*args, **kwargs)
+    except ua.BackendNotImplementedError:
+        if backend in FULLY_TESTED_BACKENDS and (backend, method) not in EXCEPTIONS:
+            raise
+        pytest.xfail(reason="The backend has no implementation for this ufunc.")
+
+    assert all(isinstance(arr, types) for arr in ret)
