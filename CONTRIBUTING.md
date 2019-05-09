@@ -39,4 +39,4 @@ To run a subset of tests:
 
 ```
 pytest uarray/tests/test_backend.py
-````
+```

@@ -5,10 +5,12 @@ import numpy as onp
 import torch
 import xnd
 import dask.array as da
+import sparse
 from unumpy.numpy_backend import NumpyBackend
 from unumpy.torch_backend import TorchBackend
 from unumpy.xnd_backend import XndBackend
 from unumpy.dask_backend import DaskBackend
+from unumpy.sparse_backend import SparseBackend
 
 LIST_BACKENDS = [
     (NumpyBackend, (onp.ndarray, onp.generic)),
@@ -16,6 +18,7 @@ LIST_BACKENDS = [
     pytest.param((XndBackend, xnd.xnd),
                  marks=pytest.mark.xfail(reason='Xnd currently broken.')),
     (DaskBackend, (da.core.Array, onp.generic)),
+    (SparseBackend, (sparse.SparseArray, onp.generic)),
 ]
 
 try:
