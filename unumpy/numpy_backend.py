@@ -57,6 +57,9 @@ register_numpy(multimethods.asarray)(np.asarray)
 register_numpy(multimethods.broadcast_arrays)(np.broadcast_arrays)
 register_numpy(multimethods.broadcast_to)(np.broadcast_to)
 
+register_numpy(multimethods.stack)(np.stack)
+register_numpy(multimethods.concatenate)(np.concatenate)
+
 register_numpy(multimethods.argmin)(np.argmin)
 register_numpy(multimethods.argmax)(np.argmax)
 
