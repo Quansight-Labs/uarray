@@ -131,6 +131,8 @@ def replace_args_kwargs(method, backend, args, kwargs):
             {},
             marks=pytest.mark.xfail(reason="Lexsort doesn't fully work for CuPy."),
         ),
+        (np.stack, (([1, 2], [3, 4]),), {}),
+        (np.concatenate, (([1, 2, 3], [3, 4]),), {}),
         (np.broadcast_to, ([1, 2], (2, 2)), {}),
     ],
 )

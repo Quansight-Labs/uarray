@@ -512,4 +512,20 @@ def broadcast_to(array, shape, subok=False):
     return (array,)
 
 
+def _first_argreplacer(args, kwargs, arrays):
+    return (arrays,) + args[1:], kwargs
+
+
+@create_multimethod(_first_argreplacer)
+@all_of_type(ndarray)
+def concatenate(arrays, axis=0, out=None):
+    return arrays
+
+
+@create_multimethod(_first_argreplacer)
+@all_of_type(ndarray)
+def stack(arrays, axis=0, out=None):
+    return arrays
+
+
 del ufunc_name
