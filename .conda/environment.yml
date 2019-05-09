@@ -17,6 +17,7 @@ dependencies:
   - scipy
   - gumath
   - dask
+  - sparse
   - doc8
   - pip:
     - pytest-mypy
