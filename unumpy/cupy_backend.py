@@ -1,4 +1,5 @@
 from uarray.backend import Backend, register_backend, register_implementation
+
 try:
     import cupy as cp
     import numpy as np
@@ -11,11 +12,15 @@ try:
     register_backend(CupyBackend)
 
     def compat_check(args):
-        return not len(args) or \
-            any(isinstance(arg.value, cp.ndarray) for arg in args
-                if isinstance(arg, DispatchableInstance) and arg.value is not None)
+        return not len(args) or any(
+            isinstance(arg.value, cp.ndarray)
+            for arg in args
+            if isinstance(arg, DispatchableInstance) and arg.value is not None
+        )
 
-    register_cupy = functools.partial(register_implementation, backend=CupyBackend, compat_check=compat_check)
+    register_cupy = functools.partial(
+        register_implementation, backend=CupyBackend, compat_check=compat_check
+    )
 
     # experimental support for ufunc from Dask
     _ufunc_mapping: Dict[ufunc, np.ufunc] = {}
@@ -35,7 +40,9 @@ try:
 
     register_cupy(ufunc.__call__)(replace_self(np.ufunc.__call__))
     register_cupy(ufunc.reduce)(replace_self(np.ufunc.reduce))
-    register_cupy(multimethods.arange)(lambda start, stop, step, **kwargs: cp.arange(start, stop, step, **kwargs))
+    register_cupy(multimethods.arange)(
+        lambda start, stop, step, **kwargs: cp.arange(start, stop, step, **kwargs)
+    )
 
     for ufunc_name in ufunc_list:
         if hasattr(np, ufunc_name):

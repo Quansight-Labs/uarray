@@ -13,7 +13,7 @@ def _ureduce_argreplacer(args, kwargs, arrays):
     out_args = list(args)
     out_args[:2] = arrays[:2]
 
-    out_kwargs = {**kwargs, 'out': arrays[2]}
+    out_kwargs = {**kwargs, "out": arrays[2]}
 
     return tuple(out_args), out_kwargs
 
@@ -22,8 +22,8 @@ def _reduce_argreplacer(args, kwargs, arrays):
     out_args = list(args)
     out_args[0] = arrays[0]
 
-    if 'out' in kwargs:
-        out_kwargs = {**kwargs, 'out': arrays[1]}
+    if "out" in kwargs:
+        out_kwargs = {**kwargs, "out": arrays[1]}
     else:
         out_kwargs = kwargs
 
@@ -80,11 +80,11 @@ class ufunc(DispatchableInstance):
     def _ufunc_argreplacer(args, kwargs, arrays):
         self = args[0]
         args = args[1:]
-        in_arrays = arrays[1:self.nin+1]
-        out_arrays = arrays[self.nin+1:]
+        in_arrays = arrays[1 : self.nin + 1]
+        out_arrays = arrays[self.nin + 1 :]
         if self.nout == 1:
             out_arrays = out_arrays[0]
-        out_kwargs = {**kwargs, 'out': out_arrays}
+        out_kwargs = {**kwargs, "out": out_arrays}
 
         return (arrays[0], *in_arrays), out_kwargs
 
@@ -110,129 +110,190 @@ class ufunc(DispatchableInstance):
 
 ufunc_list = [
     # Math operations
-    'add', 'subtract', 'multiply', 'divide', 'logaddexp', 'logaddexp2',
-    'true_divide', 'floor_divide', 'negative', 'positive', 'power',
-    'remainder', 'mod', 'fmod', 'divmod', 'absolute', 'fabs', 'rint',
-    'sign', 'heaviside', 'conj', 'exp', 'exp2', 'log', 'log2', 'log10',
-    'expm1', 'log1p', 'sqrt', 'square', 'cbrt', 'reciprocal', 'gcd',
-    'lcm',
-
+    "add",
+    "subtract",
+    "multiply",
+    "divide",
+    "logaddexp",
+    "logaddexp2",
+    "true_divide",
+    "floor_divide",
+    "negative",
+    "positive",
+    "power",
+    "remainder",
+    "mod",
+    "fmod",
+    "divmod",
+    "absolute",
+    "fabs",
+    "rint",
+    "sign",
+    "heaviside",
+    "conj",
+    "exp",
+    "exp2",
+    "log",
+    "log2",
+    "log10",
+    "expm1",
+    "log1p",
+    "sqrt",
+    "square",
+    "cbrt",
+    "reciprocal",
+    "gcd",
+    "lcm",
     # Trigonometric functions
-    'sin', 'cos', 'tan', 'arcsin', 'arccos', 'arctan', 'arctan2',
-    'hypot', 'sinh', 'cosh', 'tanh', 'arcsinh', 'arccosh',
-    'arctanh', 'deg2rad', 'rad2deg',
-
+    "sin",
+    "cos",
+    "tan",
+    "arcsin",
+    "arccos",
+    "arctan",
+    "arctan2",
+    "hypot",
+    "sinh",
+    "cosh",
+    "tanh",
+    "arcsinh",
+    "arccosh",
+    "arctanh",
+    "deg2rad",
+    "rad2deg",
     # Bit-twiddling functions
-    'bitwise_and', 'bitwise_or', 'bitwise_xor', 'invert', 'left_shift',
-    'right_shift',
-
+    "bitwise_and",
+    "bitwise_or",
+    "bitwise_xor",
+    "invert",
+    "left_shift",
+    "right_shift",
     # Comparison functions
-    'greater', 'greater_equal', 'less', 'less_equal', 'not_equal',
-    'equal', 'logical_and', 'logical_or', 'logical_xor', 'logical_not',
-    'maximum', 'minimum', 'fmax', 'fmin',
-
+    "greater",
+    "greater_equal",
+    "less",
+    "less_equal",
+    "not_equal",
+    "equal",
+    "logical_and",
+    "logical_or",
+    "logical_xor",
+    "logical_not",
+    "maximum",
+    "minimum",
+    "fmax",
+    "fmin",
     # Floating functions
-    'isfinite', 'isinf', 'isnan', 'isnat', 'fabs', 'signbit', 'copysign',
-    'nextafter', 'spacing', 'modf', 'ldexp', 'frexp', 'fmod', 'floor',
-    'ceil', 'trunc'
+    "isfinite",
+    "isinf",
+    "isnan",
+    "isnat",
+    "fabs",
+    "signbit",
+    "copysign",
+    "nextafter",
+    "spacing",
+    "modf",
+    "ldexp",
+    "frexp",
+    "fmod",
+    "floor",
+    "ceil",
+    "trunc",
 ]
 
 _args_mapper = {
     # Math operations
-    'add': (2, 1),
-    'subtract': (2, 1),
-    'multiply': (2, 1),
-    'divide': (2, 1),
-    'logaddexp': (2, 1),
-    'logaddexp2': (2, 1),
-    'true_divide': (2, 1),
-    'floor_divide': (2, 1),
-    'negative': (1, 1),
-    'positive': (1, 1),
-    'power': (2, 1),
-    'remainder': (2, 1),
-    'mod': (2, 1),
-    'fmod': (2, 1),
-    'divmod': (2, 2),
-    'absolute': (1, 1),
-    'fabs': (1, 1),
-    'rint': (1, 1),
-    'sign': (1, 1),
-    'heaviside': (1, 1),
-    'conj': (1, 1),
-    'exp': (1, 1),
-    'exp2': (1, 1),
-    'log': (1, 1),
-    'log2': (1, 1),
-    'log10': (1, 1),
-    'expm1': (1, 1),
-    'log1p': (1, 1),
-    'sqrt': (1, 1),
-    'square': (1, 1),
-    'cbrt': (1, 1),
-    'reciprocal': (1, 1),
-    'gcd': (2, 1),
-    'lcm': (2, 1),
-
+    "add": (2, 1),
+    "subtract": (2, 1),
+    "multiply": (2, 1),
+    "divide": (2, 1),
+    "logaddexp": (2, 1),
+    "logaddexp2": (2, 1),
+    "true_divide": (2, 1),
+    "floor_divide": (2, 1),
+    "negative": (1, 1),
+    "positive": (1, 1),
+    "power": (2, 1),
+    "remainder": (2, 1),
+    "mod": (2, 1),
+    "fmod": (2, 1),
+    "divmod": (2, 2),
+    "absolute": (1, 1),
+    "fabs": (1, 1),
+    "rint": (1, 1),
+    "sign": (1, 1),
+    "heaviside": (1, 1),
+    "conj": (1, 1),
+    "exp": (1, 1),
+    "exp2": (1, 1),
+    "log": (1, 1),
+    "log2": (1, 1),
+    "log10": (1, 1),
+    "expm1": (1, 1),
+    "log1p": (1, 1),
+    "sqrt": (1, 1),
+    "square": (1, 1),
+    "cbrt": (1, 1),
+    "reciprocal": (1, 1),
+    "gcd": (2, 1),
+    "lcm": (2, 1),
     # Trigonometric functions
-    'sin': (1, 1),
-    'cos': (1, 1),
-    'tan': (1, 1),
-    'arcsin': (1, 1),
-    'arccos': (1, 1),
-    'arctan': (1, 1),
-    'arctan2': (2, 1),
-    'hypot': (2, 1),
-    'sinh': (1, 1),
-    'cosh': (1, 1),
-    'tanh': (1, 1),
-    'arcsinh': (1, 1),
-    'arccosh': (1, 1),
-    'arctanh': (1, 1),
-    'deg2rad': (1, 1),
-    'rad2deg': (1, 1),
-
+    "sin": (1, 1),
+    "cos": (1, 1),
+    "tan": (1, 1),
+    "arcsin": (1, 1),
+    "arccos": (1, 1),
+    "arctan": (1, 1),
+    "arctan2": (2, 1),
+    "hypot": (2, 1),
+    "sinh": (1, 1),
+    "cosh": (1, 1),
+    "tanh": (1, 1),
+    "arcsinh": (1, 1),
+    "arccosh": (1, 1),
+    "arctanh": (1, 1),
+    "deg2rad": (1, 1),
+    "rad2deg": (1, 1),
     # Bit-twiddling functions
-    'bitwise_and': (2, 1),
-    'bitwise_or': (2, 1),
-    'bitwise_xor': (2, 1),
-    'invert': (1, 1),
-    'left_shift': (2, 1),
-    'right_shift': (2, 1),
-
+    "bitwise_and": (2, 1),
+    "bitwise_or": (2, 1),
+    "bitwise_xor": (2, 1),
+    "invert": (1, 1),
+    "left_shift": (2, 1),
+    "right_shift": (2, 1),
     # Comparison functions
-    'greater': (2, 1),
-    'greater_equal': (2, 1),
-    'less': (2, 1),
-    'less_equal': (2, 1),
-    'not_equal': (2, 1),
-    'equal': (2, 1),
-    'logical_and': (2, 1),
-    'logical_or': (2, 1),
-    'logical_xor': (2, 1),
-    'logical_not': (1, 1),
-    'maximum': (2, 1),
-    'minimum': (2, 1),
-    'fmax': (2, 1),
-    'fmin': (2, 1),
-
+    "greater": (2, 1),
+    "greater_equal": (2, 1),
+    "less": (2, 1),
+    "less_equal": (2, 1),
+    "not_equal": (2, 1),
+    "equal": (2, 1),
+    "logical_and": (2, 1),
+    "logical_or": (2, 1),
+    "logical_xor": (2, 1),
+    "logical_not": (1, 1),
+    "maximum": (2, 1),
+    "minimum": (2, 1),
+    "fmax": (2, 1),
+    "fmin": (2, 1),
     # Floating functions
-    'isfinite': (1, 1),
-    'isinf': (1, 1),
-    'isnan': (1, 1),
-    'isnat': (1, 1),
-    'fabs': (1, 1),
-    'signbit': (1, 1),
-    'copysign': (2, 1),
-    'nextafter': (2, 1),
-    'spacing': (1, 1),
-    'modf': (1, 2),
-    'ldexp': (2, 1),
-    'frexp': (1, 2),
-    'fmod': (2, 1),
-    'floor': (1, 1),
-    'ceil': (1, 1),
-    'trunc': (1, 1),
+    "isfinite": (1, 1),
+    "isinf": (1, 1),
+    "isnan": (1, 1),
+    "isnat": (1, 1),
+    "fabs": (1, 1),
+    "signbit": (1, 1),
+    "copysign": (2, 1),
+    "nextafter": (2, 1),
+    "spacing": (1, 1),
+    "modf": (1, 2),
+    "ldexp": (2, 1),
+    "frexp": (1, 2),
+    "fmod": (2, 1),
+    "floor": (1, 1),
+    "ceil": (1, 1),
+    "trunc": (1, 1),
 }
 
 for ufunc_name in ufunc_list:
@@ -245,17 +306,17 @@ def arange(start, stop=None, step=None, dtype=None):
 
 
 @create_multimethod(_identity_argreplacer)
-def array(object, dtype=None, copy=True, order='K', subok=False, ndmin=0):
+def array(object, dtype=None, copy=True, order="K", subok=False, ndmin=0):
     return ()
 
 
 @create_multimethod(_identity_argreplacer)
-def zeros(shape, dtype=float, order='C'):
+def zeros(shape, dtype=float, order="C"):
     return ()
 
 
 @create_multimethod(_identity_argreplacer)
-def ones(shape, dtype=float, order='C'):
+def ones(shape, dtype=float, order="C"):
     return ()
 
 
@@ -271,37 +332,37 @@ def reduce_impl(red_ufunc: ufunc):
     return inner
 
 
-@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['add']))
+@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()["add"]))
 @all_of_type(ndarray)
 def sum(a, axis=None, dtype=None, out=None, keepdims=False):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['multiply']))
+@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()["multiply"]))
 @all_of_type(ndarray)
 def prod(a, axis=None, dtype=None, out=None, keepdims=False):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['minimum']))
+@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()["minimum"]))
 @all_of_type(ndarray)
 def min(a, axis=None, out=None, keepdims=False):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['maximum']))
+@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()["maximum"]))
 @all_of_type(ndarray)
 def max(a, axis=None, out=None, keepdims=False):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['logical_or']))
+@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()["logical_or"]))
 @all_of_type(ndarray)
 def any(a, axis=None, out=None, keepdims=False):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()['logical_and']))
+@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()["logical_and"]))
 @all_of_type(ndarray)
 def all(a, axis=None, out=None, keepdims=False):
     return (a, out)
@@ -369,7 +430,9 @@ def in1d(element, test_elements, assume_unique=False, invert=False):
 
 
 def _isin_default(element, test_elements, assume_unique=False, invert=False):
-    return in1d(element, test_elements, assume_unique=assume_unique, invert=invert).reshape(element.shape)
+    return in1d(
+        element, test_elements, assume_unique=assume_unique, invert=invert
+    ).reshape(element.shape)
 
 
 @create_multimethod(_first2argreplacer, default=_isin_default)
@@ -414,7 +477,7 @@ def union1d(ar1, ar2):
 @create_multimethod(_reduce_argreplacer)
 @all_of_type(ndarray)
 def sort(a, axis=None, kind=None, order=None):
-    return(a,)
+    return (a,)
 
 
 def _tuple_check_argreplacer(args, kwargs, arrays):

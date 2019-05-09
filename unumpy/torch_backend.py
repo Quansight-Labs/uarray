@@ -4,7 +4,12 @@ import torch
 from typing import Dict, Callable
 import functools
 
-from uarray.backend import Backend, register_backend, register_implementation, DispatchableInstance
+from uarray.backend import (
+    Backend,
+    register_backend,
+    register_implementation,
+    DispatchableInstance,
+)
 
 TorchBackend = Backend()
 register_backend(TorchBackend)
@@ -15,7 +20,9 @@ def compat_check(args):
     return all(isinstance(arg, torch.Tensor) for arg in args if arg is not None)
 
 
-register_torch = functools.partial(register_implementation, backend=TorchBackend, compat_check=compat_check)
+register_torch = functools.partial(
+    register_implementation, backend=TorchBackend, compat_check=compat_check
+)
 
 
 _reduce_mapping = {
@@ -61,15 +68,17 @@ def reduce(self, a, axis=0, dtype=None, out=None, keepdims=False, arg=False):
 
 
 for ufunc_name in ufunc_list:
-    if ufunc_name.startswith('arc'):
-        torch_name = ufunc_name.replace('arc', 'a')
+    if ufunc_name.startswith("arc"):
+        torch_name = ufunc_name.replace("arc", "a")
     else:
         torch_name = ufunc_name
 
     if hasattr(torch, torch_name):
         _ufunc_mapping[getattr(multimethods, ufunc_name)] = getattr(torch, torch_name)
 
-register_torch(multimethods.arange)(lambda start, stop, step, **kwargs: torch.arange(start, stop, step, **kwargs))
+register_torch(multimethods.arange)(
+    lambda start, stop, step, **kwargs: torch.arange(start, stop, step, **kwargs)
+)
 register_torch(multimethods.array)(torch.tensor)
 
 
@@ -100,12 +109,12 @@ register_torch(multimethods.ones)(torch.ones)
 
 @register_torch(multimethods.argmax)
 def argmax(a, axis=None, out=None):
-    return reduce(getattr(multimethods, 'max'), a, axis=axis, out=out, arg=True)
+    return reduce(getattr(multimethods, "max"), a, axis=axis, out=out, arg=True)
 
 
 @register_torch(multimethods.argmin)
 def argmin(a, axis=None, out=None):
-    return reduce(getattr(multimethods, 'min'), a, axis=axis, out=out, arg=True)
+    return reduce(getattr(multimethods, "min"), a, axis=axis, out=out, arg=True)
 
 
 ndarray.register_convertor(TorchBackend, asarray)

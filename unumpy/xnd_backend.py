@@ -14,11 +14,16 @@ register_backend(XndBackend)
 
 
 def compat_check(args):
-    return all(isinstance(arg.value, xnd.xnd) for arg in args
-               if isinstance(arg, DispatchableInstance) and arg.value is not None)
+    return all(
+        isinstance(arg.value, xnd.xnd)
+        for arg in args
+        if isinstance(arg, DispatchableInstance) and arg.value is not None
+    )
 
 
-register_xnd = functools.partial(register_implementation, backend=XndBackend, compat_check=compat_check)
+register_xnd = functools.partial(
+    register_implementation, backend=XndBackend, compat_check=compat_check
+)
 
 _ufunc_mapping: Dict[ufunc, gu.gufunc] = {}
 
@@ -56,7 +61,7 @@ def asarray(a):
     if isinstance(a, xnd.xnd):
         return a
 
-    if hasattr(a, '__buffer__'):
+    if hasattr(a, "__buffer__"):
         return xnd.array.from_buffer(a)
 
     return xnd.array(a)

@@ -1,4 +1,15 @@
-from typing import Callable, Iterable, Dict, Tuple, Any, Set, Optional, Type, Union, List
+from typing import (
+    Callable,
+    Iterable,
+    Dict,
+    Tuple,
+    Any,
+    Set,
+    Optional,
+    Type,
+    Union,
+    List,
+)
 import inspect
 from contextvars import ContextVar
 import functools
@@ -78,8 +89,12 @@ class MultiMethod:
 
     """
 
-    def __init__(self, argument_extractor: ArgumentExtractorType, argument_replacer: ArgumentReplacerType,
-                 default: Optional[Callable] = None):
+    def __init__(
+        self,
+        argument_extractor: ArgumentExtractorType,
+        argument_replacer: ArgumentReplacerType,
+        default: Optional[Callable] = None,
+    ):
         self.argument_extractor = argument_extractor
         self.argument_replacer = argument_replacer
         self.default = default
@@ -98,7 +113,9 @@ class MultiMethod:
         args, kwargs = _canonicalize(self, args, kwargs)
         result = NotImplemented
         for options in _backend_order():
-            result = options.backend.try_backend(self, args, kwargs, coerce=options.coerce)
+            result = options.backend.try_backend(
+                self, args, kwargs, coerce=options.coerce
+            )
 
             if result is not NotImplemented:
                 break
@@ -107,7 +124,9 @@ class MultiMethod:
                 result = self.default(*args, **kwargs)
 
         if result is NotImplemented:
-            raise BackendNotImplementedError('No selected backends had an implementation for this method.')
+            raise BackendNotImplementedError(
+                "No selected backends had an implementation for this method."
+            )
 
         return result
 
@@ -122,7 +141,9 @@ class BoundMultiMethod:
     Used internally for the implementation of the descriptor protocol.
     """
 
-    def __init__(self, method: Union[MultiMethod, "BoundMultiMethod"], instance: Any, owner: Type):
+    def __init__(
+        self, method: Union[MultiMethod, "BoundMultiMethod"], instance: Any, owner: Type
+    ):
         self.method = method
         self.instance = instance
         self.owner = owner
@@ -136,8 +157,9 @@ class BoundMultiMethod:
         return BoundMultiMethod(self, instance, owner)
 
 
-def create_multimethod(reverse_dispatcher: ArgumentReplacerType,
-                       default: Optional[Callable] = None) -> Callable[[ArgumentExtractorType], MultiMethod]:
+def create_multimethod(
+    reverse_dispatcher: ArgumentReplacerType, default: Optional[Callable] = None
+) -> Callable[[ArgumentExtractorType], MultiMethod]:
     """
     Returns a decorator that can be used to create a :obj:`MultiMethod` from an argument extractor.
 
@@ -165,6 +187,7 @@ def create_multimethod(reverse_dispatcher: ArgumentReplacerType,
     ... def potato(a, b):
     ...     return (a,)
     """
+
     def inner(dispatcher: ArgumentExtractorType) -> MultiMethod:
         return MultiMethod(dispatcher, reverse_dispatcher, default=default)
 
@@ -223,7 +246,9 @@ class Backend:
     def __init__(self):
         self._implementations: MethodLookupType = {}
 
-    def register_implementation(self, method: Optional[MultiMethod], implementation: ImplementationType):
+    def register_implementation(
+        self, method: Optional[MultiMethod], implementation: ImplementationType
+    ):
         """
         Register this backend's implementation for a given method.
 
@@ -263,11 +288,15 @@ class Backend:
             If an implementation has already been registered for the given method.
         """
         if method in self._implementations:
-            raise ValueError('Cannot register a different method once one is already registered.')
+            raise ValueError(
+                "Cannot register a different method once one is already registered."
+            )
 
         self._implementations[method] = implementation
 
-    def replace_dispatchables(self, method: MultiMethod, args, kwargs, coerce: Optional[bool] = False):
+    def replace_dispatchables(
+        self, method: MultiMethod, args, kwargs, coerce: Optional[bool] = False
+    ):
         """
         Replace dispatchables for a this method, using the convertor, if coercion is used.
 
@@ -289,7 +318,11 @@ class Backend:
         replaced_args: List = []
         filtered_dispatchable_args: List = []
         for arg in dispatchable_args:
-            replaced_arg = arg.convert(self, coerce) if isinstance(arg, DispatchableInstance) else arg
+            replaced_arg = (
+                arg.convert(self, coerce)
+                if isinstance(arg, DispatchableInstance)
+                else arg
+            )
             replaced_args.append(replaced_arg)
 
             if not isinstance(arg, DispatchableInstance):
@@ -306,15 +339,20 @@ class Backend:
         result or ``NotImplemented``. All exceptions are propagated.
         """
         current_args, current_kwargs, dispatchable_args = self.replace_dispatchables(
-            method, args, kwargs, coerce=coerce)
+            method, args, kwargs, coerce=coerce
+        )
 
         result = NotImplemented
 
         if method in self._implementations:
-            result = self._implementations[method](method, current_args, current_kwargs, dispatchable_args)
+            result = self._implementations[method](
+                method, current_args, current_kwargs, dispatchable_args
+            )
 
         if result is NotImplemented and None in self._implementations:
-            result = self._implementations[None](method, current_args, current_kwargs, dispatchable_args)
+            result = self._implementations[None](
+                method, current_args, current_kwargs, dispatchable_args
+            )
 
         if result is NotImplemented and method.default is not None:
             try:
@@ -330,7 +368,13 @@ _backends: Set[Backend] = set()
 
 
 class BackendOptions:
-    def __init__(self, backend: Backend, coerce: bool = False, only: bool = False, options: Optional[Any] = None):
+    def __init__(
+        self,
+        backend: Backend,
+        coerce: bool = False,
+        only: bool = False,
+        options: Optional[Any] = None,
+    ):
         """
         The backend plus any additional options associated with it.
 
@@ -375,9 +419,15 @@ def _backend_order_iter() -> Iterable[BackendOptions]:
         yield be
 
 
-_preferred_backend: ContextVar[Tuple[BackendOptions, ...]] = ContextVar('_preferred_backend', default=())
-_skipped_backend: ContextVar[Set[Backend]] = ContextVar('_skipped_backend', default=set())
-_current_backend: ContextVar[Optional[BackendOptions]] = ContextVar('_current_backend', default=None)
+_preferred_backend: ContextVar[Tuple[BackendOptions, ...]] = ContextVar(
+    "_preferred_backend", default=()
+)
+_skipped_backend: ContextVar[Set[Backend]] = ContextVar(
+    "_skipped_backend", default=set()
+)
+_current_backend: ContextVar[Optional[BackendOptions]] = ContextVar(
+    "_current_backend", default=None
+)
 
 
 def get_current_backend() -> Optional[BackendOptions]:
@@ -476,7 +526,11 @@ def _canonicalize(f, args, kwargs):
 CompatCheckType = Callable[[Iterable["DispatchableInstance"]], bool]
 
 
-def register_implementation(method: MultiMethod, backend: Backend, compat_check: Optional[CompatCheckType] = None):
+def register_implementation(
+    method: MultiMethod,
+    backend: Backend,
+    compat_check: Optional[CompatCheckType] = None,
+):
     """
     Create an implementation for a given backend/method. The implementation
     should have the same signature as the method, or perhaps with some optional
@@ -484,6 +538,7 @@ def register_implementation(method: MultiMethod, backend: Backend, compat_check:
     of dispatchable instances and returns a :obj:`bool` indicating whether or not
     the backend supports this configuration.
     """
+
     def wrapper(func):
         @functools.wraps(func)
         def inner(method, args, kwargs, dispatchable_args):
@@ -544,6 +599,7 @@ class DispatchableInstance:
     ...     potato(1, '2')
     (-2, '2')
     """
+
     convertors: Dict[Backend, ConvertorType] = {}
 
     def __init_subclass__(cls, **kwargs):
@@ -552,8 +608,10 @@ class DispatchableInstance:
 
     def __init__(self, value: Any):
         if type(self) is DispatchableInstance:
-            raise RuntimeError('Do not instantiate this class directly, '
-                               'only through the subclasses.')
+            raise RuntimeError(
+                "Do not instantiate this class directly, "
+                "only through the subclasses."
+            )
 
         self.value = value
 
@@ -598,7 +656,9 @@ class DispatchableInstance:
         ValueError: ...
         """
         if backend in cls.convertors:
-            raise ValueError('Cannot register a different convertor once one is already registered.')
+            raise ValueError(
+                "Cannot register a different convertor once one is already registered."
+            )
 
         cls.convertors[backend] = convertor
 
@@ -649,11 +709,15 @@ def all_of_type(arg_type: Type[DispatchableInstance]):
     ...     potato(1, '2')
     (-2, '2')
     """
+
     def outer(func):
         @functools.wraps(func)
         def inner(*args, **kwargs):
             extracted_args = func(*args, **kwargs)
-            return tuple(arg_type(arg) if not isinstance(arg, DispatchableInstance) else arg for arg in extracted_args)
+            return tuple(
+                arg_type(arg) if not isinstance(arg, DispatchableInstance) else arg
+                for arg in extracted_args
+            )
 
         return inner
 
