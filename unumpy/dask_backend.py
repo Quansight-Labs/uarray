@@ -1,5 +1,4 @@
 import dask.array as da
-import dask
 import numpy as np
 import unumpy.multimethods as multimethods
 from .multimethods import ufunc, ufunc_list, ndarray, DispatchableInstance
@@ -14,7 +13,7 @@ register_backend(DaskBackend)
 
 def compat_check(args):
     return not len(args) or \
-        any(isinstance(arg.value, dask.array.core.Array) for arg in args
+        any(isinstance(arg.value, da.core.Array) for arg in args
             if isinstance(arg, DispatchableInstance) and arg.value is not None)
 
 
@@ -47,7 +46,7 @@ for ufunc_name in ufunc_list:
     if hasattr(np, ufunc_name):
         _ufunc_mapping[getattr(multimethods, ufunc_name)] = getattr(np, ufunc_name)
 
-register_dask(multimethods.array)(dask.array.core.Array)
+register_dask(multimethods.array)(da.core.Array)
 register_dask(multimethods.asarray)(da.asarray)
 
 

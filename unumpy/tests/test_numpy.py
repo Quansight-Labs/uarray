@@ -1,5 +1,4 @@
 import pytest
-
 import uarray as ua
 import unumpy as np
 import numpy as onp
@@ -10,6 +9,22 @@ from unumpy.numpy_backend import NumpyBackend
 from unumpy.torch_backend import TorchBackend
 from unumpy.xnd_backend import XndBackend
 from unumpy.dask_backend import DaskBackend
+
+LIST_BACKENDS = [
+    (NumpyBackend, (onp.ndarray, onp.generic)),
+    (TorchBackend, torch.Tensor),
+    pytest.param((XndBackend, xnd.xnd),
+                 marks=pytest.mark.xfail(reason='Xnd currently broken.')),
+    (DaskBackend, (da.core.Array, onp.generic)),
+]
+
+try:
+    from unumpy.cupy_backend import CupyBackend
+    import cupy as cp
+    LIST_BACKENDS.append(pytest.param((CupyBackend, (cp.ndarray, cp.generic))))
+except ImportError:
+    pass
+
 
 FULLY_TESTED_BACKENDS = (NumpyBackend, XndBackend, DaskBackend)
 
@@ -24,12 +39,7 @@ EXCEPTIONS = {
 }
 
 
-@pytest.fixture(scope='session', params=[
-    (NumpyBackend, (onp.ndarray, onp.generic)),
-    (TorchBackend, torch.Tensor),
-    (XndBackend, xnd.xnd),
-    (DaskBackend, (da.core.Array, onp.generic)),
-])
+@pytest.fixture(scope='session', params=LIST_BACKENDS)
 def backend(request):
     backend = request.param
     return backend
@@ -100,7 +110,8 @@ def replace_args_kwargs(method, backend, args, kwargs):
     (np.setdiff1d, ([1, 3, 4, 3], [3, 1, 2, 1],), {}),
     (np.setxor1d, ([1, 3, 4, 3], [3, 1, 2, 1],), {}),
     (np.sort, ([3, 1, 2, 4],), {}),
-    (np.lexsort, (([1, 2, 2, 3], [3, 1, 2, 1]),), {}),
+    pytest.param(np.lexsort, (([1, 2, 2, 3], [3, 1, 2, 1]),), {},
+                 marks=pytest.mark.xfail(reason='Lexsort doesn\'t fully work for CuPy.')),
 ])
 def test_ufunc_reductions(backend, method, args, kwargs):
     backend, types = backend
