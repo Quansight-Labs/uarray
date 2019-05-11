@@ -6,15 +6,15 @@ import torch
 import xnd
 import dask.array as da
 import sparse
-from unumpy.numpy_backend import NumpyBackend
-from unumpy.torch_backend import TorchBackend
-from unumpy.xnd_backend import XndBackend
-from unumpy.dask_backend import DaskBackend
-from unumpy.sparse_backend import SparseBackend
+import unumpy.numpy_backend as NumpyBackend
+
+# from unumpy.torch_backend import TorchBackend
+import unumpy.xnd_backend as XndBackend
+import unumpy.dask_backend as DaskBackend
+import unumpy.sparse_backend as SparseBackend
 
 LIST_BACKENDS = [
     (NumpyBackend, (onp.ndarray, onp.generic)),
-    (TorchBackend, torch.Tensor),
     pytest.param(
         (XndBackend, xnd.xnd), marks=pytest.mark.xfail(reason="Xnd currently broken.")
     ),
@@ -23,7 +23,7 @@ LIST_BACKENDS = [
 ]
 
 try:
-    from unumpy.cupy_backend import CupyBackend
+    import unumpy.cupy_backend as CupyBackend
     import cupy as cp
 
     LIST_BACKENDS.append(pytest.param((CupyBackend, (cp.ndarray, cp.generic))))
@@ -71,34 +71,17 @@ def test_ufuncs_coerce(backend, method, args, kwargs):
     assert isinstance(ret, types)
 
 
-@pytest.mark.parametrize(
-    "method, args, kwargs",
-    [
-        (np.add, ([1], [2]), {}),  # type: ignore
-        (np.sin, ([1.0],), {}),  # type: ignore
-    ],
-)
-def test_ufuncs(backend, method, args, kwargs):
-    backend, types = backend
-    args_new, kwargs_new = replace_args_kwargs(method, backend, args, kwargs)
-    ret = method(*args_new, **kwargs_new)
-    assert isinstance(ret, types)
-
-
 def replace_args_kwargs(method, backend, args, kwargs):
-    while not isinstance(method, (ua.MultiMethod, ua.BoundMultiMethod)):
+    instance = ()
+    while not hasattr(method, "_coerce_args"):
+        instance += (method,)
         method = method.__call__
 
         if method is method.__call__:
             raise ValueError("Nowhere up the chain is there a multimethod.")
 
-    instance = ()
-    while isinstance(method, ua.BoundMultiMethod):
-        instance += (method.instance,)
-        method = method.method
-
-    args, kwargs, *_ = backend.replace_dispatchables(
-        method, instance + args, kwargs, coerce=True
+    args, kwargs, *_ = method._coerce_args(
+        backend, instance + args, kwargs, coerce=True
     )
     return args[len(instance) :], kwargs
 

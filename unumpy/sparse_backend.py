@@ -1,29 +1,61 @@
-import sparse
 import numpy as np
+import sparse
+from uarray.backend import DispatchableInstance
+from .multimethods import ufunc, ufunc_list, ndarray
 import unumpy.multimethods as multimethods
-from .multimethods import ufunc, ufunc_list, ndarray, DispatchableInstance
-from typing import Dict
 import functools
 
-from uarray.backend import Backend, register_backend, register_implementation
+from typing import Dict
 
-SparseBackend = Backend()
-register_backend(SparseBackend)
+_ufunc_mapping: Dict[ufunc, np.ufunc] = {}
+
+__ua_domain__ = "numpy"
 
 
 def compat_check(args):
-    return not len(args) or all(
-        isinstance(arg.value, sparse.SparseArray)
+    args = [arg.value if isinstance(arg, DispatchableInstance) else arg for arg in args]
+    return all(
+        isinstance(arg, (sparse.SparseArray, np.generic, np.ufunc))
         for arg in args
-        if isinstance(arg, DispatchableInstance) and arg.value is not None
+        if arg is not None
     )
 
 
-register_sparse = functools.partial(
-    register_implementation, backend=SparseBackend, compat_check=compat_check
-)
+_implementations: Dict = {
+    multimethods.ufunc.__call__: np.ufunc.__call__,
+    multimethods.ufunc.reduce: np.ufunc.reduce,
+}
 
-_ufunc_mapping: Dict[ufunc, np.ufunc] = {}
+
+def __ua_function__(method, args, kwargs, dispatchable_args):
+    if not compat_check(dispatchable_args):
+        return NotImplemented
+
+    if method in _implementations:
+        return _implementations[method](*args, **kwargs)
+
+    if not hasattr(sparse, method.__name__):
+        return NotImplemented
+
+    return getattr(sparse, method.__name__)(*args, **kwargs)
+
+
+def __ua_coerce__(arg):
+    if isinstance(arg, DispatchableInstance) and arg.dispatch_type is ndarray:
+        value = arg.value
+
+        if arg.value is None:
+            return None
+
+        if isinstance(value, sparse.SparseArray):
+            return value
+
+        return sparse.as_coo(np.asarray(value))
+
+    if isinstance(arg, DispatchableInstance) and arg.dispatch_type is ufunc:
+        return getattr(np, arg.value.name)
+
+    return NotImplemented
 
 
 def replace_self(func):
@@ -32,47 +64,6 @@ def replace_self(func):
         if self not in _ufunc_mapping:
             return NotImplemented
 
-        try:
-            return func(_ufunc_mapping[self], *args, **kwargs)
-        except TypeError:
-            return NotImplemented
+        return func(_ufunc_mapping[self], *args, **kwargs)
 
     return inner
-
-
-register_sparse(ufunc.__call__)(replace_self(np.ufunc.__call__))
-register_sparse(ufunc.reduce)(replace_self(np.ufunc.reduce))
-
-
-for ufunc_name in ufunc_list:
-    if hasattr(np, ufunc_name):
-        _ufunc_mapping[getattr(multimethods, ufunc_name)] = getattr(np, ufunc_name)
-
-register_sparse(multimethods.array)(sparse.COO)
-register_sparse(multimethods.asarray)(sparse.as_coo)
-
-
-def _generic(method, args, kwargs, dispatchable_args):
-    if not compat_check(dispatchable_args):
-        return NotImplemented
-
-    if hasattr(sparse, method.__name__):
-        return getattr(sparse, method.__name__)(*args, **kwargs)
-
-    return NotImplemented
-
-
-SparseBackend.register_implementation(None, _generic)
-
-
-def convert(val):
-    if isinstance(val, sparse.SparseArray):
-        return val
-
-    if isinstance(val, np.ndarray):
-        return sparse.as_coo(val)
-
-    return sparse.as_coo(np.asarray(val))
-
-
-ndarray.register_convertor(SparseBackend, convert)

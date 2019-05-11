@@ -1,29 +1,49 @@
-from uarray.backend import Backend, register_backend, register_implementation
-
 try:
-    import cupy as cp
     import numpy as np
+    import cupy as cp
+    from uarray.backend import DispatchableInstance
+    from .multimethods import ufunc, ufunc_list, ndarray
     import unumpy.multimethods as multimethods
-    from .multimethods import ufunc, ufunc_list, ndarray, DispatchableInstance
-    from typing import Dict
     import functools
 
-    CupyBackend = Backend()
-    register_backend(CupyBackend)
+    from typing import Dict
+
+    _ufunc_mapping: Dict[ufunc, np.ufunc] = {}
+
+    __ua_domain__ = "numpy"
 
     def compat_check(args):
-        return not len(args) or any(
-            isinstance(arg.value, cp.ndarray)
+        args = [
+            arg.value if isinstance(arg, DispatchableInstance) else arg for arg in args
+        ]
+        return all(
+            isinstance(arg, (cp.ndarray, np.generic, np.ufunc))
             for arg in args
-            if isinstance(arg, DispatchableInstance) and arg.value is not None
+            if arg is not None
         )
 
-    register_cupy = functools.partial(
-        register_implementation, backend=CupyBackend, compat_check=compat_check
-    )
+    _implementations: Dict = {multimethods.ufunc.__call__: np.ufunc.__call__}
 
-    # experimental support for ufunc from Dask
-    _ufunc_mapping: Dict[ufunc, np.ufunc] = {}
+    def __ua_function__(method, args, kwargs, dispatchable_args):
+        if not compat_check(dispatchable_args):
+            return NotImplemented
+
+        if method in _implementations:
+            return _implementations[method](*args, **kwargs)
+
+        if not hasattr(cp, method.__name__):
+            return NotImplemented
+
+        return getattr(cp, method.__name__)(*args, **kwargs)
+
+    def __ua_coerce__(arg):
+        if isinstance(arg, DispatchableInstance) and arg.dispatch_type is ndarray:
+            return cp.asarray(arg.value) if arg.value is not None else None
+
+        if isinstance(arg, DispatchableInstance) and arg.dispatch_type is ufunc:
+            return getattr(np, arg.value.name)
+
+        return NotImplemented
 
     def replace_self(func):
         @functools.wraps(func)
@@ -31,37 +51,10 @@ try:
             if self not in _ufunc_mapping:
                 return NotImplemented
 
-            try:
-                return func(_ufunc_mapping[self], *args, **kwargs)
-            except TypeError:
-                return NotImplemented
+            return func(_ufunc_mapping[self], *args, **kwargs)
 
         return inner
 
-    register_cupy(ufunc.__call__)(replace_self(np.ufunc.__call__))
-    register_cupy(ufunc.reduce)(replace_self(np.ufunc.reduce))
-    register_cupy(multimethods.arange)(
-        lambda start, stop, step, **kwargs: cp.arange(start, stop, step, **kwargs)
-    )
 
-    for ufunc_name in ufunc_list:
-        if hasattr(np, ufunc_name):
-            _ufunc_mapping[getattr(multimethods, ufunc_name)] = getattr(np, ufunc_name)
-
-    register_cupy(multimethods.array)(cp.array)
-    register_cupy(multimethods.asarray)(cp.asarray)
-
-    def _generic(method, args, kwargs, dispatchable_args):
-        if not compat_check(dispatchable_args):
-            return NotImplemented
-
-        if not hasattr(cp, method.__name__):
-            return NotImplemented
-
-        return getattr(cp, method.__name__)(*args, **kwargs)
-
-    CupyBackend.register_implementation(None, _generic)
-
-    ndarray.register_convertor(CupyBackend, cp.asarray)
 except ImportError:
     pass
