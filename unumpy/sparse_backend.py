@@ -40,11 +40,9 @@ def __ua_function__(method, args, kwargs, dispatchable_args):
     return getattr(sparse, method.__name__)(*args, **kwargs)
 
 
-def __ua_coerce__(arg):
-    if isinstance(arg, DispatchableInstance) and arg.dispatch_type is ndarray:
-        value = arg.value
-
-        if arg.value is None:
+def __ua_coerce__(value, dispatch_type):
+    if dispatch_type is ndarray:
+        if value is None:
             return None
 
         if isinstance(value, sparse.SparseArray):
@@ -52,8 +50,8 @@ def __ua_coerce__(arg):
 
         return sparse.as_coo(np.asarray(value))
 
-    if isinstance(arg, DispatchableInstance) and arg.dispatch_type is ufunc:
-        return getattr(np, arg.value.name)
+    if dispatch_type is ufunc:
+        return getattr(np, value.name)
 
     return NotImplemented
 

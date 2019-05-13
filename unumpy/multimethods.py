@@ -74,9 +74,11 @@ class ufunc:
         out_arrays = arrays[self.nin + 1 :]
         if self.nout == 1:
             out_arrays = out_arrays[0]
-        out_kwargs = {**kwargs, "out": out_arrays}
 
-        return (arrays[0], *in_arrays), out_kwargs
+        if "out" in kwargs:
+            kwargs = {**kwargs, "out": out_arrays}
+
+        return (arrays[0], *in_arrays), kwargs
 
     @create_numpy(_ufunc_argreplacer)
     @all_of_type(ndarray)

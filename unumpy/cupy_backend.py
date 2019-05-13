@@ -36,12 +36,12 @@ try:
 
         return getattr(cp, method.__name__)(*args, **kwargs)
 
-    def __ua_coerce__(arg):
-        if isinstance(arg, DispatchableInstance) and arg.dispatch_type is ndarray:
-            return cp.asarray(arg.value) if arg.value is not None else None
+    def __ua_coerce__(value, dispatch_type):
+        if dispatch_type is ndarray:
+            return cp.asarray(value) if value is not None else None
 
-        if isinstance(arg, DispatchableInstance) and arg.dispatch_type is ufunc:
-            return getattr(np, arg.value.name)
+        if dispatch_type is ufunc and hasattr(cp, value.name):
+            return getattr(cp, value.name)
 
         return NotImplemented
 

@@ -8,7 +8,7 @@ import dask.array as da
 import sparse
 import unumpy.numpy_backend as NumpyBackend
 
-# from unumpy.torch_backend import TorchBackend
+import unumpy.torch_backend as TorchBackend
 import unumpy.xnd_backend as XndBackend
 import unumpy.dask_backend as DaskBackend
 import unumpy.sparse_backend as SparseBackend
@@ -20,6 +20,10 @@ LIST_BACKENDS = [
     ),
     (DaskBackend, (da.core.Array, onp.generic)),
     (SparseBackend, (sparse.SparseArray, onp.generic)),
+    pytest.param(
+        (TorchBackend, torch.Tensor),
+        marks=pytest.mark.xfail(reason="PyTorch not fully NumPy compatible."),
+    ),
 ]
 
 try:

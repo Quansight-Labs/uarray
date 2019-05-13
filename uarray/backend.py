@@ -73,7 +73,7 @@ def generate_multimethod(
         filtered_args: List = []
         for arg in dispatchable_args:
             replaced_arg = (
-                backend.__ua_coerce__(arg)
+                backend.__ua_coerce__(arg.value, arg.dispatch_type)
                 if isinstance(arg, DispatchableInstance)
                 else NotImplemented
             )

@@ -1,6 +1,6 @@
 import numpy as np
 import dask.array as da
-from uarray.backend import DispatchableInstance
+from uarray import DispatchableInstance
 from .multimethods import ufunc, ufunc_list, ndarray
 import unumpy.multimethods as multimethods
 import functools
@@ -42,12 +42,12 @@ def __ua_function__(method, args, kwargs, dispatchable_args):
     return getattr(da, method.__name__)(*args, **kwargs)
 
 
-def __ua_coerce__(arg):
-    if isinstance(arg, DispatchableInstance) and arg.dispatch_type is ndarray:
-        return da.asarray(arg.value) if arg.value is not None else None
+def __ua_coerce__(value, dispatch_type):
+    if dispatch_type is ndarray:
+        return da.asarray(value) if value is not None else None
 
-    if isinstance(arg, DispatchableInstance) and arg.dispatch_type is ufunc:
-        return getattr(np, arg.value.name)
+    if dispatch_type is ufunc:
+        return getattr(np, value.name)
 
     return NotImplemented
 
