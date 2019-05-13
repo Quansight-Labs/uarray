@@ -1,5 +1,3 @@
-.. currentmodule:: uarray
-
 ``uarray``
 ==========
 
@@ -13,7 +11,7 @@
 
 .. note::
     This page describes the overall philosophy behind ``uarray``. For usage instructions,
-    see the :ref:`getting started <getting_started>` page or the :ref:`API Docs <uarray_api>`.
+    see the :ref:`getting started <getting_started>` page.
 
 ``uarray`` is a backend/dispatch mechanism with a focus on array computing and the
 needs of the wider array community, by allowing a clean way to register an
@@ -146,9 +144,10 @@ functional interface is provided for ease of use, including decorators.
 
     getting_started
 
-    generated/uarray.rst
-
     unumpy_using
+
+    generated/uarray
+
 
 
 
@@ -158,5 +157,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
-.. _uarray: generated/uarray

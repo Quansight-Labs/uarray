@@ -7,7 +7,7 @@ Using ``unumpy``
 to dynamically switch out the backend that is used. It also allows
 auto-selection of the backend based on the arguments passed into a function.
 
-Note that currently, conly overage is very incomplete. However, we have attempted
+Note that currently, only overage is very incomplete. However, we have attempted
 to provide at least one of each kind of object in ``unumpy`` for
 reference. There are :obj:`ufunc` s and :obj:`ndarray` s,  which are classes,
 methods on :obj:`ufunc` such as :obj:`__call__ <ufunc.__call__>`, and

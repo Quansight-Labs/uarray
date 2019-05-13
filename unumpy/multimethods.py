@@ -1,4 +1,7 @@
-from uarray.backend import create_multimethod, DispatchableInstance, all_of_type
+import functools
+from uarray.backend import create_multimethod, mark_as, all_of_type
+
+create_numpy = functools.partial(create_multimethod, domain="numpy")
 
 
 def _identity_argreplacer(args, kwargs, arrays):
@@ -34,40 +37,27 @@ def _first2argreplacer(args, kwargs, arrays):
     return arrays + args[2:], kwargs
 
 
-class ndarray(DispatchableInstance):
+class ndarray:
     pass
 
 
-class ufunc(DispatchableInstance):
-    def __init__(self, name, *args):
-        if isinstance(name, ufunc) and not len(args):
-            super().__init__(name)
-            return
-
+class ufunc:
+    def __init__(self, name, nin, nout):
         self.name = name
-        self._nin, self._nout = args
-        super().__init__(None)
+        self.nin, self.nout = nin, nout
 
     def __str__(self):
         return f"<ufunc '{self.name}'>"
 
-    @property
-    def nin(self):
-        return self._nin
-
-    @property
-    def nout(self):
-        return self._nout
-
     @property  # type: ignore
-    @create_multimethod(_self_argreplacer)
+    @create_numpy(_self_argreplacer)
     def types(self):
-        return (ufunc(self),)
+        return (mark_ufunc(self),)
 
     @property  # type: ignore
-    @create_multimethod(_self_argreplacer)
+    @create_numpy(_self_argreplacer)
     def identity(self):
-        return (ufunc(self),)
+        return (mark_ufunc(self),)
 
     @property
     def nargs(self):
@@ -84,28 +74,33 @@ class ufunc(DispatchableInstance):
         out_arrays = arrays[self.nin + 1 :]
         if self.nout == 1:
             out_arrays = out_arrays[0]
-        out_kwargs = {**kwargs, "out": out_arrays}
 
-        return (arrays[0], *in_arrays), out_kwargs
+        if "out" in kwargs:
+            kwargs = {**kwargs, "out": out_arrays}
 
-    @create_multimethod(_ufunc_argreplacer)
+        return (arrays[0], *in_arrays), kwargs
+
+    @create_numpy(_ufunc_argreplacer)
     @all_of_type(ndarray)
     def __call__(self, *args, out=None):
         in_args = tuple(args)
         if not isinstance(out, tuple):
             out = (out,)
 
-        return (ufunc(self),) + in_args + out
+        return (mark_ufunc(self),) + in_args + out
 
-    @create_multimethod(_ureduce_argreplacer)
+    @create_numpy(_ureduce_argreplacer)
     @all_of_type(ndarray)
     def reduce(self, a, axis=0, dtype=None, out=None, keepdims=False):
-        return (ufunc(self), a, out)
+        return (mark_ufunc(self), a, out)
 
-    @create_multimethod(_ureduce_argreplacer)
+    @create_numpy(_ureduce_argreplacer)
     @all_of_type(ndarray)
     def accumulate(self, a, axis=0, dtype=None, out=None):
-        return (ufunc(self), a, out)
+        return (mark_ufunc(self), a, out)
+
+
+mark_ufunc = mark_as(ufunc)
 
 
 ufunc_list = [
@@ -300,27 +295,27 @@ for ufunc_name in ufunc_list:
     globals()[ufunc_name] = ufunc(ufunc_name, *_args_mapper[ufunc_name])
 
 
-@create_multimethod(_identity_argreplacer)
+@create_numpy(_identity_argreplacer)
 def arange(start, stop=None, step=None, dtype=None):
     return ()
 
 
-@create_multimethod(_identity_argreplacer)
+@create_numpy(_identity_argreplacer)
 def array(object, dtype=None, copy=True, order="K", subok=False, ndmin=0):
     return ()
 
 
-@create_multimethod(_identity_argreplacer)
+@create_numpy(_identity_argreplacer)
 def zeros(shape, dtype=float, order="C"):
     return ()
 
 
-@create_multimethod(_identity_argreplacer)
+@create_numpy(_identity_argreplacer)
 def ones(shape, dtype=float, order="C"):
     return ()
 
 
-@create_multimethod(_identity_argreplacer)
+@create_numpy(_identity_argreplacer)
 def asarray(a, dtype=None, order=None):
     return ()
 
@@ -332,98 +327,98 @@ def reduce_impl(red_ufunc: ufunc):
     return inner
 
 
-@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()["add"]))
+@create_numpy(_reduce_argreplacer, default=reduce_impl(globals()["add"]))
 @all_of_type(ndarray)
 def sum(a, axis=None, dtype=None, out=None, keepdims=False):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()["multiply"]))
+@create_numpy(_reduce_argreplacer, default=reduce_impl(globals()["multiply"]))
 @all_of_type(ndarray)
 def prod(a, axis=None, dtype=None, out=None, keepdims=False):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()["minimum"]))
+@create_numpy(_reduce_argreplacer, default=reduce_impl(globals()["minimum"]))
 @all_of_type(ndarray)
 def min(a, axis=None, out=None, keepdims=False):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()["maximum"]))
+@create_numpy(_reduce_argreplacer, default=reduce_impl(globals()["maximum"]))
 @all_of_type(ndarray)
 def max(a, axis=None, out=None, keepdims=False):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()["logical_or"]))
+@create_numpy(_reduce_argreplacer, default=reduce_impl(globals()["logical_or"]))
 @all_of_type(ndarray)
 def any(a, axis=None, out=None, keepdims=False):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer, default=reduce_impl(globals()["logical_and"]))
+@create_numpy(_reduce_argreplacer, default=reduce_impl(globals()["logical_and"]))
 @all_of_type(ndarray)
 def all(a, axis=None, out=None, keepdims=False):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer)
+@create_numpy(_reduce_argreplacer)
 @all_of_type(ndarray)
 def argmin(a, axis=None, out=None):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer)
+@create_numpy(_reduce_argreplacer)
 @all_of_type(ndarray)
 def argmax(a, axis=None, out=None):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer)
+@create_numpy(_reduce_argreplacer)
 @all_of_type(ndarray)
 def nanmin(a, axis=None, out=None):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer)
+@create_numpy(_reduce_argreplacer)
 @all_of_type(ndarray)
 def nanmax(a, axis=None, out=None, keepdims=False):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer)
+@create_numpy(_reduce_argreplacer)
 @all_of_type(ndarray)
 def nansum(a, axis=None, dtype=None, out=None, keepdims=False):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer)
+@create_numpy(_reduce_argreplacer)
 @all_of_type(ndarray)
 def nanprod(a, axis=None, dtype=None, out=None, keepdims=False):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer)
+@create_numpy(_reduce_argreplacer)
 @all_of_type(ndarray)
 def std(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False):
     return (a, out)
 
 
-@create_multimethod(_reduce_argreplacer)
+@create_numpy(_reduce_argreplacer)
 @all_of_type(ndarray)
 def var(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False):
     return (a, out)
 
 
 # set routines
-@create_multimethod(_reduce_argreplacer)
+@create_numpy(_reduce_argreplacer)
 @all_of_type(ndarray)
 def unique(a, return_index=False, return_inverse=False, return_counts=False, axis=None):
     return (a,)
 
 
-@create_multimethod(_first2argreplacer)
+@create_numpy(_first2argreplacer)
 @all_of_type(ndarray)
 def in1d(element, test_elements, assume_unique=False, invert=False):
     return (element, test_elements)
@@ -435,13 +430,13 @@ def _isin_default(element, test_elements, assume_unique=False, invert=False):
     ).reshape(element.shape)
 
 
-@create_multimethod(_first2argreplacer, default=_isin_default)
+@create_numpy(_first2argreplacer, default=_isin_default)
 @all_of_type(ndarray)
 def isin(element, test_elements, assume_unique=False, invert=False):
     return (element, test_elements)
 
 
-@create_multimethod(_first2argreplacer)
+@create_numpy(_first2argreplacer)
 @all_of_type(ndarray)
 def intersect1d(ar1, ar2, assume_unique=False, return_indices=False):
     return (ar1, ar2)
@@ -456,25 +451,25 @@ def _setdiff1d_default(ar1, ar2, assume_unique=False):
     return ar1[in1d(ar1, ar2, assume_unique=True, invert=True)]
 
 
-@create_multimethod(_first2argreplacer, default=_setdiff1d_default)
+@create_numpy(_first2argreplacer, default=_setdiff1d_default)
 @all_of_type(ndarray)
 def setdiff1d(ar1, ar2, assume_unique=False):
     return (ar1, ar2)
 
 
-@create_multimethod(_first2argreplacer)
+@create_numpy(_first2argreplacer)
 @all_of_type(ndarray)
 def setxor1d(ar1, ar2, assume_unique=False):
     return (ar1, ar2)
 
 
-@create_multimethod(_first2argreplacer)
+@create_numpy(_first2argreplacer)
 @all_of_type(ndarray)
 def union1d(ar1, ar2):
     return (ar1, ar2)
 
 
-@create_multimethod(_reduce_argreplacer)
+@create_numpy(_reduce_argreplacer)
 @all_of_type(ndarray)
 def sort(a, axis=None, kind=None, order=None):
     return (a,)
@@ -487,7 +482,7 @@ def _tuple_check_argreplacer(args, kwargs, arrays):
         return (arrays,) + args[1:], kwargs
 
 
-@create_multimethod(_tuple_check_argreplacer)
+@create_numpy(_tuple_check_argreplacer)
 @all_of_type(ndarray)
 def lexsort(keys, axis=None):
     if isinstance(keys, tuple):
@@ -500,13 +495,13 @@ def _args_argreplacer(args, kwargs, arrays):
     return arrays, kwargs
 
 
-@create_multimethod(_args_argreplacer)
+@create_numpy(_args_argreplacer)
 @all_of_type(ndarray)
 def broadcast_arrays(*args, subok=False):
     return args
 
 
-@create_multimethod(_reduce_argreplacer)
+@create_numpy(_reduce_argreplacer)
 @all_of_type(ndarray)
 def broadcast_to(array, shape, subok=False):
     return (array,)
@@ -516,13 +511,13 @@ def _first_argreplacer(args, kwargs, arrays):
     return (arrays,) + args[1:], kwargs
 
 
-@create_multimethod(_first_argreplacer)
+@create_numpy(_first_argreplacer)
 @all_of_type(ndarray)
 def concatenate(arrays, axis=0, out=None):
     return arrays
 
 
-@create_multimethod(_first_argreplacer)
+@create_numpy(_first_argreplacer)
 @all_of_type(ndarray)
 def stack(arrays, axis=0, out=None):
     return arrays

@@ -1,30 +1,57 @@
-import dask.array as da
 import numpy as np
+import dask.array as da
+from uarray import Dispatchable
+from .multimethods import ufunc, ufunc_list, ndarray
 import unumpy.multimethods as multimethods
-from .multimethods import ufunc, ufunc_list, ndarray, DispatchableInstance
-from typing import Dict
 import functools
 
-from uarray.backend import Backend, register_backend, register_implementation
+from typing import Dict
 
-DaskBackend = Backend()
-register_backend(DaskBackend)
+_ufunc_mapping: Dict[ufunc, np.ufunc] = {}
+
+__ua_domain__ = "numpy"
 
 
 def compat_check(args):
-    return not len(args) or any(
-        isinstance(arg.value, da.core.Array)
+    args = [arg.value if isinstance(arg, Dispatchable) else arg for arg in args]
+    return all(
+        isinstance(arg, (da.core.Array, np.generic, np.ufunc))
         for arg in args
-        if isinstance(arg, DispatchableInstance) and arg.value is not None
+        if arg is not None
     )
 
 
-register_dask = functools.partial(
-    register_implementation, backend=DaskBackend, compat_check=compat_check
-)
+_implementations: Dict = {
+    multimethods.ufunc.__call__: np.ufunc.__call__,
+    multimethods.arange: lambda start, stop=None, step=None, **kw: da.arange(
+        start, stop, step, **kw
+    ),
+}
 
-# experimental support for ufunc from Dask
-_ufunc_mapping: Dict[ufunc, np.ufunc] = {}
+
+def __ua_function__(method, args, kwargs, dispatchable_args):
+    if not compat_check(dispatchable_args):
+        return NotImplemented
+
+    if method in _implementations:
+        return _implementations[method](*args, **kwargs)
+
+    if not hasattr(da, method.__name__):
+        return NotImplemented
+
+    return getattr(da, method.__name__)(*args, **kwargs)
+
+
+def __ua_convert__(value, dispatch_type, coerce):
+    if dispatch_type is ndarray:
+        if not coerce:
+            return value
+        return da.asarray(value) if value is not None else None
+
+    if dispatch_type is ufunc:
+        return getattr(np, value.name)
+
+    return NotImplemented
 
 
 def replace_self(func):
@@ -33,39 +60,6 @@ def replace_self(func):
         if self not in _ufunc_mapping:
             return NotImplemented
 
-        try:
-            return func(_ufunc_mapping[self], *args, **kwargs)
-        except TypeError:
-            return NotImplemented
+        return func(_ufunc_mapping[self], *args, **kwargs)
 
     return inner
-
-
-register_dask(ufunc.__call__)(replace_self(np.ufunc.__call__))
-register_dask(ufunc.reduce)(replace_self(np.ufunc.reduce))
-register_dask(multimethods.arange)(
-    lambda start, stop, step, **kwargs: da.arange(start, stop, step, **kwargs)
-)
-
-
-for ufunc_name in ufunc_list:
-    if hasattr(np, ufunc_name):
-        _ufunc_mapping[getattr(multimethods, ufunc_name)] = getattr(np, ufunc_name)
-
-register_dask(multimethods.array)(da.core.Array)
-register_dask(multimethods.asarray)(da.asarray)
-
-
-def _generic(method, args, kwargs, dispatchable_args):
-    if not compat_check(dispatchable_args):
-        return NotImplemented
-
-    if not hasattr(da, method.__name__):
-        return NotImplemented
-
-    return getattr(da, method.__name__)(*args, **kwargs)
-
-
-DaskBackend.register_implementation(None, _generic)
-
-ndarray.register_convertor(DaskBackend, da.asarray)

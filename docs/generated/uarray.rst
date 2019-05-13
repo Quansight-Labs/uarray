@@ -1,47 +1,43 @@
-.. _uarray_api:
+uarray
+======
 
-``uarray`` API
-==============
-
-.. rubric:: Description
 .. automodule:: uarray
-.. currentmodule:: uarray
 
+   
+   
+   .. rubric:: Functions
 
-.. rubric:: Classes
-.. autosummary::
-    :toctree:
+   .. autosummary::
+      :toctree:
+   
+      all_of_type
+      create_multimethod
+      generate_multimethod
+      mark_as
+      set_backend
+      set_global_backend
+      skip_backend
+   
+   
 
-    MultiMethod
+   
+   
+   .. rubric:: Classes
 
-    Backend
+   .. autosummary::
+      :toctree:
+   
+      Dispatchable
+   
+   
 
-    BackendOptions
+   
+   
+   .. rubric:: Exceptions
 
-    DispatchableInstance
-
-.. rubric:: Functions
-.. autosummary::
-    :toctree:
-
-    register_backend
-
-    get_current_backend
-
-.. rubric:: Context Managers
-.. autosummary::
-    :toctree:
-
-    set_backend
-
-    skip_backend
-
-.. rubric:: Decorators
-.. autosummary::
-    :toctree:
-
-    create_multimethod
-
-    register_implementation
-
-    all_of_type
+   .. autosummary::
+      :toctree:
+   
+      BackendNotImplementedError
+   
+   

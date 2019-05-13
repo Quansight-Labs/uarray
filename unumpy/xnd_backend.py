@@ -1,31 +1,53 @@
+import numpy as np
 import xnd
 import gumath.functions as fn
 import gumath as gu
-import unumpy.multimethods as multimethods
-from .multimethods import ufunc, ufunc_list, ndarray, DispatchableInstance
-from typing import Dict
-import functools
 import uarray as ua
+from uarray import Dispatchable
+from .multimethods import ufunc, ufunc_list, ndarray
+import unumpy.multimethods as multimethods
+import functools
 
-from uarray.backend import Backend, register_backend, register_implementation
+from typing import Dict
 
-XndBackend = Backend()
-register_backend(XndBackend)
+_ufunc_mapping: Dict[ufunc, np.ufunc] = {}
+
+__ua_domain__ = "numpy"
 
 
 def compat_check(args):
+    args = [arg.value if isinstance(arg, Dispatchable) else arg for arg in args]
     return all(
-        isinstance(arg.value, xnd.xnd)
+        isinstance(arg, (xnd.array, np.generic, gu.gufunc))
         for arg in args
-        if isinstance(arg, DispatchableInstance) and arg.value is not None
+        if arg is not None
     )
 
 
-register_xnd = functools.partial(
-    register_implementation, backend=XndBackend, compat_check=compat_check
-)
+_implementations: Dict = {
+    multimethods.ufunc.__call__: gu.gufunc.__call__,
+    multimethods.ufunc.reduce: gu.reduce,
+}
 
-_ufunc_mapping: Dict[ufunc, gu.gufunc] = {}
+
+def __ua_function__(method, args, kwargs, dispatchable_args):
+    if not compat_check(dispatchable_args):
+        return NotImplemented
+
+    if method in _implementations:
+        return _implementations[method](*args, **kwargs)
+
+    return _generic(method, args, kwargs, dispatchable_args)
+
+
+def __ua_convert__(value, dispatch_type, coerce):
+    if dispatch_type is ndarray:
+        return convert(value, coerce=coerce) if value is not None else None
+
+    if dispatch_type is ufunc and hasattr(fn, value.name):
+        return getattr(fn, value.name)
+
+    return NotImplemented
 
 
 def replace_self(func):
@@ -39,41 +61,13 @@ def replace_self(func):
     return inner
 
 
-@register_xnd(ufunc.reduce)
-@replace_self
-def reduce_(self, a, axis=0, dtype=None, out=None, keepdims=False):
-    if out is not None:
-        return NotImplemented
-    return gu.reduce(self, a, axes=axis, dtype=dtype)
-
-
-register_xnd(ufunc.__call__)(replace_self(gu.gufunc.__call__))
-
-for ufunc_name in ufunc_list:
-    if hasattr(fn, ufunc_name):
-        _ufunc_mapping[getattr(multimethods, ufunc_name)] = getattr(fn, ufunc_name)
-
-register_xnd(multimethods.array)(xnd.array)
-register_xnd(multimethods.asarray)(xnd.array)
-
-
-def asarray(a):
-    if isinstance(a, xnd.xnd):
-        return a
-
-    if hasattr(a, "__buffer__"):
-        return xnd.array.from_buffer(a)
-
-    return xnd.array(a)
-
-
 def _generic(method, args, kwargs, dispatchable_args):
     if not compat_check(dispatchable_args):
         return NotImplemented
 
     try:
         import numpy as np
-        from .numpy_backend import NumpyBackend
+        import unumpy.numpy_backend as NumpyBackend
     except ImportError:
         return NotImplemented
 
@@ -83,22 +77,25 @@ def _generic(method, args, kwargs, dispatchable_args):
         except TypeError:
             return NotImplemented
 
-    def convert(x):
-        if isinstance(out, tuple):
-            return tuple(map(convert, out))
-
-        if isinstance(x, np.ndarray):
-            return xnd.array.from_buffer(out)
-        elif isinstance(x, np.generic):
-            try:
-                return xnd.array.from_buffer(memoryview(x))
-            except TypeError:
-                return NotImplemented
-
-    return convert(out)
+    return convert_out(out)
 
 
-XndBackend.register_implementation(None, _generic)
+def convert_out(x, coerce):
+    if isinstance(x, (tuple, list)):
+        return type(x)(map(lambda x: convert_out(x, coerce=coerce), x))
+
+    return convert(x, coerce=coerce)
 
 
-ndarray.register_convertor(XndBackend, asarray)
+def convert(x):
+    if isinstance(x, np.ndarray):
+        return xnd.array.from_buffer(x)
+    elif isinstance(x, np.generic):
+        try:
+            return xnd.array.from_buffer(memoryview(x))
+        except TypeError:
+            return NotImplemented
+    else:
+        if not coerce:
+            return value
+        return xnd.array(x)
