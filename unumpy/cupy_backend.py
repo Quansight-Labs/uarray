@@ -1,7 +1,7 @@
 try:
     import numpy as np
     import cupy as cp
-    from uarray.backend import DispatchableInstance
+    from uarray.backend import Dispatchable
     from .multimethods import ufunc, ufunc_list, ndarray
     import unumpy.multimethods as multimethods
     import functools
@@ -13,9 +13,7 @@ try:
     __ua_domain__ = "numpy"
 
     def compat_check(args):
-        args = [
-            arg.value if isinstance(arg, DispatchableInstance) else arg for arg in args
-        ]
+        args = [arg.value if isinstance(arg, Dispatchable) else arg for arg in args]
         return all(
             isinstance(arg, (cp.ndarray, np.generic, np.ufunc))
             for arg in args
@@ -36,8 +34,11 @@ try:
 
         return getattr(cp, method.__name__)(*args, **kwargs)
 
-    def __ua_coerce__(value, dispatch_type):
+    def __ua_convert__(value, dispatch_type, coerce):
         if dispatch_type is ndarray:
+            if not coerce:
+                return value
+
             return cp.asarray(value) if value is not None else None
 
         if dispatch_type is ufunc and hasattr(cp, value.name):

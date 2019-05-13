@@ -3,7 +3,7 @@ import xnd
 import gumath.functions as fn
 import gumath as gu
 import uarray as ua
-from uarray import DispatchableInstance
+from uarray import Dispatchable
 from .multimethods import ufunc, ufunc_list, ndarray
 import unumpy.multimethods as multimethods
 import functools
@@ -16,7 +16,7 @@ __ua_domain__ = "numpy"
 
 
 def compat_check(args):
-    args = [arg.value if isinstance(arg, DispatchableInstance) else arg for arg in args]
+    args = [arg.value if isinstance(arg, Dispatchable) else arg for arg in args]
     return all(
         isinstance(arg, (xnd.array, np.generic, gu.gufunc))
         for arg in args
@@ -40,9 +40,9 @@ def __ua_function__(method, args, kwargs, dispatchable_args):
     return _generic(method, args, kwargs, dispatchable_args)
 
 
-def __ua_coerce__(value, dispatch_type):
+def __ua_convert__(value, dispatch_type, coerce):
     if dispatch_type is ndarray:
-        return convert(value) if value is not None else None
+        return convert(value, coerce=coerce) if value is not None else None
 
     if dispatch_type is ufunc and hasattr(fn, value.name):
         return getattr(fn, value.name)
@@ -80,11 +80,11 @@ def _generic(method, args, kwargs, dispatchable_args):
     return convert_out(out)
 
 
-def convert_out(x):
+def convert_out(x, coerce):
     if isinstance(x, (tuple, list)):
-        return type(x)(map(convert_out, x))
+        return type(x)(map(lambda x: convert_out(x, coerce=coerce), x))
 
-    return convert(x)
+    return convert(x, coerce=coerce)
 
 
 def convert(x):
@@ -96,4 +96,6 @@ def convert(x):
         except TypeError:
             return NotImplemented
     else:
+        if not coerce:
+            return value
         return xnd.array(x)
