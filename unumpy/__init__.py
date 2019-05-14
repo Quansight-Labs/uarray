@@ -15,14 +15,14 @@ For example, the following is currently possible:
 
 >>> import uarray as ua
 >>> import unumpy as np
->>> import unumpy.cupy_backend as cp_backend
+>>> import unumpy.dask_backend as dask_backend
 >>> import unumpy.sparse_backend as sp_backend
->>> import sparse, cupy as cp
+>>> import sparse, dask.array as da
 >>> def main():
 ...     x = np.zeros(5)
 ...     return np.exp(x)
->>> with ua.set_backend(cp_backend):
-...     isinstance(main(), cp.ndarray)
+>>> with ua.set_backend(dask_backend):
+...     isinstance(main(), da.core.Array)
 True
 >>> with ua.set_backend(sp_backend):
 ...     isinstance(main(), sparse.SparseArray)
