@@ -11,12 +11,13 @@
 
 .. note::
     This page describes the overall philosophy behind ``uarray``. For usage instructions,
-    see the :ref:`getting started <getting_started>` page.
+    see the :obj:`uarray` API documentation page. If you are interested in an augmentation
+    for NEP-22, please see the :obj:`unumpy` page.
 
 ``uarray`` is a backend/dispatch mechanism with a focus on array computing and the
 needs of the wider array community, by allowing a clean way to register an
 implementation for any Python object (functions, classes, class methods, properties,
-dtypes, ....), it also provides an important building block for
+dtypes, ...), it also provides an important building block for
 `NEP-22 <http://www.numpy.org/neps/nep-0022-ndarray-duck-typing-overview.html>`_.
 It is meant to address the shortcomings of `NEP-18
 <http://www.numpy.org/neps/nep-0018-array-function-protocol.html>`_ and `NEP-13
@@ -132,21 +133,13 @@ after which backwards compatibility will be guaranteed.
 
 Performance considerations will come only after such a state has been reached.
 
-Object-Orientation
-^^^^^^^^^^^^^^^^^^
-
-``uarray`` and its submodules are written in an object-oriented fashion first, but a
-functional interface is provided for ease of use, including decorators.
-
 .. toctree::
     :hidden:
     :maxdepth: 3
 
-    getting_started
-
-    unumpy_using
-
     generated/uarray
+
+    generated/unumpy
 
 
 
