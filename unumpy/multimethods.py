@@ -523,4 +523,34 @@ def stack(arrays, axis=0, out=None):
     return arrays
 
 
+@create_numpy(_first_argreplacer)
+@all_of_type(ndarray)
+def argsort(a, axis=-1, kind="quicksort", order=None):
+    return a
+
+
+@create_numpy(_first_argreplacer, default=lambda a: sort(a, axis=0))
+@all_of_type(ndarray)
+def msort(a):
+    return a
+
+
+@create_numpy(_first_argreplacer, default=lambda a: sort(a))
+@all_of_type(ndarray)
+def sort_complex(a):
+    return a
+
+
+@create_numpy(_first_argreplacer)
+@all_of_type(ndarray)
+def partition(a, kth, axis=-1, kind="introselect", order=None):
+    return a
+
+
+@create_numpy(_first_argreplacer)
+@all_of_type(ndarray)
+def argpartition(a, kth, axis=-1, kind="introselect", order=None):
+    return a
+
+
 del ufunc_name
