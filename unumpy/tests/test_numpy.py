@@ -44,7 +44,12 @@ EXCEPTIONS = {
     (DaskBackend, np.setxor1d),
     (DaskBackend, np.union1d),
     (DaskBackend, np.sort),
+    (DaskBackend, np.argsort),
     (DaskBackend, np.lexsort),
+    (DaskBackend, np.partition),
+    (DaskBackend, np.argpartition),
+    (DaskBackend, np.sort_complex),
+    (DaskBackend, np.msort),
 }
 
 
@@ -121,6 +126,11 @@ def replace_args_kwargs(method, backend, args, kwargs):
         (np.stack, (([1, 2], [3, 4]),), {}),
         (np.concatenate, (([1, 2, 3], [3, 4]),), {}),
         (np.broadcast_to, ([1, 2], (2, 2)), {}),
+        (np.argsort, ([3, 1, 2, 4],), {}),
+        (np.msort, ([3, 1, 2, 4],), {}),
+        (np.sort_complex, ([3.0 + 1.0j, 1.0 - 1.0j, 2.0 - 3.0j, 4 - 3.0j],), {}),
+        (np.partition, ([3, 1, 2, 4], 2), {}),
+        (np.argpartition, ([3, 1, 2, 4], 2), {}),
     ],
 )
 def test_functions_coerce(backend, method, args, kwargs):
