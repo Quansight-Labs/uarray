@@ -96,7 +96,7 @@ def generate_multimethod(
 
     @functools.wraps(argument_extractor)
     def inner(*args, **kwargs):
-        args, kwargs = _canonicalize(argument_extractor, args, kwargs)
+        # args, kwargs = _canonicalize(argument_extractor, args, kwargs)
         dispatchable_args = argument_extractor(*args, **kwargs)
         errors = []
 
