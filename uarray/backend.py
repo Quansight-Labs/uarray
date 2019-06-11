@@ -26,6 +26,19 @@ class BackendNotImplementedError(NotImplementedError):
 
 
 def create_multimethod(*args, **kwargs):
+    """
+    Creates a decorator for generating multimethods.
+
+    This function creates a decorator that can be used with an argument
+    extractor in order to generate a multimethod. Other than for the
+    argument extractor, all arguments are passed on to
+    :obj:`generate_multimethod`.
+
+    See Also
+    --------
+    generate_multimethod
+        Generates a multimethod.
+    """   
     def wrapper(a):
         return generate_multimethod(a, *args, **kwargs)
 
@@ -266,6 +279,20 @@ def set_backend(backend, *args, **kwargs):
 
 @contextlib.contextmanager
 def skip_backend(backend):
+    """
+    A context manager that allows one to skip a given backend from processing
+    entirely. This allows one to use another backend's code in a library that
+    is also a consumer of the same backend.
+
+    Parameters
+    ----------
+    backend
+        The backend to skip.
+
+    See Also
+    --------
+    set_backend: A context manager that allows setting of backends.
+    """
     skip = _get_skipped_backends(backend.domain)
     new = set(skip.get())
     new.add(backend)
@@ -304,6 +331,12 @@ def set_global_backend(domain: str, backend):
 
     Note that this method is not thread-safe.
 
+    .. warning::
+        We caution library authors against using this function in
+        their code. We do *not* support this use-case. This function
+        is meant to be used only by users themselves, or by a reference
+        implementation, if one exists.
+
     Parameters
     ----------
     backend
@@ -316,11 +349,28 @@ class Dispatchable:
     """
     A utility class which marks an argument with a specific dispatch type.
 
+
+    Attributes
+    ----------
+    value
+        The value of the Dispatchable.
+    
+    type
+        The type of the Dispatchable.
+
     Examples
     --------
     >>> x = Dispatchable(1, str)
     >>> x
     <Dispatchable: type=<class 'str'>, value=1>
+
+    See Also
+    --------
+    all_of_type
+        Marks all unmarked parameters of a function.
+    
+    mark_as
+        Allows one to create a utility function to mark as a given type.
     """
 
     def __init__(self, value, dispatch_type):
@@ -336,10 +386,31 @@ class Dispatchable:
 
 
 def mark_as(dispatch_type):
+    """
+    Creates a utility function to mark something as a specific type.
+
+    Examples
+    --------
+    >>> mark_int = mark_as(int)
+    >>> mark_int(1)
+    <Dispatchable: type=<class 'int'>, value=1>
+    """
     return functools.partial(Dispatchable, dispatch_type=dispatch_type)
 
 
 def all_of_type(arg_type):
+    """
+    Marks all unmarked arguments as a given type.
+
+    Examples
+    --------
+    >>> @all_of_type(str)
+    ... def f(a, b):
+    ...     return a, Dispatchable(b, int)
+    >>> f('a', 1)
+    (<Dispatchable: type=<class 'str'>, value='a'>, <Dispatchable: type=<class 'int'>, value=1>)
+    """
+
     def outer(func):
         @functools.wraps(func)
         def inner(*args, **kwargs):

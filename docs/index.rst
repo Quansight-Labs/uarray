@@ -21,7 +21,7 @@ along with backends that contain separate implementations of that API.
 provide backends for the API.
 
 What's new in ``uarray``?
-^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------
 
 :obj:`uarray` is, to our knowledge, the first backend-system for Python that's generic
 enough to cater to the use-cases of many libraries, while at the same time, being
@@ -33,7 +33,7 @@ possible to create a backend object, and use that to perform operations. In addi
 it will be possible to change the used backend via a context manager.
 
 Benefits for end users
-^^^^^^^^^^^^^^^^^^^^^^
+----------------------
 
 End-users can easily take their code written for one backend and use it on another
 backend with a simple switch (using a Python context manager). This can have any number
@@ -47,7 +47,7 @@ of effects, depending on the functionality of the library. For example:
   wrote for `numpy` and easily switch to a different backend.
 
 Benefits for library authors
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 To library authors, the benefits come in two forms: First, it allows them to build their
 libraries to be implementation independent. In code that builds itself on top of
@@ -58,7 +58,7 @@ The second is to allow a way to separate the interface from implementation, and 
 allow a way to switch an implementation.
 
 Relation to the NumPy duck-array ecosystem
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------
 
 :obj:`uarray` is a backend/dispatch mechanism with a focus on array computing and the
 needs of the wider array community, by allowing a clean way to register an
@@ -71,9 +71,16 @@ It is meant to address the shortcomings of `NEP-18
 while still holding nothing in :obj:`uarray` itself that's specific to array computing
 or the NumPy API.
 
+Where to from here?
+-------------------
+
+Choose the documentation relevant to you:
+
 .. toctree::
     :hidden:
     :maxdepth: 3
+
+    end_user_docs
 
     generated/uarray
 
