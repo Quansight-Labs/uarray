@@ -28,11 +28,11 @@ enough to cater to the use-cases of many libraries, while at the same time, bein
 library independent.
 
 :obj:`unumpy` is the first approach to leverage :obj:`uarray` in order to build a
-generic backend system for (what we hope) will be the core NumPy API. It will be
+generic backend system for (what we hope will be) the core NumPy API. It will be
 possible to create a backend object, and use that to perform operations. In addition,
 it will be possible to change the used backend via a context manager.
 
-Benefits for End-users
+Benefits for end users
 ^^^^^^^^^^^^^^^^^^^^^^
 
 End-users can easily take their code written for one backend and use it on another
@@ -44,9 +44,9 @@ of effects, depending on the functionality of the library. For example:
 * For Tensorly, providing a different computation backend that can be distributed or
   target the GPU or sparse arrays.
 * For :obj:`unumpy`, it can do a similar thing: provide users with code they already
-  wrote for `unumpy` and easily switch to a different backend.
+  wrote for `numpy` and easily switch to a different backend.
 
-Benefits for Library Authors
+Benefits for library authors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To library authors, the benefits come in two forms: First, it allows them to build their
@@ -57,7 +57,7 @@ of distributed computing.
 The second is to allow a way to separate the interface from implementation, and easily
 allow a way to switch an implementation.
 
-Relation to the NumPy Duck-Array Ecosystem
+Relation to the NumPy duck-array ecosystem
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 :obj:`uarray` is a backend/dispatch mechanism with a focus on array computing and the
