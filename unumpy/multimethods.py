@@ -9,32 +9,37 @@ def _identity_argreplacer(args, kwargs, arrays):
 
 
 def _self_argreplacer(args, kwargs, dispatchables):
-    return dispatchables + args[1:], kwargs
+    def self_method(a, *args, **kwargs):
+        return dispatchables + args, kwargs
+
+    return self_method(*args, **kwargs)
 
 
-def _ureduce_argreplacer(args, kwargs, arrays):
-    out_args = list(args)
-    out_args[:2] = arrays[:2]
+def _ureduce_argreplacer(args, kwargs, dispatchables):
+    def ureduce(self, a, axis=0, dtype=None, out=None, keepdims=False):
+        return (
+            (dispatchables[0], dispatchables[1]),
+            dict(axis=axis, dtype=dtype, out=dispatchables[2], keepdims=keepdims),
+        )
 
-    out_kwargs = {**kwargs, "out": arrays[2]}
-
-    return tuple(out_args), out_kwargs
+    return ureduce(*args, **kwargs)
 
 
 def _reduce_argreplacer(args, kwargs, arrays):
-    out_args = list(args)
-    out_args[0] = arrays[0]
+    def reduce(a, axis=None, dtype=None, out=None, keepdims=False):
+        return (
+            (arrays[0],),
+            dict(axis=axis, dtype=dtype, out=arrays[1], keepdims=keepdims),
+        )
 
-    if "out" in kwargs:
-        out_kwargs = {**kwargs, "out": arrays[1]}
-    else:
-        out_kwargs = kwargs
-
-    return tuple(out_args), out_kwargs
+    return reduce(*args, **kwargs)
 
 
 def _first2argreplacer(args, kwargs, arrays):
-    return arrays + args[2:], kwargs
+    def func(a, b, **kwargs):
+        return arrays, kwargs
+
+    return func(*args, **kwargs)
 
 
 class ndarray:
@@ -412,7 +417,7 @@ def var(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False):
 
 
 # set routines
-@create_numpy(_reduce_argreplacer)
+@create_numpy(_self_argreplacer)
 @all_of_type(ndarray)
 def unique(a, return_index=False, return_inverse=False, return_counts=False, axis=None):
     return (a,)
@@ -469,7 +474,7 @@ def union1d(ar1, ar2):
     return (ar1, ar2)
 
 
-@create_numpy(_reduce_argreplacer)
+@create_numpy(_self_argreplacer)
 @all_of_type(ndarray)
 def sort(a, axis=None, kind=None, order=None):
     return (a,)
@@ -501,14 +506,17 @@ def broadcast_arrays(*args, subok=False):
     return args
 
 
-@create_numpy(_reduce_argreplacer)
+@create_numpy(_self_argreplacer)
 @all_of_type(ndarray)
 def broadcast_to(array, shape, subok=False):
     return (array,)
 
 
-def _first_argreplacer(args, kwargs, arrays):
-    return (arrays,) + args[1:], kwargs
+def _first_argreplacer(args, kwargs, arrays1):
+    def func(arrays, axis=0, out=None):
+        return (arrays1,), dict(axis=0, out=None)
+
+    return func(*args, **kwargs)
 
 
 @create_numpy(_first_argreplacer)
@@ -523,34 +531,34 @@ def stack(arrays, axis=0, out=None):
     return arrays
 
 
-@create_numpy(_first_argreplacer)
+@create_numpy(_self_argreplacer)
 @all_of_type(ndarray)
 def argsort(a, axis=-1, kind="quicksort", order=None):
-    return a
+    return (a,)
 
 
-@create_numpy(_first_argreplacer, default=lambda a: sort(a, axis=0))
+@create_numpy(_self_argreplacer, default=lambda a: sort(a, axis=0))
 @all_of_type(ndarray)
 def msort(a):
-    return a
+    return (a,)
 
 
-@create_numpy(_first_argreplacer, default=lambda a: sort(a))
+@create_numpy(_self_argreplacer, default=lambda a: sort(a))
 @all_of_type(ndarray)
 def sort_complex(a):
-    return a
+    return (a,)
 
 
-@create_numpy(_first_argreplacer)
+@create_numpy(_self_argreplacer)
 @all_of_type(ndarray)
 def partition(a, kth, axis=-1, kind="introselect", order=None):
-    return a
+    return (a,)
 
 
-@create_numpy(_first_argreplacer)
+@create_numpy(_self_argreplacer)
 @all_of_type(ndarray)
 def argpartition(a, kth, axis=-1, kind="introselect", order=None):
-    return a
+    return (a,)
 
 
 del ufunc_name
