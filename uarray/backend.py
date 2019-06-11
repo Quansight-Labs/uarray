@@ -38,7 +38,8 @@ def create_multimethod(*args, **kwargs):
     --------
     generate_multimethod
         Generates a multimethod.
-    """   
+    """
+
     def wrapper(a):
         return generate_multimethod(a, *args, **kwargs)
 
@@ -185,13 +186,7 @@ def generate_multimethod(
 
 
 class _BackendOptions:
-    def __init__(
-        self,
-        backend,
-        coerce: bool = False,
-        only: bool = False,
-        options: Optional[Any] = None,
-    ):
+    def __init__(self, backend, coerce: bool = False, only: bool = False):
         """
         The backend plus any additonal options associated with it.
 
@@ -203,13 +198,10 @@ class _BackendOptions:
             Whether or not the backend is being coerced. Implies ``only``.
         only: bool, optional
             Whether or not this is the only backend to try.
-        options: Optional[Any], optional
-            Any additional options to pass to the backend.
         """
         self.backend = backend
         self.coerce = coerce
         self.only = only or coerce
-        self.options = options
 
 
 _backends: Dict[str, ContextVar] = {}
@@ -264,7 +256,6 @@ def set_backend(backend, *args, **kwargs):
     See Also
     --------
     BackendOptions: The backend plus options.
-    get_current_backend: Get the current backend.
     skip_backend: A context manager that allows skipping of backends.
     """
     options = _BackendOptions(backend, *args, **kwargs)

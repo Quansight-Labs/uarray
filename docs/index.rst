@@ -74,13 +74,23 @@ or the NumPy API.
 Where to from here?
 -------------------
 
-Choose the documentation relevant to you:
+Choose the documentation page relevant to you:
+
+* :ref:`mmauthordocs`
+* :ref:`libauthordocs`
+* :ref:`userdocs`
 
 .. toctree::
     :hidden:
     :maxdepth: 3
 
-    end_user_docs
+    enduser_docs
+
+    libauthor_docs
+
+    multimethod_docs
+
+    glossary
 
     generated/uarray
 

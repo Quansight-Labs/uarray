@@ -192,3 +192,7 @@ intersphinx_mapping = {
     "numpy": ("https://docs.scipy.org/doc/numpy/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
 }
+
+doctest_global_setup = """
+import uarray as ua
+"""
