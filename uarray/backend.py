@@ -291,7 +291,7 @@ def get_defaults(f):
     for k, v in sig.parameters.items():
         if v.default is not inspect.Parameter.empty:
             defaults[k] = v.default
-            opts.add(v)
+        opts.add(k)
 
     return defaults, opts
 
