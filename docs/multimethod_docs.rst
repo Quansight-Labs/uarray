@@ -2,14 +2,18 @@
 
 .. _mmauthordocs:
 
-Documentation for multimethod authors
-=====================================
+Documentation for API authors
+=============================
 
 .. testsetup:: mmtutorial
     import uarray as ua
 
 Multimethods are the most important part of :obj:`uarray`. They
-are created via the :obj:`generate_multimethod` function.
+are created via the :obj:`generate_multimethod` function. Multimethods
+define the API of a project, and backends have to be written against
+this API. You should see :ref:`libauthordocs` for how to define a
+backend against the multimethods you write, or :ref:`userdocs` for
+how to switch backends for a given API.
 
 A multimethod has the following parts:
 
@@ -67,5 +71,5 @@ Examples
 
 Examples of writing multimethods are found in `this file <https://github.com/Quansight-Labs/uarray/blob/master/unumpy/multimethods.py>`_.
 It also teaches some advanced techniques, such as overriding instance methods,
-``__call__``. The same philosophy may be used to override properties, static
-methods and class methods.
+including ``__call__``. The same philosophy may be used to override properties,
+static methods and class methods.

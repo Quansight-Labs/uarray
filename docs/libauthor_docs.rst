@@ -5,6 +5,11 @@
 Documentation for backend providers
 ===================================
 
+Backend providers can provide a back-end for a defined API within
+the :obj:`uarray` ecosystem. To find out how to define your own
+API with :obj:`uarray`, see :ref:`mmauthordocs`. To find out how
+your backend will be provided, use :ref:`userdocs`.
+
 Backend providers need to be aware of three protocols: ``__ua_domain__``,
 ``__ua_function__`` and ``__ua_convert__``. These three must be a part of
 every backend object.
@@ -20,7 +25,7 @@ both use the ``numpy`` domain.
 ``__ua_function__``
 -------------------
 
-This is the most important protcol, one that defines the implementation of a
+This is the most important protocol, one that defines the implementation of a
 multimethod. It has the signature ``(method, args, kwargs, dispatchable_args)``.
 Note that it is called in this form, so if your backend is an object instead of
 a module, you should add ``self``. ``method`` is the multimethod being called,
@@ -36,7 +41,7 @@ operation.
 ------------------
 
 All dispatchable arguments are passed through ``__ua_convert__`` before being
-passed into ``__ua_function__``. This protcol has the signature
+passed into ``__ua_function__``. This protocol has the signature
 ``(value, dispatch_type, coerce)``. ``value`` is the value to convert,
 ``dispatch_type`` is the mark of the object to be converted, and ``coerce``
 specifies whether or not to "force" the conversion. By convention, operations

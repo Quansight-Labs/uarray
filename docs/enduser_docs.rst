@@ -12,6 +12,9 @@ do one of two things:
 * Set the backend permanently (use the :obj:`set_global_backend` function).
 * Set the backend temporarily (use the :obj:`set_backend` context manager).
 
+.. note::
+    API authors may want to wrap these methods and provide their own methods.
+
 Also of note may be the :obj:`BackendNotImplementedError`, which is raised
 when none of the selected backends have an implementation for a multimethod.
 
@@ -34,6 +37,10 @@ To set the backend permanently, use the :obj:`set_global_backend`
 method. For this, you have to provide an additional piece of information,
 which is the domain. The domain, by convention, is the module where the
 multimethods reside, or one of its parents.
+
+It is a recommendation that the global backend should not depend on any
+other backend, as it is not guaranteed that another backend will be
+available.
 
 .. code:: python3
 
