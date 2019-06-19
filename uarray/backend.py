@@ -16,7 +16,7 @@ import functools
 import contextlib
 
 ArgumentExtractorType = Callable[..., Tuple["Dispatchable", ...]]
-ArgumentReplacerType = Callable[[Tuple, Dict, Tuple], Tuple[Tuple, Dict]]
+ArgumentReplacerType = Callable[[Dict, Tuple], Dict]
 
 
 class BackendNotImplementedError(NotImplementedError):
@@ -107,35 +107,34 @@ def generate_multimethod(
     uarray
         See the module documentation for how to override the method by creating backends.
     """
-    defaults, opts = get_defaults(argument_extractor)
+    defaults, opts, positional, varargs = get_signature(argument_extractor)
 
     @functools.wraps(argument_extractor)
     def inner(*args, **kwargs):
-        # args, kwargs = _canonicalize(argument_extractor, args, kwargs)
         dispatchable_args = argument_extractor(*args, **kwargs)
         errors = []
 
         result = NotImplemented
 
+        kwargs.update(args_to_kwargs(args))
+
         for options in _backend_order(domain):
-            res = replace_dispatchables(
-                options.backend, args, kwargs, dispatchable_args, coerce=options.coerce
+            kw = replace_dispatchables(
+                options.backend, kwargs, dispatchable_args, coerce=options.coerce
             )
 
-            if res is NotImplemented:
+            if kw is NotImplemented:
                 continue
 
-            a, kw = res
-
-            result = options.backend.__ua_function__(inner, a, kw)
+            result = options.backend.__ua_function__(inner, kw)
 
             if result is NotImplemented:
-                result = try_default(a, kw, options, errors)
+                result = try_default(kw, options, errors)
 
             if result is not NotImplemented:
                 break
         else:
-            result = try_default(args, kwargs, None, errors)
+            result = try_default(kwargs, None, errors)
 
         if result is NotImplemented:
             raise BackendNotImplementedError(
@@ -144,21 +143,21 @@ def generate_multimethod(
 
         return result
 
-    def try_default(args, kwargs, options, errors):
+    def try_default(kwargs, options, errors):
         if default is not None:
             try:
                 if options is not None:
                     with set_backend(options.backend, only=True, coerce=options.coerce):
-                        return default(*args, **kwargs)
+                        return default(**kwargs)
                 else:
-                    return default(*args, **kwargs)
+                    return default(**kwargs)
             except BackendNotImplementedError as e:
                 errors.append(e)
 
         return NotImplemented
 
     def replace_dispatchables(
-        backend, args, kwargs, dispatchable_args, coerce: Optional[bool] = False
+        backend, kwargs, dispatchable_args, coerce: Optional[bool] = False
     ):
         replaced_args: List = []
         for arg in dispatchable_args:
@@ -171,14 +170,20 @@ def generate_multimethod(
             else:
                 return NotImplemented
 
-        args, kwargs = argument_replacer(args, kwargs, tuple(replaced_args))
+        kwargs = argument_replacer(kwargs, tuple(replaced_args))
 
         kwargs = {k: kwargs[k] for k in opts if k in kwargs}
         for k, v in defaults.items():
             if k in kwargs and kwargs[k] is v:
                 del kwargs[k]
 
-        return args, kwargs
+        return kwargs
+
+    def args_to_kwargs(args):
+        kwargs = {k: v for k, v in zip(positional, args)}
+        if varargs is not None and len(args) > len(positional):
+            kwargs[varargs] = args[len(positional) :]
+        return kwargs
 
     inner._coerce_args = replace_dispatchables  # type: ignore
 
@@ -307,16 +312,24 @@ def skip_backend(backend):
         skip.reset(token)
 
 
-def get_defaults(f):
+def get_signature(f):
+    from inspect import Parameter
+
     sig = inspect.signature(f)
     defaults = {}
     opts = set()
+    positional = []
+    varargs = None
     for k, v in sig.parameters.items():
         if v.default is not inspect.Parameter.empty:
             defaults[k] = v.default
         opts.add(k)
+        if v.kind in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD):
+            positional.append(k)
+        if v.kind == inspect.Parameter.VAR_POSITIONAL:
+            varargs = k
 
-    return defaults, opts
+    return defaults, opts, positional, varargs
 
 
 def set_global_backend(backend):
@@ -367,7 +380,7 @@ class Dispatchable:
     ----------
     value
         The value of the Dispatchable.
-    
+
     type
         The type of the Dispatchable.
 
@@ -381,7 +394,7 @@ class Dispatchable:
     --------
     all_of_type
         Marks all unmarked parameters of a function.
-    
+
     mark_as
         Allows one to create a utility function to mark as a given type.
     """
