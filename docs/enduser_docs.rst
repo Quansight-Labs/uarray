@@ -42,10 +42,15 @@ It is a recommendation that the global backend should not depend on any
 other backend, as it is not guaranteed that another backend will be
 available.
 
+You can also register backends other than the global backend for permanent
+use, but the global backend will be tried first outside of a :obj:`set_backend`
+context. This can be done via :obj:`register_backend`.
+
+
 .. code:: python3
 
     import uarray as ua
 
-    ua.set_global_backend('mydomain', mybackend)
+    ua.set_global_backend(mybackend)
 
     # Use relevant multimethods here.
