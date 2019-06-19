@@ -29,7 +29,9 @@ def _generic_argreplacer(*names):
         for i, n in enumerate(names):
             kwargs[n] = arrays[i]
         return kwargs
+
     return inner
+
 
 class ndarray:
     pass
@@ -62,11 +64,12 @@ class ufunc:
         return len(self.types)
 
     def _ufunc_argreplacer(kwargs, arrays):
-        kwargs["self"] = arrays[0]
+        self = arrays[0]
+        kwargs["self"] = self
         kwargs["args"] = arrays[1 : self.nin + 1]
 
         if self.nout == 1:
-            kwargs["out"] = arrays[self.nin+1]
+            kwargs["out"] = arrays[self.nin + 1]
         else:
             kwargs["out"] = arrays[self.nin + 1 :]
 
@@ -404,13 +407,13 @@ def var(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False):
 
 
 # set routines
-@create_numpy(_generic_argreplacer('a'))
+@create_numpy(_generic_argreplacer("a"))
 @all_of_type(ndarray)
 def unique(a, return_index=False, return_inverse=False, return_counts=False, axis=None):
     return (a,)
 
 
-@create_numpy(_generic_argreplacer('element', 'test_elements'))
+@create_numpy(_generic_argreplacer("element", "test_elements"))
 @all_of_type(ndarray)
 def in1d(element, test_elements, assume_unique=False, invert=False):
     return (element, test_elements)
@@ -422,13 +425,13 @@ def _isin_default(element, test_elements, assume_unique=False, invert=False):
     ).reshape(element.shape)
 
 
-@create_numpy(_generic_argreplacer('element', 'test_elements'), default=_isin_default)
+@create_numpy(_generic_argreplacer("element", "test_elements"), default=_isin_default)
 @all_of_type(ndarray)
 def isin(element, test_elements, assume_unique=False, invert=False):
     return (element, test_elements)
 
 
-@create_numpy(_generic_argreplacer('ar1', 'ar2'))
+@create_numpy(_generic_argreplacer("ar1", "ar2"))
 @all_of_type(ndarray)
 def intersect1d(ar1, ar2, assume_unique=False, return_indices=False):
     return (ar1, ar2)
@@ -443,25 +446,25 @@ def _setdiff1d_default(ar1, ar2, assume_unique=False):
     return ar1[in1d(ar1, ar2, assume_unique=True, invert=True)]
 
 
-@create_numpy(_generic_argreplacer('ar1', 'ar2'), default=_setdiff1d_default)
+@create_numpy(_generic_argreplacer("ar1", "ar2"), default=_setdiff1d_default)
 @all_of_type(ndarray)
 def setdiff1d(ar1, ar2, assume_unique=False):
     return (ar1, ar2)
 
 
-@create_numpy(_generic_argreplacer('ar1', 'ar2'))
+@create_numpy(_generic_argreplacer("ar1", "ar2"))
 @all_of_type(ndarray)
 def setxor1d(ar1, ar2, assume_unique=False):
     return (ar1, ar2)
 
 
-@create_numpy(_generic_argreplacer('ar1', 'ar2'))
+@create_numpy(_generic_argreplacer("ar1", "ar2"))
 @all_of_type(ndarray)
 def union1d(ar1, ar2):
     return (ar1, ar2)
 
 
-@create_numpy(_generic_argreplacer('a'))
+@create_numpy(_generic_argreplacer("a"))
 @all_of_type(ndarray)
 def sort(a, axis=None, kind=None, order=None):
     return (a,)
@@ -495,14 +498,14 @@ def broadcast_arrays(*args, subok=False):
     return args
 
 
-@create_numpy(_generic_argreplacer('array'))
+@create_numpy(_generic_argreplacer("array"))
 @all_of_type(ndarray)
 def broadcast_to(array, shape, subok=False):
     return (array,)
 
 
 def _arrays_argreplacer(kwargs, dispatchables):
-    kwargs['arrays'] = dispatchables
+    kwargs["arrays"] = dispatchables
     return kwargs
 
 
@@ -518,31 +521,31 @@ def stack(arrays, axis=0, out=None):
     return arrays
 
 
-@create_numpy(_generic_argreplacer('a'))
+@create_numpy(_generic_argreplacer("a"))
 @all_of_type(ndarray)
 def argsort(a, axis=-1, kind="quicksort", order=None):
     return (a,)
 
 
-@create_numpy(_generic_argreplacer('a'), default=lambda a: sort(a, axis=0))
+@create_numpy(_generic_argreplacer("a"), default=lambda a: sort(a, axis=0))
 @all_of_type(ndarray)
 def msort(a):
     return (a,)
 
 
-@create_numpy(_generic_argreplacer('a'), default=lambda a: sort(a))
+@create_numpy(_generic_argreplacer("a"), default=lambda a: sort(a))
 @all_of_type(ndarray)
 def sort_complex(a):
     return (a,)
 
 
-@create_numpy(_generic_argreplacer('a'))
+@create_numpy(_generic_argreplacer("a"))
 @all_of_type(ndarray)
 def partition(a, kth, axis=-1, kind="introselect", order=None):
     return (a,)
 
 
-@create_numpy(_generic_argreplacer('a'))
+@create_numpy(_generic_argreplacer("a"))
 @all_of_type(ndarray)
 def argpartition(a, kth, axis=-1, kind="introselect", order=None):
     return (a,)
