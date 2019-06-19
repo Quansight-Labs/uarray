@@ -11,8 +11,8 @@ API with :obj:`uarray`, see :ref:`mmauthordocs`. To find out how
 your backend will be provided, use :ref:`userdocs`.
 
 Backend providers need to be aware of three protocols: ``__ua_domain__``,
-``__ua_function__`` and ``__ua_convert__``. These three must be a part of
-every backend object.
+``__ua_function__`` and ``__ua_convert__``. The ``__ua_convert__`` protocol
+is optional, but then ``__ua_function__`` must handle all conversions itself.
 
 ``__ua_domain__``
 -----------------
