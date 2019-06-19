@@ -48,7 +48,7 @@ def create_multimethod(*args, **kwargs):
 
 def generate_multimethod(
     argument_extractor: ArgumentExtractorType,
-    argument_replacer: Optional[ArgumentReplacerType],
+    argument_replacer: ArgumentReplacerType,
     domain: str,
     default: Optional[Callable] = None,
 ):
@@ -61,11 +61,9 @@ def generate_multimethod(
         A callable which extracts the dispatchable arguments. Extracted arguments
         should be marked by the :obj:`Dispatchable` class. It has the same signature
         as the desired multimethod.
-    argument_replacer : Optional[ArgumentReplacerType]
+    argument_replacer : ArgumentReplacerType
         A callable with the signature (args, kwargs, dispatchables), which should also
         return an (args, kwargs) pair with the dispatchables replaced inside the args/kwargs.
-        You can pass ``None`` to skip the argument replacer if your API doesn't support or need
-        the ``__ua_convert__`` protocol.
     domain : str
         A string value indicating the domain of this multimethod.
     default: Optional[Callable], optional
@@ -156,12 +154,6 @@ def generate_multimethod(
     def replace_dispatchables(
         backend, args, kwargs, dispatchable_args, coerce: Optional[bool] = False
     ):
-        if not hasattr(backend, "__ua_convert__"):
-            dispatchable_args = [
-                arg if isinstance(arg, Dispatchable) else Dispatchable(arg, None)
-                for arg in dispatchable_args
-            ]
-            return args, kwargs, dispatchable_args
         replaced_args: List = []
         filtered_args: List = []
         for arg in dispatchable_args:

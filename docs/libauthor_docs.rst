@@ -11,8 +11,8 @@ API with :obj:`uarray`, see :ref:`mmauthordocs`. To find out how
 your backend will be provided, use :ref:`userdocs`.
 
 Backend providers need to be aware of three protocols: ``__ua_domain__``,
-``__ua_function__`` and ``__ua_convert__``. The ``__ua_convert__`` protocol
-is optional, but then ``__ua_function__`` must handle all conversions itself.
+``__ua_function__`` and ``__ua_convert__``, all of which are mandatory on
+all backends.
 
 ``__ua_domain__``
 -----------------
@@ -47,6 +47,11 @@ passed into ``__ua_function__``. This protocol has the signature
 specifies whether or not to "force" the conversion. By convention, operations
 larger than ``O(log n)`` (where ``n`` is the size of the object in memory)
 should only be done if ``coerce`` is ``True``.
+
+If ``__ua_convert__`` returns ``NotImplemented``, it means that the backend in
+question does not support converting the given ``dispatch_type``, which signals
+that the value should be passed on as-is and treated as though it wasn't
+dispatchable.
 
 :obj:`skip_backend`
 -------------------
