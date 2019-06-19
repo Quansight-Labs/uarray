@@ -157,19 +157,17 @@ def generate_multimethod(
         replaced_args: List = []
         filtered_args: List = []
         for arg in dispatchable_args:
-            replaced_arg = (
-                backend.__ua_convert__(arg.value, arg.type, coerce=coerce)
-                if isinstance(arg, Dispatchable)
-                else Dispatchable(arg, None)
-            )
+            replaced_arg = backend.__ua_convert__(arg.value, arg.type, coerce=coerce)
 
             if replaced_arg is not NotImplemented:
-                filtered_args.append(Dispatchable(replaced_arg, dispatch_type=arg.type))
+                filtered_args.append(
+                    Dispatchable(
+                        replaced_arg, dispatch_type=arg.type, coercible=arg.coercible
+                    )
+                )
                 replaced_args.append(replaced_arg)
             else:
-                replaced_args.append(
-                    arg if not isinstance(arg, Dispatchable) else arg.value
-                )
+                replaced_args.append(arg.value)
 
         args, kwargs = argument_replacer(args, kwargs, tuple(replaced_args))
         return args, kwargs, filtered_args
@@ -358,9 +356,10 @@ class Dispatchable:
         Allows one to create a utility function to mark as a given type.
     """
 
-    def __init__(self, value, dispatch_type):
+    def __init__(self, value, dispatch_type, coercible=True):
         self.value = value
         self.type = dispatch_type
+        self.coercible = coercible
 
     def __str__(self):
         return (
