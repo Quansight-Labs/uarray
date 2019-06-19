@@ -6,15 +6,6 @@ from uarray import Dispatchable
 __ua_domain__ = "numpy"
 
 
-def compat_check(args):
-    args = [arg.value if isinstance(arg, Dispatchable) else arg for arg in args]
-    return all(
-        isinstance(arg, torch.Tensor) or callable(arg)
-        for arg in args
-        if arg is not None
-    )
-
-
 def asarray(a, dtype=None, order=None):
     if torch.is_tensor(a):
         if dtype is None or a.dtype != dtype:
@@ -45,10 +36,7 @@ _implementations = {
 }
 
 
-def __ua_function__(method, args, kwargs, dispatchable_args):
-    if not compat_check(dispatchable_args):
-        return NotImplemented
-
+def __ua_function__(method, args, kwargs):
     if method in _implementations:
         return _implementations[method](*args, **kwargs)
 
@@ -68,7 +56,7 @@ def __ua_convert__(value, dispatch_type, coerce):
     if dispatch_type is ufunc and value in _ufunc_mapping:
         return _ufunc_mapping[value]
 
-    return NotImplemented
+    return value
 
 
 _ufunc_mapping = {}

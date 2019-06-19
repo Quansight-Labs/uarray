@@ -12,20 +12,9 @@ try:
 
     __ua_domain__ = "numpy"
 
-    def compat_check(args):
-        args = [arg.value if isinstance(arg, Dispatchable) else arg for arg in args]
-        return all(
-            isinstance(arg, (cp.ndarray, np.generic, cp.ufunc))
-            for arg in args
-            if arg is not None
-        )
-
     _implementations: Dict = {multimethods.ufunc.__call__: cp.ufunc.__call__}
 
-    def __ua_function__(method, args, kwargs, dispatchable_args):
-        if not compat_check(dispatchable_args):
-            return NotImplemented
-
+    def __ua_function__(method, args, kwargs):
         if method in _implementations:
             return _implementations[method](*args, **kwargs)
 
@@ -44,7 +33,7 @@ try:
         if dispatch_type is ufunc and hasattr(cp, value.name):
             return getattr(cp, value.name)
 
-        return NotImplemented
+        return value
 
     def replace_self(func):
         @functools.wraps(func)

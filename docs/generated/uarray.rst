@@ -16,6 +16,7 @@ uarray
       mark_as
       set_backend
       set_global_backend
+      register_backend
       skip_backend
    
    
