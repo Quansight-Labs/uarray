@@ -107,6 +107,7 @@ def generate_multimethod(
     uarray
         See the module documentation for how to override the method by creating backends.
     """
+    defaults, opts = get_defaults(argument_extractor)
 
     @functools.wraps(argument_extractor)
     def inner(*args, **kwargs):
@@ -169,6 +170,12 @@ def generate_multimethod(
                 return NotImplemented
 
         args, kwargs = argument_replacer(args, kwargs, tuple(replaced_args))
+
+        kwargs = {k: kwargs[k] for k in opts if k in kwargs}
+        for k, v in defaults.items():
+            if k in kwargs and kwargs[k] is v:
+                del kwargs[k]
+
         return args, kwargs
 
     inner._coerce_args = replace_dispatchables  # type: ignore
@@ -298,23 +305,16 @@ def skip_backend(backend):
         skip.reset(token)
 
 
-def _canonicalize(f, args, kwargs):
+def get_defaults(f):
     sig = inspect.signature(f)
-    bargs = sig.bind(*args, **kwargs)
-    # Pop out the named kwargs variable defaulting to {}
-    ret_kwargs = bargs.arguments.pop(inspect.getfullargspec(f).varkw, {})
-    # For all possible signature values
+    defaults = {}
+    opts = set()
     for k, v in sig.parameters.items():
-        # If the name exists in the bound arguments and has a default value
-        if k in bargs.arguments and v.default is not v.empty:
-            # Remove from the bound arguments dict
-            val = bargs.arguments.pop(k)
-            # If the value isn't the same as the default value add it to ret_kwargs
-            if val is not v.default:
-                ret_kwargs[k] = val
+        if v.default is not inspect.Parameter.empty:
+            defaults[k] = v.default
+        opts.add(k)
 
-    # bargs.args here will be made up of what's left in bargs.arguments
-    return bargs.args, ret_kwargs
+    return defaults, opts
 
 
 def set_global_backend(backend):
