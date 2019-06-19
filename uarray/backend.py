@@ -117,11 +117,16 @@ def generate_multimethod(
         result = NotImplemented
 
         for options in _backend_order(domain):
-            a, kw, da = replace_dispatchables(
+            res = replace_dispatchables(
                 options.backend, args, kwargs, dispatchable_args, coerce=options.coerce
             )
 
-            result = options.backend.__ua_function__(inner, a, kw, da)
+            if res is NotImplemented:
+                continue
+
+            a, kw = res
+
+            result = options.backend.__ua_function__(inner, a, kw)
 
             if result is NotImplemented:
                 result = try_default(a, kw, options, errors)
@@ -155,22 +160,16 @@ def generate_multimethod(
         backend, args, kwargs, dispatchable_args, coerce: Optional[bool] = False
     ):
         replaced_args: List = []
-        filtered_args: List = []
         for arg in dispatchable_args:
             replaced_arg = backend.__ua_convert__(arg.value, arg.type, coerce=coerce)
 
             if replaced_arg is not NotImplemented:
-                filtered_args.append(
-                    Dispatchable(
-                        replaced_arg, dispatch_type=arg.type, coercible=arg.coercible
-                    )
-                )
                 replaced_args.append(replaced_arg)
             else:
-                replaced_args.append(arg.value)
+                return NotImplemented
 
         args, kwargs = argument_replacer(args, kwargs, tuple(replaced_args))
-        return args, kwargs, filtered_args
+        return args, kwargs
 
     inner._coerce_args = replace_dispatchables  # type: ignore
 

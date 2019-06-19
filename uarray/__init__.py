@@ -52,8 +52,8 @@ protocol. The ``__ua_function__`` protocol has the signature
 multimethod, ``args``/``kwargs`` specify the arguments and ``dispatchables``
 is the list of converted dispatchables passed in.
 
->>> def __ua_function__(method, args, kwargs, dispatchables):
-...     return method.__name__, args, kwargs, dispatchables
+>>> def __ua_function__(method, args, kwargs):
+...     return method.__name__, args, kwargs
 >>> be.__ua_function__ = __ua_function__
 
 The other protocol of interest is the ``__ua_convert__`` protocol. It has the
@@ -72,7 +72,7 @@ Now that we have defined the backend, the next thing to do is to call the multim
 
 >>> with ua.set_backend(be):
 ...      overridden_me(1, "2")
-('override_me', (1, '2'), {}, [<Dispatchable: type=<class 'int'>, value=1>])
+('override_me', (1, '2'), {})
 
 Note that the marked type has no effect on the actual type of the passed object.
 We can also coerce the type of the input.
@@ -80,18 +80,18 @@ We can also coerce the type of the input.
 >>> with ua.set_backend(be, coerce=True):
 ...     overridden_me(1, "2")
 ...     overridden_me(1.0, "2")
-('override_me', ('1', '2'), {}, [<Dispatchable: type=<class 'int'>, value='1'>])
-('override_me', ('1.0', '2'), {}, [<Dispatchable: type=<class 'int'>, value='1.0'>])
+('override_me', ('1', '2'), {})
+('override_me', ('1.0', '2'), {})
 
 Another feature is that if you return ``NotImplemented`` from ``__ua_convert__``,
 it doesn't get passed into the ``dispatchables`` arg.
 
 >>> def __ua_convert__(value, type, coerce):
-...     return NotImplemented
+...     return value
 >>> be.__ua_convert__ = __ua_convert__
 >>> with ua.set_backend(be):
 ...     overridden_me(1, "2")
-('override_me', (1, '2'), {}, [])
+('override_me', (1, '2'), {})
 
 You also have the option to return ``NotImplemented``, in which case processing moves on
 to the next back-end, which in this case, doesn't exist.
