@@ -210,8 +210,13 @@ def _backend_order(domain: str) -> Iterable[_BackendOptions]:
             if options.only:
                 return
 
-    if domain in _backends:
+    if domain in _backends and _backends[domain] not in skip:
         yield _BackendOptions(_backends[domain])
+
+    if domain in _registered_backend:
+        for backend in _registered_backend[domain]:
+            if backend not in skip:
+                yield _BackendOptions(backend)
 
 
 def _get_preferred_backends(domain: str) -> ContextVar[Tuple[_BackendOptions, ...]]:
@@ -220,6 +225,12 @@ def _get_preferred_backends(domain: str) -> ContextVar[Tuple[_BackendOptions, ..
             f"_preferred_backend[{domain}]", default=()
         )
     return _preferred_backend[domain]
+
+
+def _get_registered_backends(domain: str) -> Set[_BackendOptions]:
+    if domain not in _registered_backend:
+        _registered_backend[domain] = set()
+    return _registered_backend[domain]
 
 
 def _get_skipped_backends(domain: str) -> ContextVar[Set]:
@@ -231,6 +242,7 @@ def _get_skipped_backends(domain: str) -> ContextVar[Set]:
 
 
 _preferred_backend: Dict[str, ContextVar[Tuple[_BackendOptions, ...]]] = {}
+_registered_backend: Dict[str, Set[_BackendOptions]] = {}
 _skipped_backend: Dict[str, ContextVar[Set]] = {}
 
 
@@ -306,11 +318,12 @@ def _canonicalize(f, args, kwargs):
     return bargs.args, ret_kwargs
 
 
-def set_global_backend(domain: str, backend):
+def set_global_backend(backend):
     """
-    This utility method registers the backend for permanent use. It
+    This utility method replaces the default backend for permanent use. It
     will be tried in the list of backends automatically, unless the
-    ``only`` flag is set on a backend.
+    ``only`` flag is set on a backend. This will be the first tried
+    backend outside the :obj:`set_backend` context manager.
 
     Note that this method is not thread-safe.
 
@@ -325,7 +338,23 @@ def set_global_backend(domain: str, backend):
     backend
         The backend to register.
     """
-    _backends[domain] = backend
+    _backends[backend.__ua_domain__] = backend
+
+
+def register_backend(backend):
+    """
+    This utility method sets registers backend for permanent use. It
+    will be tried in the list of backends automatically, unless the
+    ``only`` flag is set on a backend.
+
+    Note that this method is not thread-safe.
+
+    Parameters
+    ----------
+    backend
+        The backend to register.
+    """
+    _get_registered_backends(backend.__ua_domain__).add(backend)
 
 
 class Dispatchable:
