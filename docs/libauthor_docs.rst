@@ -26,13 +26,12 @@ both use the ``numpy`` domain.
 -------------------
 
 This is the most important protocol, one that defines the implementation of a
-multimethod. It has the signature ``(method, args, kwargs, dispatchable_args)``.
+multimethod. It has the signature ``(method, args, kwargs)``.
 Note that it is called in this form, so if your backend is an object instead of
 a module, you should add ``self``. ``method`` is the multimethod being called,
 and it is guaranteed that it is in the same domain as the backend. ``args`` and
 ``kwargs`` are the arguments to the function, possibly after conversion
-(explained below). ``dispatchable_args`` are the dispatchable arguments, all
-instances of :obj:`Dispatchable`, and marked with a type.
+(explained below)
 
 Returning :obj:`NotImplemented` signals that the backend does not support this
 operation.
@@ -48,10 +47,8 @@ specifies whether or not to "force" the conversion. By convention, operations
 larger than ``O(log n)`` (where ``n`` is the size of the object in memory)
 should only be done if ``coerce`` is ``True``.
 
-If ``__ua_convert__`` returns ``NotImplemented``, it means that the backend in
-question does not support converting the given ``dispatch_type``, which signals
-that the value should be passed on as-is and treated as though it wasn't
-dispatchable.
+Returning :obj:`NotImplemented` signals that the backend does not support
+conversion of the given object.
 
 :obj:`skip_backend`
 -------------------
