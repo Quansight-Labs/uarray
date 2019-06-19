@@ -26,12 +26,13 @@ both use the ``numpy`` domain.
 -------------------
 
 This is the most important protocol, one that defines the implementation of a
-multimethod. It has the signature ``(method, args, kwargs)``.
-Note that it is called in this form, so if your backend is an object instead of
-a module, you should add ``self``. ``method`` is the multimethod being called,
-and it is guaranteed that it is in the same domain as the backend. ``args`` and
-``kwargs`` are the arguments to the function, possibly after conversion
-(explained below)
+multimethod. It has the signature ``(method, kwargs)``. Note that it is called
+in this form, so if your backend is an object instead of a module, you should
+add ``self``. ``method`` is the multimethod being called, and it is guaranteed
+that it is in the same domain as the backend. ``kwargs`` is a ``dict``
+containing all arguments to the function, possibly after conversion (explained
+below). If the function contains any varargs (e.g. ``def f(*args)``) then it is
+given in ``kwargs`` as a single parameter.
 
 Returning :obj:`NotImplemented` signals that the backend does not support this
 operation.

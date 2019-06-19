@@ -62,8 +62,8 @@ def generate_multimethod(
         should be marked by the :obj:`Dispatchable` class. It has the same signature
         as the desired multimethod.
     argument_replacer : ArgumentReplacerType
-        A callable with the signature (args, kwargs, dispatchables), which should also
-        return an (args, kwargs) pair with the dispatchables replaced inside the args/kwargs.
+        A callable with the signature (kwargs, dispatchables), which should also
+        return a ``dict`` kwargs with the dispatchables replaced inside kwargs.
     domain : str
         A string value indicating the domain of this multimethod.
     default: Optional[Callable], optional
@@ -81,8 +81,9 @@ def generate_multimethod(
     Next, we define the argument replacer that replaces the dispatchables inside args/kwargs with the
     supplied ones.
 
-    >>> def override_replacer(args, kwargs, dispatchables):
-    ...     return (dispatchables[0], args[1]), {}
+    >>> def override_replacer(kwargs, dispatchables):
+    ...     kwargs['a'] = dispatchables[0]
+    ...     return kwargs
 
     Next, we define the multimethod.
 
@@ -97,7 +98,7 @@ def generate_multimethod(
         ...
     uarray.backend.BackendNotImplementedError: ...
     >>> overridden_me2 = generate_multimethod(
-    ...     override_me, override_replacer, "ua_examples", default=lambda x, y: (x, y)
+    ...     override_me, override_replacer, "ua_examples", default=lambda a, b: (a, b)
     ... )
     >>> overridden_me2(1, "a")
     (1, 'a')

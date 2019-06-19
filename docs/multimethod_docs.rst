@@ -46,25 +46,29 @@ via :obj:`functools.wraps`.
 Argument replacer
 -----------------
 
-The argument replacer takes in the arguments and dispatchable arguments, and
-its job is to replace the arguments previously extracted by the argument
-extractor by by other arguments provided in the list. Therefore, the
-signature of this function is ``(args, kwargs, dispatchable_args)``,
-and it returns an ``args``/``kwargs`` pair. We realise this is a hard problem
-in general, so we have provided a few simplifications, such as that the
-default-valued keyword arguments will be removed from the list.
+The argument replacer takes in the arguments and dispatchable arguments, and its
+job is to replace the arguments previously extracted by the argument extractor
+by other arguments provided in the list. The signature of this function is
+``(kwargs, dispatchable_args)``, and it returns the updated ``kwargs``. Here
+``kwargs`` includes also the positional arguments from the function call, now
+stored as if they were called as keyword arguments. If the function contains any
+varargs (e.g. ``def f(*args)``) then it is given in ``kwargs`` as a single
+parameter. We realise this is a hard problem in general, so we have provided a
+few simplifications, such as that the default-valued keyword arguments will be
+removed from the list.
 
 We recommend following the pattern in `this file <https://github.com/Quansight-Labs/uarray/blob/master/unumpy/multimethods.py>`_
-for optimal operation: passing the ``args``/``kwargs`` into a function with a
-similar signature and then return the modified ``args``/``kwargs``.
+for optimal operation: passing the ``kwargs`` into a function with a
+similar signature and then return the modified ``kwargs``.
 
 Default implementation
 ----------------------
 
-This is a default implementation for the multimethod, ideally with the same
-signature as the original multimethod. It can also be used to provide one
-multimethod in terms of others, even if the default implementation for the.
-downstream multimethods is not defined.
+This is a default implementation for the multimethod. This should have the same
+signature as the original multimethod, except that there can be no position-only
+parameters and any varargs should be rewritten as normal arguments taking a
+tuple. It can also be used to provide one multimethod in terms of others, even
+if the default implementation for the downstream multimethods is not defined.
 
 Examples
 --------
