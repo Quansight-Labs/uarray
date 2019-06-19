@@ -487,7 +487,7 @@ def lexsort(keys, axis=None):
         return (keys,)
 
 
-def _args_argreplacer(args, kwargs, arrays):
+def _args_argreplacer(kwargs, arrays):
     kwargs["args"] = arrays
     return kwargs
 
