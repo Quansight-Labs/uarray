@@ -23,9 +23,9 @@ _implementations: Dict = {
 
 def __ua_function__(method, args, kwargs):
     if method in _implementations:
-        return _implementations[method](*args, **kwargs)
+        return _implementations[method](**kwargs)
 
-    return _generic(method, args, kwargs)
+    return _generic(method, kwargs)
 
 
 def __ua_convert__(value, dispatch_type, coerce):
@@ -49,7 +49,7 @@ def replace_self(func):
     return inner
 
 
-def _generic(method, args, kwargs):
+def _generic(method, kwargs):
     try:
         import numpy as np
         import unumpy.numpy_backend as NumpyBackend
@@ -58,7 +58,7 @@ def _generic(method, args, kwargs):
 
     with ua.set_backend(NumpyBackend, coerce=True):
         try:
-            out = method(*args, **kwargs)
+            out = method(**kwargs)
         except TypeError:
             return NotImplemented
 

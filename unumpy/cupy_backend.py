@@ -14,14 +14,14 @@ try:
 
     _implementations: Dict = {multimethods.ufunc.__call__: cp.ufunc.__call__}
 
-    def __ua_function__(method, args, kwargs):
+    def __ua_function__(method, kwargs):
         if method in _implementations:
-            return _implementations[method](*args, **kwargs)
+            return _implementations[method](**kwargs)
 
         if not hasattr(cp, method.__name__):
             return NotImplemented
 
-        return getattr(cp, method.__name__)(*args, **kwargs)
+        return getattr(cp, method.__name__)(**kwargs)
 
     def __ua_convert__(value, dispatch_type, coerce):
         if dispatch_type is ndarray:

@@ -99,7 +99,7 @@ to the next back-end, which in this case, doesn't exist.
 
 Notice that for classes, a :obj:`Dispatchable` instance is guaranteed to be passed in.
 
->>> be.__ua_function__ = lambda **kw: NotImplemented
+>>> be.__ua_function__ = lambda *a, **kw: NotImplemented
 >>> with ua.set_backend(be):
 ...     overridden_me(1, "2")
 Traceback (most recent call last):

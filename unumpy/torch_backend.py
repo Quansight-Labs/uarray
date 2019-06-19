@@ -36,14 +36,14 @@ _implementations = {
 }
 
 
-def __ua_function__(method, args, kwargs):
+def __ua_function__(method, kwargs):
     if method in _implementations:
-        return _implementations[method](*args, **kwargs)
+        return _implementations[method](**kwargs)
 
     if not hasattr(torch, method.__name__):
         return NotImplemented
 
-    return getattr(torch, method.__name__)(*args, **kwargs)
+    return getattr(torch, method.__name__)(**kwargs)
 
 
 def __ua_convert__(value, dispatch_type, coerce):
