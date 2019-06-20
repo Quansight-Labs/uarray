@@ -107,14 +107,14 @@ def generate_multimethod(
     uarray
         See the module documentation for how to override the method by creating backends.
     """
-    defaults, opts = get_defaults(argument_extractor)
+    kw_defaults, arg_defaults, opts = get_defaults(argument_extractor)
 
     @functools.wraps(argument_extractor)
     def inner(*args, **kwargs):
-        # args, kwargs = _canonicalize(argument_extractor, args, kwargs)
         dispatchable_args = argument_extractor(*args, **kwargs)
         errors = []
 
+        args = canonicalize_args(args)
         result = NotImplemented
 
         for options in _backend_order(domain):
@@ -174,11 +174,24 @@ def generate_multimethod(
         args, kwargs = argument_replacer(args, kwargs, tuple(replaced_args))
 
         kwargs = {k: kwargs[k] for k in opts if k in kwargs}
-        for k, v in defaults.items():
+        for k, v in kw_defaults.items():
             if k in kwargs and kwargs[k] is v:
                 del kwargs[k]
 
         return args, kwargs
+
+    def canonicalize_args(args):
+        if len(args) > len(arg_defaults):
+            return args
+
+        match = 0
+        for a, d in zip(args[::-1], arg_defaults[len(args) - 1 :: -1]):
+            if a is d:
+                match += 1
+            else:
+                break
+
+        return args[:-match] if match > 0 else args
 
     inner._coerce_args = replace_dispatchables  # type: ignore
 
@@ -309,14 +322,20 @@ def skip_backend(backend):
 
 def get_defaults(f):
     sig = inspect.signature(f)
-    defaults = {}
+    kw_defaults = {}
+    arg_defaults = []
     opts = set()
     for k, v in sig.parameters.items():
         if v.default is not inspect.Parameter.empty:
-            defaults[k] = v.default
+            kw_defaults[k] = v.default
+        if v.kind in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        ):
+            arg_defaults.append(v.default)
         opts.add(k)
 
-    return defaults, opts
+    return kw_defaults, arg_defaults, opts
 
 
 def set_global_backend(backend):
@@ -367,7 +386,7 @@ class Dispatchable:
     ----------
     value
         The value of the Dispatchable.
-    
+
     type
         The type of the Dispatchable.
 
@@ -381,7 +400,7 @@ class Dispatchable:
     --------
     all_of_type
         Marks all unmarked parameters of a function.
-    
+
     mark_as
         Allows one to create a utility function to mark as a given type.
     """
