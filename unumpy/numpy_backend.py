@@ -18,13 +18,17 @@ _implementations: Dict = {
 
 
 def __ua_function__(method, kwargs):
+    self = kwargs.pop('self', None)
+    args = [self] if self is not None else []
+    args += kwargs.pop('args', [])
+
     if method in _implementations:
-        return _implementations[method](**kwargs)
+        return _implementations[method](*args, **kwargs)
 
     if not hasattr(np, method.__name__):
         return NotImplemented
 
-    return getattr(np, method.__name__)(**kwargs)
+    return getattr(np, method.__name__)(*args, **kwargs)
 
 
 def __ua_convert__(value, dispatch_type, coerce):
