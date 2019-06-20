@@ -409,14 +409,16 @@ def var(a, axis=None, dtype=None, out=None, ddof=0, keepdims=False):
 # set routines
 @create_numpy(_generic_argreplacer("ar"))
 @all_of_type(ndarray)
-def unique(ar, return_index=False, return_inverse=False, return_counts=False, axis=None):
+def unique(
+    ar, return_index=False, return_inverse=False, return_counts=False, axis=None
+):
     return (ar,)
 
 
 @create_numpy(_generic_argreplacer("ar1", "ar2"))
 @all_of_type(ndarray)
 def in1d(ar1, ar2, assume_unique=False, invert=False):
-    return (element, test_elements)
+    return (ar1, ar2)
 
 
 def _isin_default(element, test_elements, assume_unique=False, invert=False):

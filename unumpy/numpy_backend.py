@@ -14,13 +14,15 @@ __ua_domain__ = "numpy"
 _implementations: Dict = {
     multimethods.ufunc.__call__: np.ufunc.__call__,
     multimethods.ufunc.reduce: np.ufunc.reduce,
+    multimethods.concatenate: (lambda arrays, axis=0, out=None:
+                               np.concatenate(arrays, axis, out))
 }
 
 
 def __ua_function__(method, kwargs):
-    self = kwargs.pop('self', None)
+    self = kwargs.pop("self", None)
     args = [self] if self is not None else []
-    args += kwargs.pop('args', [])
+    args += kwargs.pop("args", [])
 
     if method in _implementations:
         return _implementations[method](*args, **kwargs)
