@@ -15,15 +15,15 @@ import unumpy.sparse_backend as SparseBackend
 
 LIST_BACKENDS = [
     (NumpyBackend, (onp.ndarray, onp.generic)),
-    # pytest.param(
-    #     (XndBackend, xnd.xnd), marks=pytest.mark.xfail(reason="Xnd currently broken.")
-    # ),
-    # (DaskBackend, (da.core.Array, onp.generic)),
-    # (SparseBackend, (sparse.SparseArray, onp.generic)),
-    # pytest.param(
-    #     (TorchBackend, torch.Tensor),
-    #     marks=pytest.mark.xfail(reason="PyTorch not fully NumPy compatible."),
-    # ),
+    pytest.param(
+        (XndBackend, xnd.xnd), marks=pytest.mark.xfail(reason="Xnd currently broken.")
+    ),
+    (DaskBackend, (da.core.Array, onp.generic)),
+    (SparseBackend, (sparse.SparseArray, onp.generic)),
+    pytest.param(
+        (TorchBackend, torch.Tensor),
+        marks=pytest.mark.xfail(reason="PyTorch not fully NumPy compatible."),
+    ),
 ]
 
 try:
