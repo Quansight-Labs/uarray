@@ -3,7 +3,7 @@ import xnd
 import gumath.functions as fn
 import gumath as gu
 import uarray as ua
-from uarray import Dispatchable
+from uarray import Dispatchable, wrap_single_convertor
 from .multimethods import ufunc, ufunc_list, ndarray
 import unumpy.multimethods as multimethods
 import functools
@@ -28,6 +28,7 @@ def __ua_function__(method, args, kwargs):
     return _generic(method, args, kwargs)
 
 
+@wrap_single_convertor
 def __ua_convert__(value, dispatch_type, coerce):
     if dispatch_type is ndarray:
         return convert(value, coerce=coerce) if value is not None else None
@@ -62,7 +63,7 @@ def _generic(method, args, kwargs):
         except TypeError:
             return NotImplemented
 
-    return convert_out(out)
+    return convert_out(out, coerce=False)
 
 
 def convert_out(x, coerce):
@@ -72,7 +73,7 @@ def convert_out(x, coerce):
     return convert(x, coerce=coerce)
 
 
-def convert(x):
+def convert(x, coerce):
     if isinstance(x, np.ndarray):
         return xnd.array.from_buffer(x)
     elif isinstance(x, np.generic):

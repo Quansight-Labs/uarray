@@ -1,6 +1,6 @@
 import numpy as np
 import sparse
-from uarray.backend import Dispatchable
+from uarray import Dispatchable, wrap_single_convertor
 from .multimethods import ufunc, ufunc_list, ndarray
 import unumpy.multimethods as multimethods
 import functools
@@ -28,6 +28,7 @@ def __ua_function__(method, args, kwargs):
     return getattr(sparse, method.__name__)(*args, **kwargs)
 
 
+@wrap_single_convertor
 def __ua_convert__(value, dispatch_type, coerce):
     if dispatch_type is ndarray:
         if not coerce:
