@@ -11,8 +11,8 @@ API with :obj:`uarray`, see :ref:`mmauthordocs`. To find out how
 your backend will be provided, use :ref:`userdocs`.
 
 Backend providers need to be aware of three protocols: ``__ua_domain__``,
-``__ua_function__`` and ``__ua_convert__``, all of which are mandatory on
-all backends.
+``__ua_function__`` and ``__ua_convert__``. The first two are mandatory and
+the last is optional.
 
 ``__ua_domain__``
 -----------------
@@ -41,11 +41,17 @@ operation.
 
 All dispatchable arguments are passed through ``__ua_convert__`` before being
 passed into ``__ua_function__``. This protocol has the signature
-``(value, dispatch_type, coerce)``. ``value`` is the value to convert,
+``(dispatchables, coerce)``, where ``dispatchables`` is an iterable of
+:obj:`Dispatchable` and ``coerce`` is whether or not to coerce forcefully.
 ``dispatch_type`` is the mark of the object to be converted, and ``coerce``
 specifies whether or not to "force" the conversion. By convention, operations
 larger than ``O(log n)`` (where ``n`` is the size of the object in memory)
-should only be done if ``coerce`` is ``True``.
+should only be done if ``coerce`` is ``True``. In addition, there are arguments
+wrapped as non-coercible via the ``coercible`` attribute, if these *must* be
+coerced, then one should return ``NotImplemented``.
+
+A convenience wrapper for converting a single object,
+:obj:`wrap_single_convertor` is provided.
 
 Returning :obj:`NotImplemented` signals that the backend does not support
 conversion of the given object.

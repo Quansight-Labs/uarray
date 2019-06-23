@@ -18,7 +18,7 @@ uarray
       set_global_backend
       register_backend
       skip_backend
-   
+      wrap_single_convertor   
    
 
    

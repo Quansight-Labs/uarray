@@ -57,8 +57,9 @@ is the list of converted dispatchables passed in.
 >>> be.__ua_function__ = __ua_function__
 
 The other protocol of interest is the ``__ua_convert__`` protocol. It has the
-signature ``(arg, type, coerce)``. When ``coerce`` is ``False``, conversion between
-the formats should ideally be an ``O(1)`` operation.
+signature ``(dispatchables, coerce)``. When ``coerce`` is ``False``, conversion
+between the formats should ideally be an ``O(1)`` operation, but it means that
+no memory copying should be involved, only views of the existing data.
 
 >>> def __ua_convert__(dispatchables, coerce):
 ...     for d in dispatchables:
