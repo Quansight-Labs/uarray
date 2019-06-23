@@ -1,7 +1,7 @@
 import unumpy.multimethods as multimethods
 from .multimethods import ufunc, ufunc_list, ndarray
 import torch
-from uarray import Dispatchable
+from uarray import Dispatchable, wrap_single_convertor
 
 __ua_domain__ = "numpy"
 
@@ -46,6 +46,7 @@ def __ua_function__(method, args, kwargs):
     return getattr(torch, method.__name__)(*args, **kwargs)
 
 
+@wrap_single_convertor
 def __ua_convert__(value, dispatch_type, coerce):
     if dispatch_type is ndarray:
         if not coerce:

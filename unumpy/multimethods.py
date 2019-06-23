@@ -1,5 +1,5 @@
 import functools
-from uarray.backend import create_multimethod, mark_as, all_of_type
+from uarray import create_multimethod, mark_as, all_of_type
 
 create_numpy = functools.partial(create_multimethod, domain="numpy")
 

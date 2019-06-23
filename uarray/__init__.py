@@ -48,7 +48,7 @@ Without further ado, here's an example multimethTrueod:
 Next comes the part about overriding the multimethod. This requires
 the ``__ua_function__`` protocol, and the ``__ua_convert__``
 protocol. The ``__ua_function__`` protocol has the signature
-``(method, args, kwargs, dispatchables)`` where ``method`` is the passed
+``(method, args, kwargs)`` where ``method`` is the passed
 multimethod, ``args``/``kwargs`` specify the arguments and ``dispatchables``
 is the list of converted dispatchables passed in.
 
@@ -60,12 +60,13 @@ The other protocol of interest is the ``__ua_convert__`` protocol. It has the
 signature ``(arg, type, coerce)``. When ``coerce`` is ``False``, conversion between
 the formats should ideally be an ``O(1)`` operation.
 
->>> def __ua_convert__(value, type, coerce):
-...     if type is int:
-...         if not coerce:
-...             return value
-...         return str(value)
-...     return NotImplemented
+>>> def __ua_convert__(dispatchables, coerce):
+...     for d in dispatchables:
+...         if d.type is int:
+...             if coerce and d.coercible:
+...                 yield str(d.value)
+...             else:
+...                 yield d.value
 >>> be.__ua_convert__ = __ua_convert__
 
 Now that we have defined the backend, the next thing to do is to call the multimethod.
@@ -83,20 +84,17 @@ We can also coerce the type of the input.
 ('override_me', ('1', '2'), {})
 ('override_me', ('1.0', '2'), {})
 
-Another feature is that if you return ``NotImplemented`` from ``__ua_convert__``,
-it doesn't get passed into the ``dispatchables`` arg.
+Another feature is that if you remove ``__ua_convert__``, the arguments are not
+converted at all and it's up to the backend to handle that.
 
->>> def __ua_convert__(value, type, coerce):
-...     return value
->>> be.__ua_convert__ = __ua_convert__
+>>> del be.__ua_convert__
 >>> with ua.set_backend(be):
 ...     overridden_me(1, "2")
 ('override_me', (1, '2'), {})
 
 You also have the option to return ``NotImplemented``, in which case processing moves on
-to the next back-end, which in this case, doesn't exist.
-
-Notice that for classes, a :obj:`Dispatchable` instance is guaranteed to be passed in.
+to the next back-end, which in this case, doesn't exist. The same applies to
+``__ua_convert__``.
 
 >>> be.__ua_function__ = lambda *a, **kw: NotImplemented
 >>> with ua.set_backend(be):
@@ -110,8 +108,7 @@ up to ``__ua_function__``, but putting things back into arrays after conversion 
 possible.
 """
 
-import uarray.backend as backend
-from .backend import *
+from ._backend import *
 from ._version import get_versions  # type: ignore
 
 __version__ = get_versions()["version"]

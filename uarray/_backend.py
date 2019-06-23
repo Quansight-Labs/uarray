@@ -114,18 +114,31 @@ def generate_multimethod(
         dispatchable_args = argument_extractor(*args, **kwargs)
         errors = []
 
-        args = canonicalize_args(args)
+        args = canonicalize_args(args, kwargs)
         result = NotImplemented
 
         for options in _backend_order(domain):
-            res = replace_dispatchables(
-                options.backend, args, kwargs, dispatchable_args, coerce=options.coerce
+            res = (
+                replace_dispatchables(
+                    options.backend,
+                    args,
+                    kwargs,
+                    dispatchable_args,
+                    coerce=options.coerce,
+                )
+                if hasattr(options.backend, "__ua_convert__")
+                else (args, kwargs)
             )
 
             if res is NotImplemented:
                 continue
 
             a, kw = res
+
+            kw = {k: kw[k] for k in kw if k in opts}
+            for k, v in kw_defaults.items():
+                if k in kw and kw[k] is v:
+                    del kw[k]
 
             result = options.backend.__ua_function__(inner, a, kw)
 
@@ -160,27 +173,14 @@ def generate_multimethod(
     def replace_dispatchables(
         backend, args, kwargs, dispatchable_args, coerce: Optional[bool] = False
     ):
-        replaced_args: List = []
-        for arg in dispatchable_args:
-            replaced_arg = backend.__ua_convert__(
-                arg.value, arg.type, coerce=coerce and arg.coercible
-            )
+        replaced_args: Iterable = backend.__ua_convert__(dispatchable_args, coerce)
 
-            if replaced_arg is not NotImplemented:
-                replaced_args.append(replaced_arg)
-            else:
-                return NotImplemented
+        if replaced_args is NotImplemented:
+            return NotImplemented
 
-        args, kwargs = argument_replacer(args, kwargs, tuple(replaced_args))
+        return argument_replacer(args, kwargs, tuple(replaced_args))
 
-        kwargs = {k: kwargs[k] for k in opts if k in kwargs}
-        for k, v in kw_defaults.items():
-            if k in kwargs and kwargs[k] is v:
-                del kwargs[k]
-
-        return args, kwargs
-
-    def canonicalize_args(args):
+    def canonicalize_args(args, kwargs):
         if len(args) > len(arg_defaults):
             return args
 
@@ -191,7 +191,8 @@ def generate_multimethod(
             else:
                 break
 
-        return args[:-match] if match > 0 else args
+        args = args[:-match] if match > 0 else args
+        return args
 
     inner._coerce_args = replace_dispatchables  # type: ignore
 
@@ -410,6 +411,9 @@ class Dispatchable:
         self.type = dispatch_type
         self.coercible = coercible
 
+    def __getitem__(self, index):
+        return (self.type, self.value)[index]
+
     def __str__(self):
         return (
             f"<{type(self).__name__}: type={repr(self.type)}, value={repr(self.value)}>"
@@ -458,3 +462,28 @@ def all_of_type(arg_type):
         return inner
 
     return outer
+
+
+def wrap_single_convertor(convert_single):
+    """
+    Wraps a ``__ua_convert__`` defined for a single element to all elements.
+    If any of them return ``NotImplemented``, the operation is assumed to be
+    undefined.
+
+    Accepts a signature of (value, type, coerce).
+    """
+
+    @functools.wraps(convert_single)
+    def __ua_convert__(dispatchables, coerce):
+        converted = []
+        for d in dispatchables:
+            c = convert_single(d.value, d.type, coerce and d.coercible)
+
+            if c is NotImplemented:
+                return NotImplemented
+
+            converted.append(c)
+
+        return converted
+
+    return __ua_convert__
