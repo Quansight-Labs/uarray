@@ -63,7 +63,7 @@ def _generic(method, args, kwargs):
         except TypeError:
             return NotImplemented
 
-    return convert_out(out)
+    return convert_out(out, coerce=False)
 
 
 def convert_out(x, coerce):
@@ -73,7 +73,7 @@ def convert_out(x, coerce):
     return convert(x, coerce=coerce)
 
 
-def convert(x):
+def convert(x, coerce):
     if isinstance(x, np.ndarray):
         return xnd.array.from_buffer(x)
     elif isinstance(x, np.generic):
