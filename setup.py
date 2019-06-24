@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
 import versioneer
 from pathlib import Path
 import sys
@@ -43,6 +43,11 @@ parse_requires()
 with open("README.md") as f:
     long_desc = f.read()
 
+
+extensions = [
+    Extension('uarray._uarray', sources=['uarray/_uarray_dispatch.cxx'], language='c++')
+]
+
 setup(
     name="uarray",
     version=versioneer.get_version(),
@@ -79,4 +84,5 @@ setup(
         "Tracker": "https://github.com/Quansight-Labs/uarray/issues",
     },
     python_requires=">=3.5, <4",
+    ext_modules=extensions
 )
