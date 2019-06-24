@@ -14,6 +14,7 @@ import inspect
 from contextvars import ContextVar
 import functools
 import contextlib
+from . import _uarray
 
 ArgumentExtractorType = Callable[..., Tuple["Dispatchable", ...]]
 ArgumentReplacerType = Callable[[Tuple, Dict, Tuple], Tuple[Tuple, Dict]]
@@ -109,93 +110,13 @@ def generate_multimethod(
     """
     kw_defaults, arg_defaults, opts = get_defaults(argument_extractor)
 
-    @functools.wraps(argument_extractor)
-    def inner(*args, **kwargs):
-        dispatchable_args = argument_extractor(*args, **kwargs)
-        errors = []
+    backend_getter = functools.partial(_backend_order, domain)
+    ua_func = _uarray.Function(
+        argument_extractor, argument_replacer, backend_getter,
+        arg_defaults, kw_defaults, default
+    )
 
-        args = canonicalize_args(args, kwargs)
-        result = NotImplemented
-
-        for options in _backend_order(domain):
-            res = (
-                replace_dispatchables(
-                    options.backend,
-                    args,
-                    kwargs,
-                    dispatchable_args,
-                    coerce=options.coerce,
-                )
-                if hasattr(options.backend, "__ua_convert__")
-                else (args, kwargs)
-            )
-
-            if res is NotImplemented:
-                continue
-
-            a, kw = res
-
-            for k, v in kw_defaults.items():
-                if k in kw and kw[k] is v:
-                    del kw[k]
-
-            result = options.backend.__ua_function__(inner, a, kw)
-
-            if result is NotImplemented:
-                result = try_default(a, kw, options, errors)
-
-            if result is not NotImplemented:
-                break
-        else:
-            result = try_default(args, kwargs, None, errors)
-
-        if result is NotImplemented:
-            raise BackendNotImplementedError(
-                "No selected backends had an implementation for this function.", errors
-            )
-
-        return result
-
-    def try_default(args, kwargs, options, errors):
-        if default is not None:
-            try:
-                if options is not None:
-                    with set_backend(options.backend, only=True, coerce=options.coerce):
-                        return default(*args, **kwargs)
-                else:
-                    return default(*args, **kwargs)
-            except BackendNotImplementedError as e:
-                errors.append(e)
-
-        return NotImplemented
-
-    def replace_dispatchables(
-        backend, args, kwargs, dispatchable_args, coerce: Optional[bool] = False
-    ):
-        replaced_args: Iterable = backend.__ua_convert__(dispatchable_args, coerce)
-
-        if replaced_args is NotImplemented:
-            return NotImplemented
-
-        return argument_replacer(args, kwargs, tuple(replaced_args))
-
-    def canonicalize_args(args, kwargs):
-        if len(args) > len(arg_defaults):
-            return args
-
-        match = 0
-        for a, d in zip(args[::-1], arg_defaults[len(args) - 1 :: -1]):
-            if a is d:
-                match += 1
-            else:
-                break
-
-        args = args[:-match] if match > 0 else args
-        return args
-
-    inner._coerce_args = replace_dispatchables  # type: ignore
-
-    return inner
+    return functools.update_wrapper(ua_func, argument_extractor)
 
 
 class _BackendOptions:
@@ -335,7 +256,7 @@ def get_defaults(f):
             arg_defaults.append(v.default)
         opts.add(k)
 
-    return kw_defaults, arg_defaults, opts
+    return kw_defaults, tuple(arg_defaults), opts
 
 
 def set_global_backend(backend):
