@@ -112,8 +112,12 @@ def generate_multimethod(
 
     backend_getter = functools.partial(_backend_order, domain)
     ua_func = _uarray.Function(
-        argument_extractor, argument_replacer, backend_getter,
-        arg_defaults, kw_defaults, default
+        argument_extractor,
+        argument_replacer,
+        backend_getter,
+        arg_defaults,
+        kw_defaults,
+        default
     )
 
     return functools.update_wrapper(ua_func, argument_extractor)

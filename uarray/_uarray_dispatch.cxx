@@ -68,19 +68,24 @@ py_ref py_make_tuple(Ts... args)
 }
 
 
-py_ref py_make_tuple()
-{
-	return py_ref::steal(PyTuple_New(0));
-}
+struct py_func_args { py_ref args, kwargs; };
 
 struct Function
 {
 	PyObject_HEAD
-	py_ref extractor, replacer;   // functions to handle dispatchables
-	py_ref backends;              // function returning backends as iterable
-	py_ref def_args, def_kwargs;  // default arguments
-	py_ref def_impl;              // default implementation
-	py_ref dict;                  // __dict__
+	py_ref extractor_, replacer_;   // functions to handle dispatchables
+	py_ref backends_;               // function returning backends as iterable
+	py_ref def_args_, def_kwargs_;  // default arguments
+	py_ref def_impl_;               // default implementation
+	py_ref dict_;                   // __dict__
+
+	PyObject * call(PyObject * args, PyObject * kwargs);
+
+	py_func_args replace_dispatchables(
+		PyObject * backend, PyObject * args, PyObject * kwargs, PyObject * coerce);
+
+	py_ref canonicalize_args(PyObject * args);
+	py_ref canonicalize_kwargs(PyObject * kwargs);
 
 	static void dealloc(Function * self)
 		{
@@ -101,50 +106,50 @@ struct Function
 
 	static int init(Function * self, PyObject * args, PyObject * /*kwargs*/)
 		{
-			PyObject * extractor_, * replacer_;
-			PyObject * backends_;
-			PyObject * def_args_, * def_kwargs_;
-			PyObject * def_impl_;
+			PyObject * extractor, * replacer;
+			PyObject * backends;
+			PyObject * def_args, * def_kwargs;
+			PyObject * def_impl;
 
 			if (!PyArg_ParseTuple(
 				    args, "OOOO!O!O",
-				    &extractor_,
-				    &replacer_,
-				    &backends_,
-				    &PyTuple_Type, &def_args_,
-				    &PyDict_Type, &def_kwargs_,
-				    &def_impl_))
+				    &extractor,
+				    &replacer,
+				    &backends,
+				    &PyTuple_Type, &def_args,
+				    &PyDict_Type, &def_kwargs,
+				    &def_impl))
 			{
 				return -1;
 			}
 
-			if (!PyCallable_Check(extractor_) || !PyCallable_Check(replacer_))
+			if (!PyCallable_Check(extractor) || !PyCallable_Check(replacer))
 			{
 				PyErr_SetString(PyExc_TypeError,
 				                "Argument extractor and replacer must be callable");
 				return -1;
 			}
 
-			if (!PyCallable_Check(backends_))
+			if (!PyCallable_Check(backends))
 			{
 				PyErr_SetString(PyExc_TypeError,
 				                "The backends argument must be callable");
 				return -1;
 			}
 
-			if (def_impl_ != Py_None && !PyCallable_Check(def_impl_))
+			if (def_impl != Py_None && !PyCallable_Check(def_impl))
 			{
 				PyErr_SetString(PyExc_TypeError,
 				                "Default implementation must be Callable or None");
 				return -1;
 			}
 
-			self->extractor = py_ref::ref(extractor_);
-			self->replacer = py_ref::ref(replacer_);
-			self->backends = py_ref::ref(backends_);
-			self->def_args = py_ref::ref(def_args_);
-			self->def_kwargs = py_ref::ref(def_kwargs_);
-			self->def_impl = py_ref::ref(def_impl_);
+			self->extractor_ = py_ref::ref(extractor);
+			self->replacer_ = py_ref::ref(replacer);
+			self->backends_ = py_ref::ref(backends);
+			self->def_args_ = py_ref::ref(def_args);
+			self->def_kwargs_ = py_ref::ref(def_kwargs);
+			self->def_impl_ = py_ref::ref(def_impl);
 
 			return 0;
 		}
@@ -158,10 +163,10 @@ bool is_default(PyObject * value, PyObject * def)
 }
 
 
-py_ref canonicalize_args(PyObject * args, const PyObject * defaults)
+py_ref Function::canonicalize_args(PyObject * args)
 {
 	const auto arg_size = PyTuple_GET_SIZE(args);
-	const auto def_size = PyTuple_GET_SIZE(defaults);
+	const auto def_size = PyTuple_GET_SIZE(def_args_.get());
 
 	if (arg_size > def_size)
 		return py_ref::ref(args);
@@ -170,7 +175,7 @@ py_ref canonicalize_args(PyObject * args, const PyObject * defaults)
 	for (Py_ssize_t i = arg_size - 1; i >= 0; --i)
 	{
 		auto val = PyTuple_GET_ITEM(args, i);
-		auto def = PyTuple_GET_ITEM(defaults, i);
+		auto def = PyTuple_GET_ITEM(def_args_.get(), i);
 		if (!is_default(val, def))
 		{
 			mismatch = i + 1;
@@ -182,14 +187,14 @@ py_ref canonicalize_args(PyObject * args, const PyObject * defaults)
 }
 
 
-py_ref canonicalize_kwargs(PyObject * kwargs, PyObject * defaults)
+py_ref Function::canonicalize_kwargs(PyObject * kwargs)
 {
 	if (kwargs == nullptr)
 		return py_ref::steal(PyDict_New());
 
 	PyObject * key, * def_value;
 	Py_ssize_t pos = 0;
-	while (PyDict_Next(defaults, &pos, &key, &def_value))
+	while (PyDict_Next(def_kwargs_, &pos, &key, &def_value))
 	{
 		auto val = PyDict_GetItem(kwargs, key);
 		if (is_default(val, def_value))
@@ -201,12 +206,8 @@ py_ref canonicalize_kwargs(PyObject * kwargs, PyObject * defaults)
 }
 
 
-struct py_func_args { py_ref args, kwargs; };
-
-
-py_func_args replace_dispatchables(
-	PyObject * backend, PyObject * args, PyObject * kwargs,
-	PyObject * extractor, PyObject * replacer, PyObject * coerce)
+py_func_args Function::replace_dispatchables(
+	PyObject * backend, PyObject * args, PyObject * kwargs, PyObject * coerce)
 {
 	auto ua_convert =
 		py_ref::steal(PyObject_GetAttrString(backend, "__ua_convert__"));
@@ -216,7 +217,7 @@ py_func_args replace_dispatchables(
 		return {py_ref::ref(args), py_ref::ref(kwargs)};
 	}
 
-	auto dispatchables = py_ref::steal(PyObject_Call(extractor, args, kwargs));
+	auto dispatchables = py_ref::steal(PyObject_Call(extractor_, args, kwargs));
 	if (!dispatchables)
 		return {};
 
@@ -248,12 +249,14 @@ py_func_args replace_dispatchables(
 	if (!replacer_args)
 		return {};
 
-	res = py_ref::steal(PyObject_Call(replacer, replacer_args, nullptr));
+	res = py_ref::steal(PyObject_Call(replacer_, replacer_args, nullptr));
 	if (PyTuple_Size(res) != 2)
 		return {};
 
 	auto new_args = py_ref::ref(PyTuple_GET_ITEM(res.get(), 0));
 	auto new_kwargs = py_ref::ref(PyTuple_GET_ITEM(res.get(), 1));
+
+	new_args = canonicalize_kwargs(new_kwargs);
 
 	if (!PyTuple_Check(new_args) || !PyDict_Check(new_kwargs))
 	{
@@ -266,15 +269,20 @@ py_func_args replace_dispatchables(
 
 
 PyObject * uarray_function_call(
-	PyObject * self_, PyObject * args_, PyObject * kwargs_)
+	PyObject * self_, PyObject * args, PyObject * kwargs)
 {
-	auto * self = reinterpret_cast<Function *>(self_);
+	return reinterpret_cast<Function *>(self_)->call(args, kwargs);
 
-	auto args = canonicalize_args(args_, self->def_args);
-	auto kwargs = canonicalize_kwargs(kwargs_, self->def_kwargs);
+}
+
+
+PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
+{
+	auto args = canonicalize_args(args_);
+	auto kwargs = canonicalize_kwargs(kwargs_);
 
 	auto backends = py_ref::steal(
-		PyObject_Call(self->backends, py_make_tuple(), nullptr));
+		PyObject_Call(backends_, py_make_tuple(), nullptr));
 	if (!backends)
 		return nullptr;
 
@@ -302,8 +310,7 @@ PyObject * uarray_function_call(
 			return nullptr;
 		}
 
-		auto new_args = replace_dispatchables(
-			backend, args, kwargs, self->extractor, self->replacer, coerce);
+		auto new_args = replace_dispatchables(backend, args, kwargs, coerce);
 		if (new_args.args == nullptr)
 			continue;
 
@@ -316,14 +323,14 @@ PyObject * uarray_function_call(
 		}
 
 		auto ua_func_args = py_make_tuple(
-			reinterpret_cast<PyObject *>(self), new_args.args, new_args.kwargs);
+			reinterpret_cast<PyObject *>(this), new_args.args, new_args.kwargs);
 		auto result = py_ref::steal(
 			PyObject_Call(ua_function, ua_func_args, nullptr));
 		if (result != Py_NotImplemented)
 			return result.release();
 	}
 
-	if (self->def_impl == Py_None)
+	if (def_impl_ == Py_None)
 	{
 		PyErr_SetString(
 			PyExc_NotImplementedError,
@@ -331,7 +338,7 @@ PyObject * uarray_function_call(
 		return nullptr;
 	}
 
-	return PyObject_Call(self->def_impl, args, kwargs);
+	return PyObject_Call(def_impl_, args, kwargs);
 }
 
 
@@ -396,7 +403,7 @@ static PyTypeObject FunctionType = {
 	0,                             /* tp_dict */
 	0,                             /* tp_descr_get */
 	0,                             /* tp_descr_set */
-	offsetof(Function, dict),      /* tp_dictoffset */
+	offsetof(Function, dict_),     /* tp_dictoffset */
 	(initproc)Function::init,      /* tp_init */
 	0,                             /* tp_alloc */
 	Function::new_,                /* tp_new */
