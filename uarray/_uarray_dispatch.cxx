@@ -2,6 +2,7 @@
 #include <Python.h>
 #include <utility>
 #include <new>
+#include <cstddef>
 
 namespace {
 class py_ref
