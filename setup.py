@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from setuptools import setup, find_packages, Extension
+from setuptools.command.build_ext import build_ext
 import versioneer
 from pathlib import Path
 import sys
@@ -43,6 +44,17 @@ parse_requires()
 with open("README.md") as f:
     long_desc = f.read()
 
+class build_cpp11_ext(build_ext):
+    def build_extension(self, ext):
+        cc = self.compiler
+        if cc.compiler_type == 'unix':
+            ext.extra_compile_args.append('--std=c++11')
+        build_ext.build_extension(self, ext)
+
+
+cmdclass = {'build_ext': build_cpp11_ext}
+cmdclass.update(versioneer.get_cmdclass())
+
 
 extensions = [
     Extension('uarray._uarray', sources=['uarray/_uarray_dispatch.cxx'], language='c++')
@@ -51,7 +63,7 @@ extensions = [
 setup(
     name="uarray",
     version=versioneer.get_version(),
-    cmdclass=versioneer.get_cmdclass(),
+    cmdclass=cmdclass,
     description="Array interface object for Python with pluggable backends and a multiple-dispatch"
     "mechanism for defining down-stream functions",
     url="https://github.com/Quansight-Labs/uarray/",
