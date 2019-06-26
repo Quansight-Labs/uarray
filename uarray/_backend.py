@@ -19,11 +19,7 @@ from . import _uarray
 ArgumentExtractorType = Callable[..., Tuple["Dispatchable", ...]]
 ArgumentReplacerType = Callable[[Tuple, Dict, Tuple], Tuple[Tuple, Dict]]
 
-
-class BackendNotImplementedError(NotImplementedError):
-    """
-    An exception that is thrown when no compatible backend is found for a method.
-    """
+from ._uarray import BackendNotImplementedError
 
 
 def create_multimethod(*args, **kwargs):
@@ -117,7 +113,7 @@ def generate_multimethod(
         backend_getter,
         arg_defaults,
         kw_defaults,
-        default
+        default,
     )
 
     return functools.update_wrapper(ua_func, argument_extractor)

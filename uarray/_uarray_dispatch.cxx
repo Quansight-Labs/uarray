@@ -214,6 +214,7 @@ py_func_args Function::replace_dispatchables(
 
 	if (!ua_convert)
 	{
+		PyErr_Clear();
 		return {py_ref::ref(args), py_ref::ref(kwargs)};
 	}
 
@@ -223,12 +224,21 @@ py_func_args Function::replace_dispatchables(
 
 	auto convert_args = py_make_tuple(dispatchables, coerce);
 	auto res = py_ref::steal(PyObject_Call(ua_convert, convert_args, nullptr));
-	if (!res || res == Py_NotImplemented)
+	if (!res)
+	{
 		return {};
+	}
+
+	if (res == Py_NotImplemented)
+	{
+		return {std::move(res), nullptr};
+	}
 
 	auto itr = py_ref::steal(PyObject_GetIter(res));
 	if (itr == nullptr)
+	{
 		return {};
+	}
 
 	const auto num_disp = PyTuple_Size(dispatchables);
 	auto replaced_args = py_ref::steal(PyTuple_New(num_disp));
@@ -256,7 +266,7 @@ py_func_args Function::replace_dispatchables(
 	auto new_args = py_ref::ref(PyTuple_GET_ITEM(res.get(), 0));
 	auto new_kwargs = py_ref::ref(PyTuple_GET_ITEM(res.get(), 1));
 
-	new_args = canonicalize_kwargs(new_kwargs);
+	new_kwargs = canonicalize_kwargs(new_kwargs);
 
 	if (!PyTuple_Check(new_args) || !PyDict_Check(new_kwargs))
 	{
@@ -274,6 +284,9 @@ PyObject * uarray_function_call(
 	return reinterpret_cast<Function *>(self_)->call(args, kwargs);
 
 }
+
+
+static py_ref BackendNotImplementedError;
 
 
 PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
@@ -298,6 +311,12 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
 		auto backend = py_ref::steal(PyObject_GetAttrString(be, "backend"));
 		auto coerce = py_ref::steal(PyObject_GetAttrString(be, "coerce"));
 
+		printf("Trying backend: ");
+		PyObject_Print(backend, stdout, 0);
+		printf(", ");
+		PyObject_Print(coerce, stdout, 0);
+		printf("\n");
+
 		if (!backend || !coerce)
 		{
 			PyErr_SetString(PyExc_TypeError, "Invalid backend spec");
@@ -311,8 +330,14 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
 		}
 
 		auto new_args = replace_dispatchables(backend, args, kwargs, coerce);
-		if (new_args.args == nullptr)
+		if (new_args.args == Py_NotImplemented)
+		{
 			continue;
+		}
+		if (new_args.args == nullptr)
+		{
+			return nullptr;
+		}
 
 		auto ua_function =
 			py_ref::steal(PyObject_GetAttrString(backend, "__ua_function__"));
@@ -333,7 +358,7 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
 	if (def_impl_ == Py_None)
 	{
 		PyErr_SetString(
-			PyExc_NotImplementedError,
+			BackendNotImplementedError,
 			"No selected backends had an implementation for this function.");
 		return nullptr;
 	}
@@ -426,5 +451,16 @@ PyInit__uarray(void)
 
 	Py_INCREF(&FunctionType);
 	PyModule_AddObject(m, "Function", (PyObject *)&FunctionType);
+
+	BackendNotImplementedError = py_ref::steal(
+		PyErr_NewExceptionWithDoc(
+			"uarray.BackendNotImplementedError",
+			"An exception that is thrown when no compatible"
+			" backend is found for a method.",
+			PyExc_NotImplementedError,
+			nullptr));
+	PyModule_AddObject(
+		m, "BackendNotImplementedError", BackendNotImplementedError);
+
 	return m;
 }
