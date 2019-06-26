@@ -282,7 +282,6 @@ PyObject * uarray_function_call(
 	PyObject * self_, PyObject * args, PyObject * kwargs)
 {
 	return reinterpret_cast<Function *>(self_)->call(args, kwargs);
-
 }
 
 
@@ -310,12 +309,6 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
 	{
 		auto backend = py_ref::steal(PyObject_GetAttrString(be, "backend"));
 		auto coerce = py_ref::steal(PyObject_GetAttrString(be, "coerce"));
-
-		printf("Trying backend: ");
-		PyObject_Print(backend, stdout, 0);
-		printf(", ");
-		PyObject_Print(coerce, stdout, 0);
-		printf("\n");
 
 		if (!backend || !coerce)
 		{
