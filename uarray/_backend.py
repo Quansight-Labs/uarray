@@ -135,7 +135,6 @@ def generate_multimethod(
 
             a, kw = res
 
-            kw = {k: kw[k] for k in kw if k in opts}
             for k, v in kw_defaults.items():
                 if k in kw and kw[k] is v:
                     del kw[k]

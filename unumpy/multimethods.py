@@ -27,10 +27,14 @@ def _ureduce_argreplacer(args, kwargs, dispatchables):
 
 def _reduce_argreplacer(args, kwargs, arrays):
     def reduce(a, axis=None, dtype=None, out=None, keepdims=False):
-        return (
-            (arrays[0],),
-            dict(axis=axis, dtype=dtype, out=arrays[1], keepdims=keepdims),
-        )
+        kwargs = {}
+        if dtype is not None:
+            kwargs["dtype"] = dtype
+
+        if keepdims is not False:
+            kwargs["keepdims"] = keepdims
+
+        return ((arrays[0],), dict(axis=axis, out=arrays[1], **kwargs))
 
     return reduce(*args, **kwargs)
 
