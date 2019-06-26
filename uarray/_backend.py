@@ -14,7 +14,7 @@ import inspect
 from contextvars import ContextVar
 import functools
 import contextlib
-from . import _uarray
+from . import _uarray  # type: ignore
 
 ArgumentExtractorType = Callable[..., Tuple["Dispatchable", ...]]
 ArgumentReplacerType = Callable[[Tuple, Dict, Tuple], Tuple[Tuple, Dict]]
