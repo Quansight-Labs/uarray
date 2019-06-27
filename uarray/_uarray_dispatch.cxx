@@ -28,15 +28,13 @@ public:
 
 	py_ref & operator = (const py_ref & other)
 		{
-			auto temp = py_ref(other);
-			swap(temp);
+			py_ref(other).swap(*this);
 			return *this;
 		}
 
 	py_ref & operator = (py_ref && other)
 		{
-			auto temp = py_ref(std::move(other));
-			swap(temp);
+			py_ref(std::move(other)).swap(*this);
 			return *this;
 		}
 
@@ -279,9 +277,9 @@ py_func_args Function::replace_dispatchables(
 
 
 PyObject * uarray_function_call(
-	PyObject * self_, PyObject * args, PyObject * kwargs)
+	PyObject * self, PyObject * args, PyObject * kwargs)
 {
-	return reinterpret_cast<Function *>(self_)->call(args, kwargs);
+	return reinterpret_cast<Function *>(self)->call(args, kwargs);
 }
 
 
@@ -360,6 +358,27 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
 }
 
 
+PyObject * Function_repr(Function * self)
+{
+	if (self->dict_)
+		if (auto name = PyDict_GetItemString(self->dict_, "__name__"))
+			return PyUnicode_FromFormat("<uarray multimethod '%S'>", name);
+
+	return PyUnicode_FromString("<uarray multimethod>");
+}
+
+
+/** Implements the descriptor protocol to allow binding to class instances */
+PyObject * Function_descr_get(PyObject * self, PyObject * obj, PyObject * type)
+{
+	Py_INCREF(self);
+	if (!obj)
+		return self;
+
+	return PyMethod_New(self, obj);
+}
+
+
 PyObject * dummy(PyObject * /*self*/, PyObject * args)
 {
 	Py_RETURN_NONE;
@@ -369,7 +388,7 @@ PyObject * dummy(PyObject * /*self*/, PyObject * args)
 PyMethodDef method_defs[] =
 {
 	{"dummy", dummy, METH_VARARGS, nullptr},
-	{nullptr, nullptr, 0, nullptr}
+	{NULL} /* Sentinel */
 };
 
 PyModuleDef uarray_module =
@@ -381,7 +400,8 @@ PyModuleDef uarray_module =
 	method_defs
 };
 
-static PyGetSetDef Function_getset[] = {
+static PyGetSetDef Function_getset[] =
+{
 	{"__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict},
 	{NULL} /* Sentinel */
 };
@@ -396,7 +416,7 @@ static PyTypeObject FunctionType = {
 	0,                             /* tp_getattr */
 	0,                             /* tp_setattr */
 	0,                             /* tp_reserved */
-	0,                             /* tp_repr */
+	(reprfunc)Function_repr,       /* tp_repr */
 	0,                             /* tp_as_number */
 	0,                             /* tp_as_sequence */
 	0,                             /* tp_as_mapping */
@@ -419,7 +439,7 @@ static PyTypeObject FunctionType = {
 	Function_getset,               /* tp_getset */
 	0,                             /* tp_base */
 	0,                             /* tp_dict */
-	0,                             /* tp_descr_get */
+	Function_descr_get,            /* tp_descr_get */
 	0,                             /* tp_descr_set */
 	offsetof(Function, dict_),     /* tp_dictoffset */
 	(initproc)Function::init,      /* tp_init */
