@@ -371,9 +371,11 @@ PyObject * Function_repr(Function * self)
 /** Implements the descriptor protocol to allow binding to class instances */
 PyObject * Function_descr_get(PyObject * self, PyObject * obj, PyObject * type)
 {
-	Py_INCREF(self);
 	if (!obj)
+	{
+		Py_INCREF(self);
 		return self;
+	}
 
 	return PyMethod_New(self, obj);
 }
