@@ -87,6 +87,7 @@ struct Function
 
 	static void dealloc(Function * self)
 		{
+			PyObject_GC_UnTrack(self);
 			self->~Function();
 			Py_TYPE(self)->tp_free(self);
 		}
@@ -232,34 +233,25 @@ py_func_args Function::replace_dispatchables(
 		return {std::move(res), nullptr};
 	}
 
-	auto itr = py_ref::steal(PyObject_GetIter(res));
-	if (itr == nullptr)
-	{
+	auto replaced_args = py_ref::steal(PySequence_Tuple(res));
+	if (!replaced_args)
 		return {};
-	}
-
-	const auto num_disp = PyTuple_Size(dispatchables);
-	auto replaced_args = py_ref::steal(PyTuple_New(num_disp));
-	Py_ssize_t pos = 0;
-	while (auto item = py_ref::steal(PyIter_Next(itr)))
-	{
-		if (pos > num_disp)
-		{
-			PyErr_SetString(PyExc_ValueError,
-			                "Too many values returned from __ua_convert__");
-			return {};
-		}
-		PyTuple_SET_ITEM(replaced_args.get(), pos, item.release());
-		++pos;
-	}
 
 	auto replacer_args = py_make_tuple(args, kwargs, replaced_args);
 	if (!replacer_args)
 		return {};
 
 	res = py_ref::steal(PyObject_Call(replacer_, replacer_args, nullptr));
-	if (PyTuple_Size(res) != 2)
+	if (!res)
 		return {};
+
+	if (!PyTuple_Check(res) || PyTuple_Size(res) != 2)
+	{
+		PyErr_SetString(PyExc_TypeError,
+		                "Argument replacer must return a 2-tuple (args, kwargs)");
+		return {};
+
+	}
 
 	auto new_args = py_ref::ref(PyTuple_GET_ITEM(res.get(), 0));
 	auto new_kwargs = py_ref::ref(PyTuple_GET_ITEM(res.get(), 1));
@@ -276,10 +268,10 @@ py_func_args Function::replace_dispatchables(
 }
 
 
-PyObject * uarray_function_call(
-	PyObject * self, PyObject * args, PyObject * kwargs)
+PyObject * Function_call(
+	Function * self, PyObject * args, PyObject * kwargs)
 {
-	return reinterpret_cast<Function *>(self)->call(args, kwargs);
+	return self->call(args, kwargs);
 }
 
 
@@ -346,6 +338,9 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
 			return result.release();
 	}
 
+	if (PyErr_Occurred())
+		return nullptr;
+
 	if (def_impl_ == Py_None)
 	{
 		PyErr_SetString(
@@ -381,6 +376,20 @@ PyObject * Function_descr_get(PyObject * self, PyObject * obj, PyObject * type)
 }
 
 
+/** Make members visible to the garbage collector */
+int Function_traverse(Function * self, visitproc visit, void * arg)
+{
+	Py_VISIT(self->extractor_);
+	Py_VISIT(self->replacer_);
+	Py_VISIT(self->backends_);
+	Py_VISIT(self->def_args_);
+	Py_VISIT(self->def_kwargs_);
+	Py_VISIT(self->def_impl_);
+	Py_VISIT(self->dict_);
+	return 0;
+}
+
+
 PyObject * dummy(PyObject * /*self*/, PyObject * args)
 {
 	Py_RETURN_NONE;
@@ -410,43 +419,44 @@ static PyGetSetDef Function_getset[] =
 
 static PyTypeObject FunctionType = {
 	PyVarObject_HEAD_INIT(NULL, 0)
-	"_uarray.Function",            /* tp_name */
-	sizeof(Function),              /* tp_basicsize */
-	0,                             /* tp_itemsize */
-	(destructor)Function::dealloc, /* tp_dealloc */
-	0,                             /* tp_print */
-	0,                             /* tp_getattr */
-	0,                             /* tp_setattr */
-	0,                             /* tp_reserved */
-	(reprfunc)Function_repr,       /* tp_repr */
-	0,                             /* tp_as_number */
-	0,                             /* tp_as_sequence */
-	0,                             /* tp_as_mapping */
-	0,                             /* tp_hash  */
-	uarray_function_call,          /* tp_call */
-	0,                             /* tp_str */
-	PyObject_GenericGetAttr,       /* tp_getattro */
-	PyObject_GenericSetAttr,       /* tp_setattro */
-	0,                             /* tp_as_buffer */
-	Py_TPFLAGS_DEFAULT,            /* tp_flags */
-	0,                             /* tp_doc */
-	0,                             /* tp_traverse */
-	0,                             /* tp_clear */
-	0,                             /* tp_richcompare */
-	0,                             /* tp_weaklistoffset */
-	0,                             /* tp_iter */
-	0,                             /* tp_iternext */
-	0,                             /* tp_methods */
-	0,                             /* tp_members */
-	Function_getset,               /* tp_getset */
-	0,                             /* tp_base */
-	0,                             /* tp_dict */
-	Function_descr_get,            /* tp_descr_get */
-	0,                             /* tp_descr_set */
-	offsetof(Function, dict_),     /* tp_dictoffset */
-	(initproc)Function::init,      /* tp_init */
-	0,                             /* tp_alloc */
-	Function::new_,                /* tp_new */
+	"_uarray.Function",             /* tp_name */
+	sizeof(Function),               /* tp_basicsize */
+	0,                              /* tp_itemsize */
+	(destructor)Function::dealloc,  /* tp_dealloc */
+	0,                              /* tp_print */
+	0,                              /* tp_getattr */
+	0,                              /* tp_setattr */
+	0,                              /* tp_reserved */
+	(reprfunc)Function_repr,        /* tp_repr */
+	0,                              /* tp_as_number */
+	0,                              /* tp_as_sequence */
+	0,                              /* tp_as_mapping */
+	0,                              /* tp_hash  */
+	(ternaryfunc)Function_call,     /* tp_call */
+	0,                              /* tp_str */
+	PyObject_GenericGetAttr,        /* tp_getattro */
+	PyObject_GenericSetAttr,        /* tp_setattro */
+	0,                              /* tp_as_buffer */
+	(Py_TPFLAGS_DEFAULT
+	 | Py_TPFLAGS_HAVE_GC),         /* tp_flags */
+	0,                              /* tp_doc */
+	(traverseproc)Function_traverse,/* tp_traverse */
+	0,                              /* tp_clear */
+	0,                              /* tp_richcompare */
+	0,                              /* tp_weaklistoffset */
+	0,                              /* tp_iter */
+	0,                              /* tp_iternext */
+	0,                              /* tp_methods */
+	0,                              /* tp_members */
+	Function_getset,                /* tp_getset */
+	0,                              /* tp_base */
+	0,                              /* tp_dict */
+	Function_descr_get,             /* tp_descr_get */
+	0,                              /* tp_descr_set */
+	offsetof(Function, dict_),      /* tp_dictoffset */
+	(initproc)Function::init,       /* tp_init */
+	0,                              /* tp_alloc */
+	Function::new_,                 /* tp_new */
 };
 
 }  // namespace (anonymous)
@@ -475,7 +485,7 @@ PyInit__uarray(void)
 			PyExc_NotImplementedError,
 			nullptr));
 	PyModule_AddObject(
-		m, "BackendNotImplementedError", BackendNotImplementedError);
+		m, "BackendNotImplementedError", BackendNotImplementedError.release());
 
 	return m;
 }
