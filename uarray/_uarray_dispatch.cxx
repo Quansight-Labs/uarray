@@ -196,7 +196,7 @@ py_ref Function::canonicalize_kwargs(PyObject * kwargs)
 	while (PyDict_Next(def_kwargs_, &pos, &key, &def_value))
 	{
 		auto val = PyDict_GetItem(kwargs, key);
-		if (is_default(val, def_value))
+		if (val && is_default(val, def_value))
 		{
 			PyDict_DelItem(kwargs, key);
 		}
@@ -250,7 +250,6 @@ py_func_args Function::replace_dispatchables(
 		PyErr_SetString(PyExc_TypeError,
 		                "Argument replacer must return a 2-tuple (args, kwargs)");
 		return {};
-
 	}
 
 	auto new_args = py_ref::ref(PyTuple_GET_ITEM(res.get(), 0));
@@ -465,14 +464,12 @@ static PyTypeObject FunctionType = {
 PyMODINIT_FUNC
 PyInit__uarray(void)
 {
-	PyObject* m;
-
 	if (PyType_Ready(&FunctionType) < 0)
-		return NULL;
+		return nullptr;
 
-	m = PyModule_Create(&uarray_module);
-	if (m == NULL)
-		return NULL;
+	auto m = py_ref::steal(PyModule_Create(&uarray_module));
+	if (!m)
+		return nullptr;
 
 	Py_INCREF(&FunctionType);
 	PyModule_AddObject(m, "Function", (PyObject *)&FunctionType);
@@ -484,8 +481,11 @@ PyInit__uarray(void)
 			" backend is found for a method.",
 			PyExc_NotImplementedError,
 			nullptr));
+	if (!BackendNotImplementedError)
+		return nullptr;
+	Py_INCREF(BackendNotImplementedError.get());
 	PyModule_AddObject(
-		m, "BackendNotImplementedError", BackendNotImplementedError.release());
+		m, "BackendNotImplementedError", BackendNotImplementedError);
 
-	return m;
+	return m.release();
 }
