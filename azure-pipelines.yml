@@ -16,7 +16,7 @@ jobs:
 
   - script: |
       source activate uarray
-      python3 -X dev `which pytest` -v
+      pytest
     displayName: Run tests
 
   - task: PublishCodeCoverageResults@1
