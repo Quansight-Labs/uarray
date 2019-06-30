@@ -142,7 +142,8 @@ def generate_multimethod(
             result = options.backend.__ua_function__(inner, a, kw)
 
             if result is NotImplemented:
-                result = try_default(a, kw, options, errors)
+                with set_backend(options.backend, only=True, coerce=options.coerce):
+                    result = try_default(a, kw, options, errors)
 
             if result is not NotImplemented:
                 break
@@ -309,7 +310,7 @@ def skip_backend(backend):
     --------
     set_backend: A context manager that allows setting of backends.
     """
-    skip = _get_skipped_backends(backend.domain)
+    skip = _get_skipped_backends(backend.__ua_domain__)
     new = set(skip.get())
     new.add(backend)
     token = skip.set(new)
