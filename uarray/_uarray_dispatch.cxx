@@ -122,7 +122,8 @@ struct Function
 				return -1;
 			}
 
-			if (!PyCallable_Check(extractor) || !PyCallable_Check(replacer))
+			if (!PyCallable_Check(extractor)
+			    || (replacer != Py_None && !PyCallable_Check(replacer)))
 			{
 				PyErr_SetString(PyExc_TypeError,
 				                "Argument extractor and replacer must be callable");
