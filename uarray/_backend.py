@@ -142,8 +142,7 @@ def generate_multimethod(
             result = options.backend.__ua_function__(inner, a, kw)
 
             if result is NotImplemented:
-                with set_backend(options.backend, only=True, coerce=options.coerce):
-                    result = try_default(a, kw, options, errors)
+                result = try_default(a, kw, options, errors)
 
             if result is not NotImplemented:
                 break
