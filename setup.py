@@ -47,17 +47,22 @@ with open("README.md") as f:
 class build_cpp11_ext(build_ext):
     def build_extension(self, ext):
         cc = self.compiler
-        if cc.compiler_type == 'unix':
-            ext.extra_compile_args.append('--std=c++11')
+        if cc.compiler_type == "unix":
+            ext.extra_compile_args.append("--std=c++11")
         build_ext.build_extension(self, ext)
 
 
-cmdclass = {'build_ext': build_cpp11_ext}
+cmdclass = {"build_ext": build_cpp11_ext}
 cmdclass.update(versioneer.get_cmdclass())
 
 
 extensions = [
-    Extension('uarray._uarray', sources=['uarray/_uarray_dispatch.cxx'], language='c++')
+    Extension(
+        "uarray._uarray",
+        sources=["uarray/_uarray_dispatch.cxx"],
+        depends=["uarray/_python_support.h"],
+        language="c++",
+    )
 ]
 
 setup(

@@ -4,67 +4,9 @@
 #include <new>
 #include <cstddef>
 
+#include "_python_support.h"
+
 namespace {
-class py_ref
-{
-	explicit py_ref(PyObject * object): obj(object) {}
-public:
-
-	py_ref(): obj(nullptr) {}
-	py_ref(std::nullptr_t): py_ref() {}
-
-	py_ref(const py_ref & other): obj(other.obj) { Py_XINCREF(obj); }
-	py_ref(py_ref && other): obj(other.obj) { other.obj = nullptr; }
-
-	static py_ref steal(PyObject * object) { return py_ref(object); }
-
-	static py_ref ref(PyObject * object)
-		{
-			Py_XINCREF(object);
-			return py_ref(object);
-		}
-
-	~py_ref(){ Py_XDECREF(obj); }
-
-	py_ref & operator = (const py_ref & other)
-		{
-			py_ref(other).swap(*this);
-			return *this;
-		}
-
-	py_ref & operator = (py_ref && other)
-		{
-			py_ref(std::move(other)).swap(*this);
-			return *this;
-		}
-
-	void swap(py_ref & other)
-		{
-			std::swap(other.obj, obj);
-		}
-
-	explicit operator bool () const { return obj != nullptr; }
-
-	operator PyObject* () const { return get(); }
-
-	PyObject * get() const { return obj; }
-	PyObject * release()
-		{
-			PyObject * t = obj;
-			obj = nullptr;
-			return t;
-		}
-private:
-	PyObject * obj;
-};
-
-template <typename ... Ts>
-py_ref py_make_tuple(Ts... args)
-{
-	using py_obj = PyObject *;
-	return py_ref::steal(PyTuple_Pack(sizeof...(args), py_obj{args}...));
-}
-
 
 struct py_func_args { py_ref args, kwargs; };
 
