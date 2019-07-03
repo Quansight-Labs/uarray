@@ -1,12 +1,332 @@
 
 #include <Python.h>
+#include <algorithm>
 #include <utility>
 #include <new>
 #include <cstddef>
+#include <vector>
+#include <unordered_map>
+#include <string>
 
 #include "_python_support.h"
 
 namespace {
+
+struct global_backends
+{
+  py_ref global;
+  std::vector<py_ref> registered;
+};
+
+
+struct backend_options
+{
+  py_ref backend;
+  bool coerce, only;
+};
+
+struct local_backends
+{
+  std::vector<py_ref> skipped;
+  std::vector<backend_options> preferred;
+};
+
+struct all_backends
+{
+  global_backends * globals = nullptr;
+  py_contextvar<local_backends> * locals = nullptr;
+};
+
+static std::unordered_map<std::string, global_backends> global_domain_map;
+
+#if !HAS_CONTEXT_VARS
+#  define CONTEXT_LOCAL thread_local
+#else
+#  define CONTEXT_LOCAL
+#endif
+
+CONTEXT_LOCAL std::unordered_map<
+  std::string, py_contextvar<local_backends>> local_domain_map;
+
+std::string domain_to_string(PyObject * domain)
+{
+  if (!PyUnicode_Check(domain))
+  {
+    PyErr_SetString(PyExc_TypeError, "__ua_domain__ must be a string");
+    return {};
+  }
+
+  Py_ssize_t size;
+  const char * str = PyUnicode_AsUTF8AndSize(domain, &size);
+  if (!str)
+    return {};
+
+  if (size == 0)
+  {
+    PyErr_SetString(PyExc_ValueError, "__ua_domain__ must be non-empty");
+    return {};
+  }
+
+  return std::string(str, size);
+}
+
+std::string backend_to_domain_string(PyObject * backend)
+{
+  auto domain = py_ref::steal(PyObject_GetAttrString(backend, "__ua_domain__"));
+  if (!domain)
+    return {};
+
+  return domain_to_string(domain);
+}
+
+
+PyObject * set_global_backend(PyObject * /*self*/, PyObject * args)
+{
+  PyObject * backend;
+  if (!PyArg_ParseTuple(args, "O", &backend))
+    return nullptr;
+
+  auto domain = backend_to_domain_string(backend);
+  if (domain.empty())
+    return nullptr;
+
+  global_domain_map[domain].global = py_ref::ref(backend);
+  Py_RETURN_NONE;
+}
+
+PyObject * register_backend(PyObject * /*self*/, PyObject * args)
+{
+  PyObject * backend;
+  if (!PyArg_ParseTuple(args, "O", &backend))
+    return nullptr;
+
+  auto domain = backend_to_domain_string(backend);
+  if (domain.empty())
+    return nullptr;
+
+  global_domain_map[domain].registered.push_back(py_ref::ref(backend));
+  Py_RETURN_NONE;
+}
+
+
+struct SetBackendContext
+{
+  PyObject_HEAD
+
+  using backends_type = py_contextvar<local_backends>;
+
+  backend_options new_backend;
+  backends_type * backends;
+  backends_type::token restore_token;
+
+  static void dealloc(SetBackendContext * self)
+		{
+			self->~SetBackendContext();
+			Py_TYPE(self)->tp_free(self);
+		}
+
+	static PyObject * new_(PyTypeObject * type, PyObject * args, PyObject * kwargs)
+		{
+			auto self = reinterpret_cast<SetBackendContext *>(type->tp_alloc(type, 0));
+			if (self == nullptr)
+				return nullptr;
+
+			// Placement new
+			self = new (self) SetBackendContext;
+			return reinterpret_cast<PyObject *>(self);
+		}
+
+  static int init(
+    SetBackendContext * self, PyObject * args, PyObject * kwargs)
+    {
+      static const char * kwlist[] = {"backend", "coerce", "only", nullptr};
+      PyObject * backend = nullptr;
+      PyObject * coerce = nullptr;
+      PyObject * only = nullptr;
+
+      if (!PyArg_ParseTupleAndKeywords(
+            args, kwargs,
+            "O|O!O!", (char**)kwlist,
+            &backend,
+            &PyBool_Type, &coerce,
+            &PyBool_Type, &only))
+        return -1;
+
+
+      auto domain = backend_to_domain_string(backend);
+      if (domain.empty())
+        return -1;
+
+      try { self->backends = &local_domain_map[domain]; }
+      catch(std::bad_alloc&)
+      {
+        PyErr_NoMemory();
+        return -1;
+      }
+      if (!self->backends)
+        return -1;
+
+      self->new_backend.backend = py_ref::ref(backend);
+      self->new_backend.coerce = (coerce == Py_True);
+      self->new_backend.only = (only == Py_True);
+
+      return 0;
+    }
+
+  static PyObject * enter__(SetBackendContext * self, PyObject * /*args*/)
+    {
+      auto * curr_backends = self->backends->get();
+      if (!curr_backends)
+      {
+        if (!PyErr_Occurred())
+          PyErr_SetString(PyExc_RuntimeError,
+                          "Failed to get preferred backends");
+        return nullptr;
+      }
+
+      auto new_backends = *curr_backends;
+      new_backends.preferred.push_back(self->new_backend);
+      self->restore_token = self->backends->set(std::move(new_backends));
+      if (PyErr_Occurred())
+        return nullptr;
+
+      Py_RETURN_NONE;
+    }
+
+  static PyObject * exit__(SetBackendContext * self, PyObject * /*args*/)
+    {
+      self->backends->reset(std::move(self->restore_token));
+      Py_RETURN_NONE;
+    }
+};
+
+
+struct SkipBackendContext
+{
+  PyObject_HEAD
+
+  using backends_type = py_contextvar<local_backends>;
+
+  py_ref skip_backend_;
+  backends_type * backends_;
+  backends_type::token restore_token_;
+
+  static void dealloc(SkipBackendContext * self)
+		{
+			self->~SkipBackendContext();
+			Py_TYPE(self)->tp_free(self);
+		}
+
+	static PyObject * new_(PyTypeObject * type, PyObject * args, PyObject * kwargs)
+		{
+			auto self = reinterpret_cast<SkipBackendContext *>(type->tp_alloc(type, 0));
+			if (self == nullptr)
+				return nullptr;
+
+			// Placement new
+			self = new (self) SkipBackendContext;
+			return reinterpret_cast<PyObject *>(self);
+		}
+
+  static int init(
+    SkipBackendContext * self, PyObject * args, PyObject * kwargs)
+    {
+      static const char *kwlist[] = {"backend", nullptr};
+      PyObject * backend;
+
+      if (!PyArg_ParseTupleAndKeywords(args, kwargs,
+                                       "O", (char**)kwlist,
+                                       &backend))
+        return -1;
+
+      auto domain = backend_to_domain_string(backend);
+      if (domain.empty())
+        return -1;
+
+      try { self->backends_ = &local_domain_map[domain]; }
+      catch(std::bad_alloc&)
+      {
+        PyErr_NoMemory();
+        return -1;
+      }
+
+      self->skip_backend_ = py_ref::ref(backend);
+
+      return 0;
+    }
+
+  static PyObject * enter__(SkipBackendContext * self, PyObject * /*args*/)
+    {
+      auto * curr_backends = self->backends_->get();
+      if (!curr_backends)
+      {
+        PyErr_SetString(PyExc_RuntimeError,
+                        "Failed to get skipped backends");
+        return nullptr;
+      }
+
+      auto new_backends = *curr_backends;
+      new_backends.skipped.push_back(self->skip_backend_);
+      self->restore_token_ = self->backends_->set(std::move(new_backends));
+      if (!self->restore_token_)
+        return nullptr;
+
+      Py_RETURN_NONE;
+    }
+
+  static PyObject * exit__(SkipBackendContext * self, PyObject * /*args*/)
+    {
+      self->backends_->reset(std::move(self->restore_token_));
+      Py_RETURN_NONE;
+    }
+};
+
+
+template <typename Callback>
+bool for_each_backend(const std::string & domain_key, Callback call)
+{
+  auto * locals = local_domain_map[domain_key].get();
+  if (!locals)
+    return false;
+
+
+  auto & skip = locals->skipped;
+  auto & pref = locals->preferred;
+
+  auto should_skip =
+    [&](PyObject * backend)
+      {
+        auto it = std::find_if(
+          skip.begin(), skip.end(),
+          [&](const py_ref & be) { return be.get() == backend; });
+
+        return (it != skip.end());
+      };
+
+  for (auto & options : pref)
+  {
+    if (should_skip(options.backend.get()))
+      continue;
+
+    if (!call(options.backend.get(), options.coerce))
+      return false;
+
+    if (options.only || options.coerce)
+      return true;
+  }
+
+  auto & globals = global_domain_map[domain_key];
+
+  if (globals.global && !call(globals.global.get(), false))
+    return false;
+
+  for (auto & backend : globals.registered)
+  {
+    if (!should_skip(backend) && !call(backend.get(), false))
+      return false;
+  }
+  return true;
+}
 
 struct py_func_args { py_ref args, kwargs; };
 
@@ -14,7 +334,7 @@ struct Function
 {
 	PyObject_HEAD
 	py_ref extractor_, replacer_;   // functions to handle dispatchables
-	py_ref backends_;               // function returning backends as iterable
+  std::string domain_key_;        // associated __ua_domain__ in UTF8
 	py_ref def_args_, def_kwargs_;  // default arguments
 	py_ref def_impl_;               // default implementation
 	py_ref dict_;                   // __dict__
@@ -48,15 +368,15 @@ struct Function
 	static int init(Function * self, PyObject * args, PyObject * /*kwargs*/)
 		{
 			PyObject * extractor, * replacer;
-			PyObject * backends;
+      PyObject * domain;
 			PyObject * def_args, * def_kwargs;
 			PyObject * def_impl;
 
 			if (!PyArg_ParseTuple(
-				    args, "OOOO!O!O",
+				    args, "OOO!O!O!O",
 				    &extractor,
 				    &replacer,
-				    &backends,
+            &PyUnicode_Type, &domain,
 				    &PyTuple_Type, &def_args,
 				    &PyDict_Type, &def_kwargs,
 				    &def_impl))
@@ -72,13 +392,6 @@ struct Function
 				return -1;
 			}
 
-			if (!PyCallable_Check(backends))
-			{
-				PyErr_SetString(PyExc_TypeError,
-				                "The backends argument must be callable");
-				return -1;
-			}
-
 			if (def_impl != Py_None && !PyCallable_Check(def_impl))
 			{
 				PyErr_SetString(PyExc_TypeError,
@@ -86,9 +399,12 @@ struct Function
 				return -1;
 			}
 
+      self->domain_key_ = domain_to_string(domain);
+      if (PyErr_Occurred())
+        return -1;
+
 			self->extractor_ = py_ref::ref(extractor);
 			self->replacer_ = py_ref::ref(replacer);
-			self->backends_ = py_ref::ref(backends);
 			self->def_args_ = py_ref::ref(def_args);
 			self->def_kwargs_ = py_ref::ref(def_kwargs);
 			self->def_impl_ = py_ref::ref(def_impl);
@@ -225,63 +541,44 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
 	auto args = canonicalize_args(args_);
 	auto kwargs = canonicalize_kwargs(kwargs_);
 
-	auto backends = py_ref::steal(
-		PyObject_Call(backends_, py_make_tuple(), nullptr));
-	if (!backends)
-		return nullptr;
+  py_ref result;
 
-	auto i_backends = py_ref::steal(PyObject_GetIter(backends));
-	if (!i_backends)
-	{
-		PyErr_SetString(PyExc_TypeError, "backends must return an iterable");
-		return nullptr;
-	}
+  for_each_backend(
+    domain_key_,
+    [&, this](PyObject * backend, bool coerce)
+      {
+        auto new_args = replace_dispatchables(backend, args, kwargs,
+                                              coerce ? Py_True : Py_False);
+        if (new_args.args == Py_NotImplemented)
+          return true;
 
-	while (auto be = py_ref::steal(PyIter_Next(i_backends)))
-	{
-		auto backend = py_ref::steal(PyObject_GetAttrString(be, "backend"));
-		auto coerce = py_ref::steal(PyObject_GetAttrString(be, "coerce"));
+        if (new_args.args == nullptr)
+          return false;
 
-		if (!backend || !coerce)
-		{
-			PyErr_SetString(PyExc_TypeError, "Invalid backend spec");
-			return nullptr;
-		}
+        auto ua_function =
+          py_ref::steal(PyObject_GetAttrString(backend, "__ua_function__"));
+        if (!ua_function)
+        {
+          PyErr_SetString(PyExc_TypeError, "Backend must have __ua_function__");
+          return false;
+        }
 
-		if (!PyBool_Check(coerce))
-		{
-			PyErr_SetString(PyExc_TypeError, "coerce must be a Bool");
-			return nullptr;
-		}
+        auto ua_func_args = py_make_tuple(
+          reinterpret_cast<PyObject *>(this), new_args.args, new_args.kwargs);
+        result = py_ref::steal(
+          PyObject_Call(ua_function, ua_func_args, nullptr));
+        if (result != Py_NotImplemented)
+          return true;
 
-		auto new_args = replace_dispatchables(backend, args, kwargs, coerce);
-		if (new_args.args == Py_NotImplemented)
-		{
-			continue;
-		}
-		if (new_args.args == nullptr)
-		{
-			return nullptr;
-		}
-
-		auto ua_function =
-			py_ref::steal(PyObject_GetAttrString(backend, "__ua_function__"));
-		if (!ua_function)
-		{
-			PyErr_SetString(PyExc_TypeError, "Backend must have __ua_function__");
-			return nullptr;
-		}
-
-		auto ua_func_args = py_make_tuple(
-			reinterpret_cast<PyObject *>(this), new_args.args, new_args.kwargs);
-		auto result = py_ref::steal(
-			PyObject_Call(ua_function, ua_func_args, nullptr));
-		if (result != Py_NotImplemented)
-			return result.release();
-	}
+        return false;
+      }
+    );
 
 	if (PyErr_Occurred())
 		return nullptr;
+
+  if (result != Py_NotImplemented)
+    return result.release();
 
 	if (def_impl_ == Py_None)
 	{
@@ -323,7 +620,6 @@ int Function_traverse(Function * self, visitproc visit, void * arg)
 {
 	Py_VISIT(self->extractor_);
 	Py_VISIT(self->replacer_);
-	Py_VISIT(self->backends_);
 	Py_VISIT(self->def_args_);
 	Py_VISIT(self->def_kwargs_);
 	Py_VISIT(self->def_impl_);
@@ -340,6 +636,8 @@ PyObject * dummy(PyObject * /*self*/, PyObject * args)
 
 PyMethodDef method_defs[] =
 {
+  {"set_global_backend", set_global_backend, METH_VARARGS, nullptr},
+  {"register_backend", register_backend, METH_VARARGS, nullptr},
 	{"dummy", dummy, METH_VARARGS, nullptr},
 	{NULL} /* Sentinel */
 };
@@ -353,13 +651,13 @@ PyModuleDef uarray_module =
 	method_defs
 };
 
-static PyGetSetDef Function_getset[] =
+PyGetSetDef Function_getset[] =
 {
 	{"__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict},
 	{NULL} /* Sentinel */
 };
 
-static PyTypeObject FunctionType = {
+PyTypeObject FunctionType = {
 	PyVarObject_HEAD_INIT(NULL, 0)
 	"_uarray.Function",             /* tp_name */
 	sizeof(Function),               /* tp_basicsize */
@@ -401,21 +699,128 @@ static PyTypeObject FunctionType = {
 	Function::new_,                 /* tp_new */
 };
 
+
+PyMethodDef SetBackendContext_Methods[] = {
+  {"__enter__", (binaryfunc)SetBackendContext::enter__, METH_NOARGS, nullptr},
+  {"__exit__", (binaryfunc)SetBackendContext::exit__, METH_VARARGS, nullptr},
+  {NULL}  /* Sentinel */
+};
+
+PyTypeObject SetBackendContextType = {
+	PyVarObject_HEAD_INIT(NULL, 0)
+	"_uarray.SetBackendContext",             /* tp_name */
+	sizeof(SetBackendContext),               /* tp_basicsize */
+	0,                                       /* tp_itemsize */
+	(destructor)SetBackendContext::dealloc,  /* tp_dealloc */
+	0,                                       /* tp_print */
+	0,                                       /* tp_getattr */
+	0,                                       /* tp_setattr */
+	0,                                       /* tp_reserved */
+	0,                                       /* tp_repr */
+	0,                                       /* tp_as_number */
+	0,                                       /* tp_as_sequence */
+	0,                                       /* tp_as_mapping */
+	0,                                       /* tp_hash  */
+	0,                                       /* tp_call */
+	0,                                       /* tp_str */
+	0,                                       /* tp_getattro */
+	0,                                       /* tp_setattro */
+	0,                                       /* tp_as_buffer */
+	Py_TPFLAGS_DEFAULT,                      /* tp_flags */
+	0,                                       /* tp_doc */
+	0,                                       /* tp_traverse */
+	0,                                       /* tp_clear */
+	0,                                       /* tp_richcompare */
+	0,                                       /* tp_weaklistoffset */
+	0,                                       /* tp_iter */
+	0,                                       /* tp_iternext */
+	SetBackendContext_Methods,               /* tp_methods */
+	0,                                       /* tp_members */
+	0,                                       /* tp_getset */
+	0,                                       /* tp_base */
+	0,                                       /* tp_dict */
+	0,                                       /* tp_descr_get */
+	0,                                       /* tp_descr_set */
+	0,                                       /* tp_dictoffset */
+	(initproc)SetBackendContext::init,       /* tp_init */
+	0,                                       /* tp_alloc */
+	SetBackendContext::new_,                 /* tp_new */
+};
+
+
+PyMethodDef SkipBackendContext_Methods[] = {
+  {"__enter__", (binaryfunc)SkipBackendContext::enter__, METH_NOARGS, nullptr},
+  {"__exit__", (binaryfunc)SkipBackendContext::exit__, METH_VARARGS, nullptr},
+  {NULL}  /* Sentinel */
+};
+
+PyTypeObject SkipBackendContextType = {
+	PyVarObject_HEAD_INIT(NULL, 0)
+	"_uarray.SkipBackendContext",             /* tp_name */
+	sizeof(SkipBackendContext),               /* tp_basicsize */
+	0,                                        /* tp_itemsize */
+	(destructor)SkipBackendContext::dealloc,  /* tp_dealloc */
+	0,                                        /* tp_print */
+	0,                                        /* tp_getattr */
+	0,                                        /* tp_setattr */
+	0,                                        /* tp_reserved */
+	0,                                        /* tp_repr */
+	0,                                        /* tp_as_number */
+	0,                                        /* tp_as_sequence */
+	0,                                        /* tp_as_mapping */
+	0,                                        /* tp_hash  */
+	0,                                        /* tp_call */
+	0,                                        /* tp_str */
+	0,                                        /* tp_getattro */
+	0,                                        /* tp_setattro */
+	0,                                        /* tp_as_buffer */
+	Py_TPFLAGS_DEFAULT,                       /* tp_flags */
+	0,                                        /* tp_doc */
+	0,                                        /* tp_traverse */
+	0,                                        /* tp_clear */
+	0,                                        /* tp_richcompare */
+	0,                                        /* tp_weaklistoffset */
+	0,                                        /* tp_iter */
+	0,                                        /* tp_iternext */
+	SkipBackendContext_Methods,               /* tp_methods */
+	0,                                        /* tp_members */
+	0,                                        /* tp_getset */
+	0,                                        /* tp_base */
+	0,                                        /* tp_dict */
+	0,                                        /* tp_descr_get */
+	0,                                        /* tp_descr_set */
+	0,                                        /* tp_dictoffset */
+	(initproc)SkipBackendContext::init,       /* tp_init */
+	0,                                        /* tp_alloc */
+	SkipBackendContext::new_,                 /* tp_new */
+};
+
 }  // namespace (anonymous)
 
 
 PyMODINIT_FUNC
 PyInit__uarray(void)
 {
-	if (PyType_Ready(&FunctionType) < 0)
-		return nullptr;
 
 	auto m = py_ref::steal(PyModule_Create(&uarray_module));
 	if (!m)
 		return nullptr;
 
+	if (PyType_Ready(&FunctionType) < 0)
+		return nullptr;
 	Py_INCREF(&FunctionType);
 	PyModule_AddObject(m, "Function", (PyObject *)&FunctionType);
+
+  if (PyType_Ready(&SetBackendContextType) < 0)
+    return nullptr;
+  Py_INCREF(&SetBackendContextType);
+  PyModule_AddObject(m, "SetBackendContext", (PyObject*)&SetBackendContextType);
+
+  if (PyType_Ready(&SkipBackendContextType) < 0)
+    return nullptr;
+  Py_INCREF(&SkipBackendContextType);
+  PyModule_AddObject(
+    m, "SkipBackendContext", (PyObject*)&SkipBackendContextType);
 
 	BackendNotImplementedError = py_ref::steal(
 		PyErr_NewExceptionWithDoc(

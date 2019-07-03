@@ -4,21 +4,22 @@
 #include <string>
 
 // PyContextVar is new in python 3.7
-#define HAS_CONTEXT_VARS           (PY_VERSION_HEX >= 0x03070000)
+#define HAS_CONTEXT_VARS           (0)  // Context var wrapper doesn't work?
+//#define HAS_CONTEXT_VARS           (PY_VERSION_HEX >= 0x03070000)
 // In python 3.7.1, the context vars API was changed to take PyObject *
 #define HAS_CONTEXT_VAR_OBJECT_API (PY_VERSION_HEX >= 0x03070100)
 
 /** Handle to a python object that automatically handles DECREFs */
 class py_ref
 {
-	explicit py_ref(PyObject * object): obj(object) {}
+	explicit py_ref(PyObject * object): obj_(object) {}
 public:
 
-	py_ref() noexcept: obj(nullptr) {}
+	py_ref() noexcept: obj_(nullptr) {}
 	py_ref(std::nullptr_t) noexcept: py_ref() {}
 
-	py_ref(const py_ref & other) noexcept: obj(other.obj) { Py_XINCREF(obj); }
-	py_ref(py_ref && other) noexcept: obj(other.obj) { other.obj = nullptr; }
+	py_ref(const py_ref & other) noexcept: obj_(other.obj_) { Py_XINCREF(obj_); }
+	py_ref(py_ref && other) noexcept: obj_(other.obj_) { other.obj_ = nullptr; }
 
 	static py_ref steal(PyObject * object) { return py_ref(object); }
 
@@ -28,7 +29,7 @@ public:
 			return py_ref(object);
 		}
 
-	~py_ref(){ Py_XDECREF(obj); }
+	~py_ref(){ Py_XDECREF(obj_); }
 
 	py_ref & operator = (const py_ref & other) noexcept
 		{
@@ -44,7 +45,7 @@ public:
 
   void swap(py_ref & other) noexcept
     {
-      std::swap(other.obj, obj);
+      std::swap(other.obj_, obj_);
     }
 
   friend void swap(py_ref & a, py_ref & b) noexcept
@@ -52,19 +53,23 @@ public:
       a.swap(b);
     }
 
-	explicit operator bool () const { return obj != nullptr; }
+	explicit operator bool () const { return obj_ != nullptr; }
 
 	operator PyObject* () const { return get(); }
 
-	PyObject * get() const { return obj; }
+	PyObject * get() const { return obj_; }
 	PyObject * release()
 		{
-			PyObject * t = obj;
-			obj = nullptr;
+			PyObject * t = obj_;
+			obj_ = nullptr;
 			return t;
 		}
+  void reset()
+    {
+      Py_CLEAR(obj_);
+    }
 private:
-	PyObject * obj;
+	PyObject * obj_;
 };
 
 /** Make tuple from variadic set of PyObjects */
@@ -103,6 +108,8 @@ public:
     token(py_ref ref): token_obj_(std::move(ref)) {}
 
 	public:
+
+    token() = default;
 
 		explicit operator bool() const
 			{
@@ -151,51 +158,70 @@ class py_contextvar:
 {
 
 /** Returns a constant string identifier, unique to the type. */
-  const char * get_unique_id()
+  static const char * get_unique_id()
     {
       static const char * id =
         [] {
-          static char id_[50];  // Memory address of id_ is the unique value
+          static char id_[50];  // Memory address of id_ is unique
           snprintf(id_, sizeof(id_), "py_contextvar<%p>", id_);
           return id_;
         }();
       return id;
     }
 
+  py_ref make_capsule(std::unique_ptr<T> obj)
+    {
+      auto cap = py_ref::steal(
+        PyCapsule_New(
+          static_cast<void*>(obj.get()), get_unique_id(),
+          +[](PyObject * capsule)  // deleter
+             {
+               if (PyCapsule_CheckExact(capsule))
+               {
+                 delete static_cast<T*>(PyCapsule_GetPointer(
+                                          capsule, get_unique_id()));
+               }
+             }));
+
+      if (cap)
+        obj.release();  // capsule will handle deletion
+
+      return cap;
+    }
+
 public:
   using token = py_contextref::token;
 
-	py_contextvar(const char * name): py_contextref(name) {}
+  py_contextvar(): py_contextref(get_unique_id())
+    {
+      py_ref cap = make_capsule(std::unique_ptr<T>(new T));
+      if (!cap)
+        return;
+      py_contextref::set(std::move(cap));
+    }
 
 	T * get()
 		{
 			PyObject * cap = py_contextref::get();
-			if (!PyCapsule_CheckExact(cap))
+			if (!cap)
 				return nullptr;
-			return PyCapsule_GetPointer(cap, get_unique_id());
+      if (!PyCapsule_CheckExact(cap))
+      {
+        PyErr_SetString(PyExc_TypeError, "Context var contained incorrect type");
+        return nullptr;
+      }
+			return static_cast<T*>(PyCapsule_GetPointer(cap, get_unique_id()));
 		}
 
 
 	token set(T value)
 		{
-			std::unique_ptr<T> obj(new T(std::move(value)));
-			py_ref cap = py_ref::steal(
-				PyCapsule_New(
-					static_cast<void*>(obj.get()), get_unique_id(),
-					+[](PyObject * capsule)  // deleter
-						 {
-							 if (PyCapsule_CheckExact(capsule))
-               {
-                 delete PyCapsule_GetPointer(
-                   capsule, get_unique_id());
-               }
-						 }));
+			py_ref cap = make_capsule(std::unique_ptr<T>(new T(std::move(value))));
 
 			if (!cap)
         return {};
 
-      obj.release();  // capsule will handle deletion
-      return py_contextref::set(cap);
+      return py_contextref::set(std::move(cap));
 		}
 
   using py_contextref::operator bool;
@@ -205,62 +231,25 @@ public:
 #else  // HAS_CONTEXT_VARS
 
 
-class py_contextref
-{
-  thread_local py_ref var_;
-public:
+/** Wrap a C++ variable while imitating the py_contextvar API
 
-	class token
-	{
-		py_ref old_var_;
-	public:
-
-		explicit operator bool() const
-			{
-				return !!old_var_;
-			}
-	};
-
-	py_contextvar(const char * /*name*/) {}
-
-	py_ref get()
-		{
-      return var_;
-		}
-
-	token set(py_ref value)
-		{
-      std::swap(var_, value);
-      return {value};
-		}
-
-	bool reset(const token & tok)
-		{
-      if (!tok)
-        return false;
-      var_ = tok.old_var_;
-      return true;
-		}
-
-	explicit operator bool() const
-		{
-			return !!var_;
-		}
-};
-
-
-/** Store a context specific C++ variable */
+This version isn't actually context local at all.
+*/
 template <typename T>
 class py_contextvar
 {
-	thread_local std::shared_ptr<T> var_;
+  std::shared_ptr<T> var_;
 
 public:
 
 	class token
 	{
     std::shared_ptr<T> old_var_;
+    friend py_contextvar;
+    token(std::shared_ptr<T> var): old_var_(std::move(var)) {}
+
 	public:
+    token() = default;
 
 		explicit operator bool() const
 			{
@@ -268,7 +257,9 @@ public:
 			}
 	};
 
-	py_contextvar(const char * /*name*/) {}
+	py_contextvar():
+    var_(std::make_shared<T>())
+    {}
 
 	T * get()
 		{
