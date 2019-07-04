@@ -301,7 +301,7 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call)
   LoopReturn ret = LoopReturn::Continue;
   for (auto & options : pref)
   {
-    if (should_skip(options.backend.get()))
+    if (should_skip(options.backend))
       continue;
 
     ret = call(options.backend.get(), options.coerce);
@@ -314,7 +314,7 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call)
 
   auto & globals = global_domain_map[domain_key];
 
-  if (globals.global)
+  if (globals.global && !should_skip(globals.global))
   {
     ret = call(globals.global.get(), false);
     if (ret != LoopReturn::Continue)
