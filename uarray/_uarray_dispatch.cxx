@@ -299,8 +299,9 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call)
       };
 
   LoopReturn ret = LoopReturn::Continue;
-  for (auto & options : pref)
+  for (auto it = pref.rbegin(); it != pref.rend(); ++it)
   {
+    auto & options = *it;
     if (should_skip(options.backend))
       continue;
 
