@@ -9,7 +9,7 @@
 // In python 3.7.1, the context vars API was changed to take PyObject *
 #define HAS_CONTEXT_VAR_OBJECT_API (PY_VERSION_HEX >= 0x03070100)
 
-/** Handle to a python object that automatically handles DECREFs */
+/** Handle to a python object that automatically DECREFs */
 class py_ref
 {
   explicit py_ref(PyObject * object): obj_(object) {}
@@ -21,8 +21,10 @@ public:
   py_ref(const py_ref & other) noexcept: obj_(other.obj_) { Py_XINCREF(obj_); }
   py_ref(py_ref && other) noexcept: obj_(other.obj_) { other.obj_ = nullptr; }
 
+  /** Construct from new reference (No INCREF) */
   static py_ref steal(PyObject * object) { return py_ref(object); }
 
+  /** Construct from borrowed reference (and INCREF) */
   static py_ref ref(PyObject * object)
     {
       Py_XINCREF(object);

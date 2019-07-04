@@ -275,13 +275,14 @@ struct SkipBackendContext
     }
 };
 
+enum class LoopReturn { Continue, Break, Error };
 
 template <typename Callback>
-bool for_each_backend(const std::string & domain_key, Callback call)
+LoopReturn for_each_backend(const std::string & domain_key, Callback call)
 {
   auto * locals = local_domain_map[domain_key].get();
   if (!locals)
-    return false;
+    return LoopReturn::Error;
 
 
   auto & skip = locals->skipped;
@@ -297,29 +298,39 @@ bool for_each_backend(const std::string & domain_key, Callback call)
         return (it != skip.end());
       };
 
+  LoopReturn ret = LoopReturn::Continue;
   for (auto & options : pref)
   {
     if (should_skip(options.backend.get()))
       continue;
 
-    if (!call(options.backend.get(), options.coerce))
-      return false;
+    ret = call(options.backend.get(), options.coerce);
+    if (ret != LoopReturn::Continue)
+      return ret;
 
     if (options.only || options.coerce)
-      return true;
+      return ret;
   }
 
   auto & globals = global_domain_map[domain_key];
 
-  if (globals.global && !call(globals.global.get(), false))
-    return false;
+  if (globals.global)
+  {
+    ret = call(globals.global.get(), false);
+    if (ret != LoopReturn::Continue)
+      return ret;
+  }
 
   for (auto & backend : globals.registered)
   {
-    if (!should_skip(backend) && !call(backend.get(), false))
-      return false;
+    if (should_skip(backend))
+      continue;
+
+    ret = call(backend.get(), false);
+    if (ret != LoopReturn::Continue)
+      return ret;
   }
-  return true;
+  return ret;
 }
 
 struct py_func_args { py_ref args, kwargs; };
@@ -537,41 +548,39 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
 
   py_ref result;
 
-  for_each_backend(
+  auto ret = for_each_backend(
     domain_key_,
     [&, this](PyObject * backend, bool coerce)
       {
         auto new_args = replace_dispatchables(backend, args, kwargs,
                                               coerce ? Py_True : Py_False);
         if (new_args.args == Py_NotImplemented)
-          return true;
-
+          return LoopReturn::Continue;
         if (new_args.args == nullptr)
-          return false;
+          return LoopReturn::Error;
 
         auto ua_function =
           py_ref::steal(PyObject_GetAttrString(backend, "__ua_function__"));
         if (!ua_function)
-        {
-          PyErr_SetString(PyExc_TypeError, "Backend must have __ua_function__");
-          return false;
-        }
+          return LoopReturn::Error;
 
         auto ua_func_args = py_make_tuple(
           reinterpret_cast<PyObject *>(this), new_args.args, new_args.kwargs);
+        if (!ua_func_args)
+          return LoopReturn::Error;
+
         result = py_ref::steal(
           PyObject_Call(ua_function, ua_func_args, nullptr));
-        if (result != Py_NotImplemented)
-          return true;
+        if (result == Py_NotImplemented)
+          return LoopReturn::Continue;
+        if (!result)
+          return LoopReturn::Error;
 
-        return false;
+        return LoopReturn::Break;  // Backend called successfully
       }
     );
 
-  if (PyErr_Occurred())
-    return nullptr;
-
-  if (result != Py_NotImplemented)
+  if (ret != LoopReturn::Continue)
     return result.release();
 
   if (def_impl_ == Py_None)
