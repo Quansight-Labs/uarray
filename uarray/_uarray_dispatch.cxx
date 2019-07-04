@@ -314,9 +314,9 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call)
       };
 
   LoopReturn ret = LoopReturn::Continue;
-  for (auto it = pref.rbegin(); it != pref.rend(); ++it)
+  for (int i = pref.size()-1; i >= 0; --i)
   {
-    auto & options = *it;
+    auto options = pref[i];
     if (should_skip(options.backend))
       continue;
 
@@ -337,8 +337,9 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call)
       return ret;
   }
 
-  for (auto & backend : globals.registered)
+  for (size_t i = 0; i < globals.registered.size(); ++i)
   {
+    py_ref backend = globals.registered[i];
     if (should_skip(backend))
       continue;
 
