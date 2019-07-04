@@ -586,10 +586,34 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
 
         result = py_ref::steal(
           PyObject_Call(ua_function, ua_func_args, nullptr));
-        if (result == Py_NotImplemented)
-          return LoopReturn::Continue;
+
+        // Try the default with this backend
+        if (result == Py_NotImplemented && def_impl_ != Py_None)
+        {
+          backend_options opt;
+          opt.backend = py_ref::ref(backend);
+          opt.coerce = coerce;
+          opt.only = true;
+          auto & pref = local_domain_map[domain_key_].get()->preferred;
+          pref.push_back(std::move(opt));
+
+          result = py_ref::steal(
+            PyObject_Call(def_impl_, new_args.args, new_args.kwargs));
+
+          pref.resize(pref.size()-1);
+
+          if (PyErr_Occurred() && PyErr_ExceptionMatches(BackendNotImplementedError))
+          {
+            PyErr_Clear();  // Suppress exception
+            result = py_ref::ref(Py_NotImplemented);
+          }
+        }
+
         if (!result)
           return LoopReturn::Error;
+
+        if (result == Py_NotImplemented)
+          return LoopReturn::Continue;
 
         return LoopReturn::Break;  // Backend called successfully
       }
