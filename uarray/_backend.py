@@ -21,6 +21,10 @@ ArgumentReplacerType = Callable[[Tuple, Dict, Tuple], Tuple[Tuple, Dict]]
 
 from ._uarray import BackendNotImplementedError
 
+import atexit
+
+atexit.register(_uarray.clear_all_globals)
+
 
 def create_multimethod(*args, **kwargs):
     """

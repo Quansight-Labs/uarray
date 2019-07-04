@@ -31,7 +31,6 @@ struct local_backends
   std::vector<backend_options> preferred;
 };
 
-static std::unordered_map<std::string, global_backends> global_domain_map;
 
 #if !HAS_CONTEXT_VARS
 #  define CONTEXT_LOCAL thread_local
@@ -39,6 +38,9 @@ static std::unordered_map<std::string, global_backends> global_domain_map;
 #  define CONTEXT_LOCAL
 #endif
 
+
+static py_ref BackendNotImplementedError;
+static std::unordered_map<std::string, global_backends> global_domain_map;
 CONTEXT_LOCAL std::unordered_map<
   std::string, py_contextvar<local_backends>> local_domain_map;
 
@@ -71,6 +73,19 @@ std::string backend_to_domain_string(PyObject * backend)
     return {};
 
   return domain_to_string(domain);
+}
+
+
+/** Use to clean up python references before the interpreter is finalized.
+ *
+ * This must be installed in a python atexit handler. This prevents Py_DECREF
+ * being called after the interpreter has already shudown.
+ */
+PyObject * clear_all_globals(PyObject * /*self*/, PyObject * /*args*/)
+{
+  global_domain_map.clear();
+  BackendNotImplementedError.reset();
+  Py_RETURN_NONE;
 }
 
 
@@ -539,7 +554,6 @@ PyObject * Function_call(
 }
 
 
-static py_ref BackendNotImplementedError;
 
 
 PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
@@ -631,29 +645,6 @@ int Function_traverse(Function * self, visitproc visit, void * arg)
   return 0;
 }
 
-
-PyObject * dummy(PyObject * /*self*/, PyObject * args)
-{
-  Py_RETURN_NONE;
-}
-
-
-PyMethodDef method_defs[] =
-{
-  {"set_global_backend", set_global_backend, METH_VARARGS, nullptr},
-  {"register_backend", register_backend, METH_VARARGS, nullptr},
-  {"dummy", dummy, METH_VARARGS, nullptr},
-  {NULL} /* Sentinel */
-};
-
-PyModuleDef uarray_module =
-{
-  PyModuleDef_HEAD_INIT,
-  "_uarray",
-  nullptr,
-  -1,
-  method_defs
-};
 
 PyGetSetDef Function_getset[] =
 {
@@ -799,10 +790,41 @@ PyTypeObject SkipBackendContextType = {
   SkipBackendContext::new_,                 /* tp_new */
 };
 
+
+PyObject * dummy(PyObject * /*self*/, PyObject * args)
+{
+  Py_RETURN_NONE;
+}
+
+
+PyMethodDef method_defs[] =
+{
+  {"set_global_backend", set_global_backend, METH_VARARGS, nullptr},
+  {"register_backend", register_backend, METH_VARARGS, nullptr},
+  {"clear_all_globals", clear_all_globals, METH_NOARGS, nullptr},
+  {"dummy", dummy, METH_VARARGS, nullptr},
+  {NULL} /* Sentinel */
+};
+
+PyModuleDef uarray_module =
+{
+  PyModuleDef_HEAD_INIT,
+  "_uarray",
+  nullptr,
+  -1,
+  method_defs,
+};
+
 }  // namespace (anonymous)
 
 
-PyMODINIT_FUNC
+#if defined(WIN32) || defined(_WIN32)
+#  define MODULE_EXPORT __declspec(dllexport)
+#else
+#  define MODULE_EXPORT __attribute__ ((visibility("default")))
+#endif
+
+extern "C" MODULE_EXPORT PyObject *
 PyInit__uarray(void)
 {
 
