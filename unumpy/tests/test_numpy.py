@@ -15,7 +15,11 @@ import unumpy.sparse_backend as SparseBackend
 
 LIST_BACKENDS = [
     (NumpyBackend, (onp.ndarray, onp.generic)),
-    (XndBackend, xnd.xnd),
+    pytest.param(
+        (XndBackend, xnd.xnd),
+        marks=pytest.mark.xfail(
+            reason="Upstream XND bugs (xnd-project/xnd#47)"),
+    ),
     (DaskBackend, (da.core.Array, onp.generic)),
     (SparseBackend, (sparse.SparseArray, onp.generic)),
     pytest.param(
