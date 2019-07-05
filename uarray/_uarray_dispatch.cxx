@@ -115,6 +115,43 @@ static std::unordered_map<std::string, global_backends> global_domain_map;
 thread_local std::unordered_map<
   std::string, local_backends> local_domain_map;
 
+/** Constant Python string identifiers
+
+Using these with PyObject_GetAttr is faster than PyObject_GetAttrString which
+has to create a new python string internally.
+ */
+struct
+{
+  py_ref ua_convert;
+  py_ref ua_domain;
+  py_ref ua_function;
+
+  bool init()
+    {
+      ua_convert = py_ref::steal(PyUnicode_InternFromString("__ua_convert__"));
+      if (!ua_convert)
+        return false;
+
+      ua_domain = py_ref::steal(PyUnicode_InternFromString("__ua_domain__"));
+      if (!ua_domain)
+        return false;
+
+      ua_function = py_ref::steal(PyUnicode_InternFromString("__ua_function__"));
+      if (!ua_function)
+        return false;
+
+      return true;
+    }
+
+  void clear()
+    {
+      ua_convert.reset();
+      ua_domain.reset();
+      ua_function.reset();
+    }
+} identifiers;
+
+
 std::string domain_to_string(PyObject * domain)
 {
   if (!PyUnicode_Check(domain))
@@ -139,7 +176,8 @@ std::string domain_to_string(PyObject * domain)
 
 std::string backend_to_domain_string(PyObject * backend)
 {
-  auto domain = py_ref::steal(PyObject_GetAttrString(backend, "__ua_domain__"));
+  auto domain = py_ref::steal(
+    PyObject_GetAttr(backend, identifiers.ua_domain));
   if (!domain)
     return {};
 
@@ -156,6 +194,7 @@ PyObject * clear_all_globals(PyObject * /*self*/, PyObject * /*args*/)
 {
   global_domain_map.clear();
   BackendNotImplementedError.reset();
+  identifiers.clear();
   Py_RETURN_NONE;
 }
 
@@ -203,10 +242,11 @@ public:
     enter_size_(size_t(-1))
     {}
 
-  void init(std::vector<T> & backends, T new_backend)
+  bool init(std::vector<T> & backends, T new_backend)
     {
       backends_ = &backends;
       new_backend_ = std::move(new_backend);
+      return true;
     }
 
   bool enter()
@@ -286,7 +326,8 @@ struct SetBackendContext
 
       try
       {
-        self->ctx_.init(local_domain_map[domain].preferred, std::move(opt));
+        if (!self->ctx_.init(local_domain_map[domain].preferred, std::move(opt)))
+          return -1;
       }
       catch(std::bad_alloc&)
       {
@@ -353,7 +394,9 @@ struct SkipBackendContext
 
       try
       {
-        self->ctx_.init(local_domain_map[domain].skipped, py_ref::ref(backend));
+        if (!self->ctx_.init(
+              local_domain_map[domain].skipped, py_ref::ref(backend)))
+          return -1;
       }
       catch(std::bad_alloc&)
       {
@@ -585,8 +628,8 @@ py_ref Function::canonicalize_kwargs(PyObject * kwargs)
 py_func_args Function::replace_dispatchables(
   PyObject * backend, PyObject * args, PyObject * kwargs, PyObject * coerce)
 {
-  auto ua_convert =
-    py_ref::steal(PyObject_GetAttrString(backend, "__ua_convert__"));
+  auto ua_convert = py_ref::steal(
+    PyObject_GetAttr(backend, identifiers.ua_convert));
 
   if (!ua_convert)
   {
@@ -669,8 +712,8 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
         if (new_args.args == nullptr)
           return LoopReturn::Error;
 
-        auto ua_function =
-          py_ref::steal(PyObject_GetAttrString(backend, "__ua_function__"));
+        auto ua_function = py_ref::steal(
+          PyObject_GetAttr(backend, identifiers.ua_function));
         if (!ua_function)
           return LoopReturn::Error;
 
@@ -692,7 +735,9 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
           context_helper<backend_options> ctx;
           try
           {
-            ctx.init(local_domain_map[domain_key_].preferred, std::move(opt));
+            if (!ctx.init(
+                  local_domain_map[domain_key_].preferred, std::move(opt)))
+              return LoopReturn::Error;
           }
           catch(std::bad_alloc&)
           {
@@ -991,6 +1036,9 @@ PyInit__uarray(void)
   Py_INCREF(BackendNotImplementedError.get());
   PyModule_AddObject(
     m, "BackendNotImplementedError", BackendNotImplementedError);
+
+  if (!identifiers.init())
+    return nullptr;
 
   return m.release();
 }
