@@ -60,7 +60,6 @@ extensions = [
     Extension(
         "uarray._uarray",
         sources=["uarray/_uarray_dispatch.cxx"],
-        depends=["uarray/_python_support.h"],
         language="c++",
     )
 ]

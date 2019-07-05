@@ -8,9 +8,80 @@
 #include <unordered_map>
 #include <string>
 
-#include "_python_support.h"
-
 namespace {
+
+/** Handle to a python object that automatically DECREFs */
+class py_ref
+{
+  explicit py_ref(PyObject * object): obj_(object) {}
+public:
+
+  py_ref() noexcept: obj_(nullptr) {}
+  py_ref(std::nullptr_t) noexcept: py_ref() {}
+
+  py_ref(const py_ref & other) noexcept: obj_(other.obj_) { Py_XINCREF(obj_); }
+  py_ref(py_ref && other) noexcept: obj_(other.obj_) { other.obj_ = nullptr; }
+
+  /** Construct from new reference (No INCREF) */
+  static py_ref steal(PyObject * object) { return py_ref(object); }
+
+  /** Construct from borrowed reference (and INCREF) */
+  static py_ref ref(PyObject * object)
+    {
+      Py_XINCREF(object);
+      return py_ref(object);
+    }
+
+  ~py_ref(){ Py_XDECREF(obj_); }
+
+  py_ref & operator = (const py_ref & other) noexcept
+    {
+      py_ref(other).swap(*this);
+      return *this;
+    }
+
+  py_ref & operator = (py_ref && other) noexcept
+    {
+      py_ref(std::move(other)).swap(*this);
+      return *this;
+    }
+
+  void swap(py_ref & other) noexcept
+    {
+      std::swap(other.obj_, obj_);
+    }
+
+  friend void swap(py_ref & a, py_ref & b) noexcept
+    {
+      a.swap(b);
+    }
+
+  explicit operator bool () const { return obj_ != nullptr; }
+
+  operator PyObject* () const { return get(); }
+
+  PyObject * get() const { return obj_; }
+  PyObject * release()
+    {
+      PyObject * t = obj_;
+      obj_ = nullptr;
+      return t;
+    }
+  void reset()
+    {
+      Py_CLEAR(obj_);
+    }
+private:
+  PyObject * obj_;
+};
+
+/** Make tuple from variadic set of PyObjects */
+template <typename ... Ts>
+py_ref py_make_tuple(Ts... args)
+{
+  using py_obj = PyObject *;
+  return py_ref::steal(PyTuple_Pack(sizeof...(args), py_obj{args}...));
+}
 
 struct global_backends
 {
@@ -23,6 +94,13 @@ struct backend_options
 {
   py_ref backend;
   bool coerce, only;
+
+  bool operator == (const backend_options & other) const
+    {
+      return (backend == other.backend
+              && coerce == other.coerce
+              && only == other.only);
+    }
 };
 
 struct local_backends
@@ -32,17 +110,10 @@ struct local_backends
 };
 
 
-#if !HAS_CONTEXT_VARS
-#  define CONTEXT_LOCAL thread_local
-#else
-#  define CONTEXT_LOCAL
-#endif
-
-
 static py_ref BackendNotImplementedError;
 static std::unordered_map<std::string, global_backends> global_domain_map;
-CONTEXT_LOCAL std::unordered_map<
-  std::string, py_contextvar<local_backends>> local_domain_map;
+thread_local std::unordered_map<
+  std::string, local_backends> local_domain_map;
 
 std::string domain_to_string(PyObject * domain)
 {
@@ -118,15 +189,58 @@ PyObject * register_backend(PyObject * /*self*/, PyObject * args)
 }
 
 
+/** Common functionality of set_backend and skip_backend */
+template <typename T>
+class context_helper
+{
+  T new_backend_;
+  std::vector<T> * backends_;
+  size_t enter_size_;
+public:
+
+  context_helper():
+    backends_(nullptr),
+    enter_size_(size_t(-1))
+    {}
+
+  void init(std::vector<T> & backends, T new_backend)
+    {
+      backends_ = &backends;
+      new_backend_ = std::move(new_backend);
+    }
+
+  bool enter()
+    {
+      enter_size_ = backends_->size();
+      try { backends_->push_back(new_backend_); }
+      catch(std::bad_alloc&)
+      {
+        PyErr_NoMemory();
+        return false;
+      }
+      return true;
+    }
+
+  bool exit()
+    {
+      bool success = (enter_size_ + 1 == backends_->size()
+                      && backends_->back() == new_backend_);
+      if (enter_size_ < backends_->size())
+        backends_->resize(enter_size_);
+
+      if (!success)
+        PyErr_SetString(PyExc_RuntimeError,
+                        "Found invalid context state while in __exit__");
+      return success;
+    }
+};
+
+
 struct SetBackendContext
 {
   PyObject_HEAD
 
-  using backends_type = py_contextvar<local_backends>;
-
-  backend_options new_backend;
-  backends_type * backends;
-  backends_type::token restore_token;
+  context_helper<backend_options> ctx_;
 
   static void dealloc(SetBackendContext * self)
     {
@@ -165,46 +279,35 @@ struct SetBackendContext
       auto domain = backend_to_domain_string(backend);
       if (domain.empty())
         return -1;
+      backend_options opt;
+      opt.backend = py_ref::ref(backend);
+      opt.coerce = (coerce == Py_True);
+      opt.only = (only == Py_True);
 
-      try { self->backends = &local_domain_map[domain]; }
+      try
+      {
+        self->ctx_.init(local_domain_map[domain].preferred, std::move(opt));
+      }
       catch(std::bad_alloc&)
       {
         PyErr_NoMemory();
         return -1;
       }
-      if (!self->backends)
-        return -1;
-
-      self->new_backend.backend = py_ref::ref(backend);
-      self->new_backend.coerce = (coerce == Py_True);
-      self->new_backend.only = (only == Py_True);
 
       return 0;
     }
 
   static PyObject * enter__(SetBackendContext * self, PyObject * /*args*/)
     {
-      auto * curr_backends = self->backends->get();
-      if (!curr_backends)
-      {
-        if (!PyErr_Occurred())
-          PyErr_SetString(PyExc_RuntimeError,
-                          "Failed to get preferred backends");
+      if (!self->ctx_.enter())
         return nullptr;
-      }
-
-      auto new_backends = *curr_backends;
-      new_backends.preferred.push_back(self->new_backend);
-      self->restore_token = self->backends->set(std::move(new_backends));
-      if (PyErr_Occurred())
-        return nullptr;
-
       Py_RETURN_NONE;
     }
 
   static PyObject * exit__(SetBackendContext * self, PyObject * /*args*/)
     {
-      self->backends->reset(std::move(self->restore_token));
+      if (!self->ctx_.exit())
+        return nullptr;
       Py_RETURN_NONE;
     }
 };
@@ -214,11 +317,7 @@ struct SkipBackendContext
 {
   PyObject_HEAD
 
-  using backends_type = py_contextvar<local_backends>;
-
-  py_ref skip_backend_;
-  backends_type * backends_;
-  backends_type::token restore_token_;
+  context_helper<py_ref> ctx_;
 
   static void dealloc(SkipBackendContext * self)
     {
@@ -252,40 +351,30 @@ struct SkipBackendContext
       if (domain.empty())
         return -1;
 
-      try { self->backends_ = &local_domain_map[domain]; }
+      try
+      {
+        self->ctx_.init(local_domain_map[domain].skipped, py_ref::ref(backend));
+      }
       catch(std::bad_alloc&)
       {
         PyErr_NoMemory();
         return -1;
       }
 
-      self->skip_backend_ = py_ref::ref(backend);
-
       return 0;
     }
 
   static PyObject * enter__(SkipBackendContext * self, PyObject * /*args*/)
     {
-      auto * curr_backends = self->backends_->get();
-      if (!curr_backends)
-      {
-        PyErr_SetString(PyExc_RuntimeError,
-                        "Failed to get skipped backends");
+      if (!self->ctx_.enter())
         return nullptr;
-      }
-
-      auto new_backends = *curr_backends;
-      new_backends.skipped.push_back(self->skip_backend_);
-      self->restore_token_ = self->backends_->set(std::move(new_backends));
-      if (!self->restore_token_)
-        return nullptr;
-
       Py_RETURN_NONE;
     }
 
   static PyObject * exit__(SkipBackendContext * self, PyObject * /*args*/)
     {
-      self->backends_->reset(std::move(self->restore_token_));
+      if (!self->ctx_.exit())
+        return nullptr;
       Py_RETURN_NONE;
     }
 };
@@ -295,9 +384,16 @@ enum class LoopReturn { Continue, Break, Error };
 template <typename Callback>
 LoopReturn for_each_backend(const std::string & domain_key, Callback call)
 {
-  auto * locals = local_domain_map[domain_key].get();
-  if (!locals)
+  local_backends * locals = nullptr;
+  try
+  {
+    locals = &local_domain_map[domain_key];
+  }
+  catch (std::bad_alloc&)
+  {
+    PyErr_NoMemory();
     return LoopReturn::Error;
+  }
 
 
   auto & skip = locals->skipped;
@@ -555,8 +651,6 @@ PyObject * Function_call(
 }
 
 
-
-
 PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
 {
   auto args = canonicalize_args(args_);
@@ -595,19 +689,31 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
           opt.backend = py_ref::ref(backend);
           opt.coerce = coerce;
           opt.only = true;
-          auto & pref = local_domain_map[domain_key_].get()->preferred;
-          pref.push_back(std::move(opt));
+          context_helper<backend_options> ctx;
+          try
+          {
+            ctx.init(local_domain_map[domain_key_].preferred, std::move(opt));
+          }
+          catch(std::bad_alloc&)
+          {
+            PyErr_NoMemory();
+            return LoopReturn::Error;
+          }
+
+          if (!ctx.enter())
+            return LoopReturn::Error;
 
           result = py_ref::steal(
             PyObject_Call(def_impl_, new_args.args, new_args.kwargs));
-
-          pref.resize(pref.size()-1);
 
           if (PyErr_Occurred() && PyErr_ExceptionMatches(BackendNotImplementedError))
           {
             PyErr_Clear();  // Suppress exception
             result = py_ref::ref(Py_NotImplemented);
           }
+
+          if (!ctx.exit())
+            return LoopReturn::Error;
         }
 
         if (!result)
