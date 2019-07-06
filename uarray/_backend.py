@@ -14,15 +14,16 @@ import inspect
 from contextvars import ContextVar
 import functools
 import contextlib
+from . import _uarray  # type: ignore
 
 ArgumentExtractorType = Callable[..., Tuple["Dispatchable", ...]]
 ArgumentReplacerType = Callable[[Tuple, Dict, Tuple], Tuple[Tuple, Dict]]
 
+from ._uarray import BackendNotImplementedError
 
-class BackendNotImplementedError(NotImplementedError):
-    """
-    An exception that is thrown when no compatible backend is found for a method.
-    """
+import atexit
+
+atexit.register(_uarray.clear_all_globals)
 
 
 def create_multimethod(*args, **kwargs):
@@ -108,166 +109,18 @@ def generate_multimethod(
         See the module documentation for how to override the method by creating backends.
     """
     kw_defaults, arg_defaults, opts = get_defaults(argument_extractor)
+    ua_func = _uarray.Function(
+        argument_extractor,
+        argument_replacer,
+        domain,
+        arg_defaults,
+        kw_defaults,
+        default,
+    )
 
-    @functools.wraps(argument_extractor)
-    def inner(*args, **kwargs):
-        dispatchable_args = argument_extractor(*args, **kwargs)
-        errors = []
-
-        args = canonicalize_args(args, kwargs)
-        result = NotImplemented
-
-        for options in _backend_order(domain):
-            res = (
-                replace_dispatchables(
-                    options.backend,
-                    args,
-                    kwargs,
-                    dispatchable_args,
-                    coerce=options.coerce,
-                )
-                if hasattr(options.backend, "__ua_convert__")
-                else (args, kwargs)
-            )
-
-            if res is NotImplemented:
-                continue
-
-            a, kw = res
-
-            for k, v in kw_defaults.items():
-                if k in kw and kw[k] is v:
-                    del kw[k]
-
-            result = options.backend.__ua_function__(inner, a, kw)
-
-            if result is NotImplemented:
-                result = try_default(a, kw, options, errors)
-
-            if result is not NotImplemented:
-                break
-        else:
-            result = try_default(args, kwargs, None, errors)
-
-        if result is NotImplemented:
-            raise BackendNotImplementedError(
-                "No selected backends had an implementation for this function.", errors
-            )
-
-        return result
-
-    def try_default(args, kwargs, options, errors):
-        if default is not None:
-            try:
-                if options is not None:
-                    with set_backend(options.backend, only=True, coerce=options.coerce):
-                        return default(*args, **kwargs)
-                else:
-                    return default(*args, **kwargs)
-            except BackendNotImplementedError as e:
-                errors.append(e)
-
-        return NotImplemented
-
-    def replace_dispatchables(
-        backend, args, kwargs, dispatchable_args, coerce: Optional[bool] = False
-    ):
-        replaced_args: Iterable = backend.__ua_convert__(dispatchable_args, coerce)
-
-        if replaced_args is NotImplemented:
-            return NotImplemented
-
-        return argument_replacer(args, kwargs, tuple(replaced_args))
-
-    def canonicalize_args(args, kwargs):
-        if len(args) > len(arg_defaults):
-            return args
-
-        match = 0
-        for a, d in zip(args[::-1], arg_defaults[len(args) - 1 :: -1]):
-            if a is d:
-                match += 1
-            else:
-                break
-
-        args = args[:-match] if match > 0 else args
-        return args
-
-    inner._coerce_args = replace_dispatchables  # type: ignore
-
-    return inner
+    return functools.update_wrapper(ua_func, argument_extractor)
 
 
-class _BackendOptions:
-    def __init__(self, backend, coerce: bool = False, only: bool = False):
-        """
-        The backend plus any additonal options associated with it.
-
-        Parameters
-        ----------
-        backend : Backend
-            The associated backend.
-        coerce: bool, optional
-            Whether or not the backend is being coerced. Implies ``only``.
-        only: bool, optional
-            Whether or not this is the only backend to try.
-        """
-        self.backend = backend
-        self.coerce = coerce
-        self.only = only or coerce
-
-
-_backends: Dict[str, ContextVar] = {}
-
-
-def _backend_order(domain: str) -> Iterable[_BackendOptions]:
-    skip = _get_skipped_backends(domain).get()
-    pref = _get_preferred_backends(domain).get()
-
-    for options in pref:
-        if options.backend not in skip:
-            yield options
-
-            if options.only:
-                return
-
-    if domain in _backends and _backends[domain] not in skip:
-        yield _BackendOptions(_backends[domain])
-
-    if domain in _registered_backend:
-        for backend in _registered_backend[domain]:
-            if backend not in skip:
-                yield _BackendOptions(backend)
-
-
-def _get_preferred_backends(domain: str) -> ContextVar[Tuple[_BackendOptions, ...]]:
-    if domain not in _preferred_backend:
-        _preferred_backend[domain] = ContextVar(
-            f"_preferred_backend[{domain}]", default=()
-        )
-    return _preferred_backend[domain]
-
-
-def _get_registered_backends(domain: str) -> Set[_BackendOptions]:
-    if domain not in _registered_backend:
-        _registered_backend[domain] = set()
-    return _registered_backend[domain]
-
-
-def _get_skipped_backends(domain: str) -> ContextVar[Set]:
-    if domain not in _skipped_backend:
-        _skipped_backend[domain] = ContextVar(
-            f"_skipped_backend[{domain}]", default=set()
-        )
-    return _skipped_backend[domain]
-
-
-_preferred_backend: Dict[str, ContextVar[Tuple[_BackendOptions, ...]]] = {}
-_registered_backend: Dict[str, Set[_BackendOptions]] = {}
-_skipped_backend: Dict[str, ContextVar[Set]] = {}
-
-
-@contextlib.contextmanager
 def set_backend(backend, *args, **kwargs):
     """
     A context manager that sets the preferred backend. Uses :obj:`BackendOptions` to create
@@ -283,17 +136,9 @@ def set_backend(backend, *args, **kwargs):
     BackendOptions: The backend plus options.
     skip_backend: A context manager that allows skipping of backends.
     """
-    options = _BackendOptions(backend, *args, **kwargs)
-    pref = _get_preferred_backends(backend.__ua_domain__)
-    token = pref.set((options,) + pref.get())
-
-    try:
-        yield
-    finally:
-        pref.reset(token)
+    return _uarray.SetBackendContext(backend, *args, **kwargs)
 
 
-@contextlib.contextmanager
 def skip_backend(backend):
     """
     A context manager that allows one to skip a given backend from processing
@@ -309,15 +154,7 @@ def skip_backend(backend):
     --------
     set_backend: A context manager that allows setting of backends.
     """
-    skip = _get_skipped_backends(backend.__ua_domain__)
-    new = set(skip.get())
-    new.add(backend)
-    token = skip.set(new)
-
-    try:
-        yield
-    finally:
-        skip.reset(token)
+    return _uarray.SkipBackendContext(backend)
 
 
 def get_defaults(f):
@@ -335,7 +172,7 @@ def get_defaults(f):
             arg_defaults.append(v.default)
         opts.add(k)
 
-    return kw_defaults, arg_defaults, opts
+    return kw_defaults, tuple(arg_defaults), opts
 
 
 def set_global_backend(backend):
@@ -358,7 +195,7 @@ def set_global_backend(backend):
     backend
         The backend to register.
     """
-    _backends[backend.__ua_domain__] = backend
+    _uarray.set_global_backend(backend)
 
 
 def register_backend(backend):
@@ -374,7 +211,7 @@ def register_backend(backend):
     backend
         The backend to register.
     """
-    _get_registered_backends(backend.__ua_domain__).add(backend)
+    _uarray.register_backend(backend)
 
 
 class Dispatchable:
