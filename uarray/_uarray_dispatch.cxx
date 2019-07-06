@@ -353,6 +353,85 @@ struct SetBackendContext
     }
 };
 
+struct Dispatchable
+{
+  PyObject_HEAD
+
+  py_ref value;
+  py_ref type;
+  bool coercible;
+
+  static void dealloc(Dispatchable * self)
+  {
+    PyObject_GC_UnTrack(self);
+    self->~Dispatchable();
+    Py_TYPE(self)->tp_free(self);
+  }
+
+  static PyObject * get_value(Dispatchable * self, void *)
+  {
+    PyObject * value = self->value.get();
+    Py_INCREF(value);
+    return value;
+  }
+
+  static PyObject * get_type(Dispatchable * self, void *)
+  {
+    PyObject * type = self->type.get();
+    Py_INCREF(type);
+    return type;
+  }
+
+  static PyObject * get_coercible(Dispatchable * self, void *)
+  {
+    return PyBool_FromLong(self->coercible);
+  }
+
+  static PyObject * new_(PyTypeObject * type, PyObject * args, PyObject * kwargs)
+  {
+    auto self = reinterpret_cast<Dispatchable *>(type->tp_alloc(type, 0));
+    if (self == nullptr)
+      return nullptr;
+
+    // Placement new
+    self = new (self) Dispatchable;
+    return reinterpret_cast<PyObject *>(self);
+  }
+
+  static int init(
+    Dispatchable * self, PyObject * args, PyObject * kwargs)
+  {
+    static const char *kwlist[] = {"value", "dispatch_type", "coercible", nullptr};
+    PyObject * value, * type;
+    int coercible = 1;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs,
+                                      "OO|p", (char**)kwlist,
+                                      &value, &type, &coercible))
+      return -1;
+
+    self->value = py_ref::ref(value);
+    self->type = py_ref::ref(type);
+    self->coercible = coercible;
+    return 0;
+  }
+
+  static int traverse(Dispatchable * self, visitproc visit, void * arg)
+  {
+    Py_VISIT(self->value.get());
+    Py_VISIT(self->type.get());
+    return 0;
+  }
+
+  static PyObject * repr(Dispatchable * self)
+  {
+    return PyUnicode_FromFormat("<uarray Dispatchable, value=%R, type=%R, coercible=%R>",
+      PyObject_Repr(self->value.release()),
+      PyObject_Repr(self->type.release()),
+      PyObject_Repr(py_ref::ref(PyBool_FromLong(self->coercible)).get())
+    );
+  }
+};
 
 struct SkipBackendContext
 {
@@ -870,6 +949,56 @@ PyTypeObject FunctionType = {
   Function::new_,                 /* tp_new */
 };
 
+PyGetSetDef Dispatchable_getset[] =
+{
+  {"value", (getter)Dispatchable::get_value, nullptr},
+  {"type", (getter)Dispatchable::get_type, nullptr},
+  {"coercible", (getter)Dispatchable::get_coercible, nullptr},
+  {NULL} /* Sentinel */
+};
+
+PyTypeObject DispatchableType = {
+  PyVarObject_HEAD_INIT(NULL, 0)
+  "_uarray.Dispatchable",         /* tp_name */
+  sizeof(Dispatchable),                /* tp_basicsize */
+  0,                              /* tp_itemsize */
+  (destructor)Dispatchable::dealloc,  /* tp_dealloc */
+  0,                              /* tp_print */
+  0,                              /* tp_getattr */
+  0,                              /* tp_setattr */
+  0,                              /* tp_reserved */
+  (reprfunc)Dispatchable::repr,        /* tp_repr */
+  0,                              /* tp_as_number */
+  0,                              /* tp_as_sequence */
+  0,                              /* tp_as_mapping */
+  0,                              /* tp_hash  */
+  0,                              /* tp_call */
+  0,                              /* tp_str */
+  PyObject_GenericGetAttr,        /* tp_getattro */
+  PyObject_GenericSetAttr,        /* tp_setattro */
+  0,                              /* tp_as_buffer */
+  (Py_TPFLAGS_DEFAULT
+   | Py_TPFLAGS_HAVE_GC),         /* tp_flags */
+  0,                              /* tp_doc */
+  (traverseproc)Dispatchable::traverse,/* tp_traverse */
+  0,                              /* tp_clear */
+  0,                              /* tp_richcompare */
+  0,                              /* tp_weaklistoffset */
+  0,                              /* tp_iter */
+  0,                              /* tp_iternext */
+  0,                              /* tp_methods */
+  0,                              /* tp_members */
+  Dispatchable_getset,            /* tp_getset */
+  0,                              /* tp_base */
+  0,                              /* tp_dict */
+  0,                              /* tp_descr_get */
+  0,                              /* tp_descr_set */
+  0,                              /* tp_dictoffset */
+  (initproc)Dispatchable::init,       /* tp_init */
+  0,                              /* tp_alloc */
+  Dispatchable::new_,                              /* tp_new */
+};
+
 
 PyMethodDef SetBackendContext_Methods[] = {
   {"__enter__", (binaryfunc)SetBackendContext::enter__, METH_NOARGS, nullptr},
@@ -1023,6 +1152,12 @@ PyInit__uarray(void)
   Py_INCREF(&SkipBackendContextType);
   PyModule_AddObject(
     m, "SkipBackendContext", (PyObject*)&SkipBackendContextType);
+
+  if (PyType_Ready(&DispatchableType) < 0)
+    return nullptr;
+  Py_INCREF(&DispatchableType);
+  PyModule_AddObject(
+    m, "Dispatchable", (PyObject*)&DispatchableType);
 
   BackendNotImplementedError = py_ref::steal(
     PyErr_NewExceptionWithDoc(

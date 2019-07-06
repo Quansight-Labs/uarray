@@ -19,7 +19,7 @@ from . import _uarray  # type: ignore
 ArgumentExtractorType = Callable[..., Tuple["Dispatchable", ...]]
 ArgumentReplacerType = Callable[[Tuple, Dict, Tuple], Tuple[Tuple, Dict]]
 
-from ._uarray import BackendNotImplementedError
+from ._uarray import BackendNotImplementedError, Dispatchable
 
 import atexit
 
@@ -214,48 +214,48 @@ def register_backend(backend):
     _uarray.register_backend(backend)
 
 
-class Dispatchable:
-    """
-    A utility class which marks an argument with a specific dispatch type.
+# class Dispatchable:
+#     """
+#     A utility class which marks an argument with a specific dispatch type.
 
 
-    Attributes
-    ----------
-    value
-        The value of the Dispatchable.
+#     Attributes
+#     ----------
+#     value
+#         The value of the Dispatchable.
 
-    type
-        The type of the Dispatchable.
+#     type
+#         The type of the Dispatchable.
 
-    Examples
-    --------
-    >>> x = Dispatchable(1, str)
-    >>> x
-    <Dispatchable: type=<class 'str'>, value=1>
+#     Examples
+#     --------
+#     >>> x = Dispatchable(1, str)
+#     >>> x
+#     <Dispatchable: type=<class 'str'>, value=1>
 
-    See Also
-    --------
-    all_of_type
-        Marks all unmarked parameters of a function.
+#     See Also
+#     --------
+#     all_of_type
+#         Marks all unmarked parameters of a function.
 
-    mark_as
-        Allows one to create a utility function to mark as a given type.
-    """
+#     mark_as
+#         Allows one to create a utility function to mark as a given type.
+#     """
 
-    def __init__(self, value, dispatch_type, coercible=True):
-        self.value = value
-        self.type = dispatch_type
-        self.coercible = coercible
+#     def __init__(self, value, dispatch_type, coercible=True):
+#         self.value = value
+#         self.type = dispatch_type
+#         self.coercible = coercible
 
-    def __getitem__(self, index):
-        return (self.type, self.value)[index]
+#     def __getitem__(self, index):
+#         return (self.type, self.value)[index]
 
-    def __str__(self):
-        return (
-            f"<{type(self).__name__}: type={repr(self.type)}, value={repr(self.value)}>"
-        )
+#     def __str__(self):
+#         return (
+#             f"<{type(self).__name__}: type={repr(self.type)}, value={repr(self.value)}>"
+#         )
 
-    __repr__ = __str__
+#     __repr__ = __str__
 
 
 def mark_as(dispatch_type):
