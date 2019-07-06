@@ -20,3 +20,5 @@ pytype_output
 htmlcov/
 *.egg-info/
 sandbox.py
+*.so
+build/
