@@ -572,6 +572,13 @@ struct Function
 
       return 0;
     }
+
+  static PyObject * repr(Function * self);
+  static PyObject * descr_get(PyObject * self, PyObject * obj, PyObject * type);
+  static int traverse(Function * self, visitproc visit, void * arg);
+  static int clear(Function * self);
+  static PyObject * getstate__(Function * self, PyObject * args);
+  static PyObject * setstate__(Function * self, PyObject * args);
 };
 
 
@@ -786,7 +793,7 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
 }
 
 
-PyObject * Function_repr(Function * self)
+PyObject * Function::repr(Function * self)
 {
   if (self->dict_)
     if (auto name = PyDict_GetItemString(self->dict_, "__name__"))
@@ -797,7 +804,7 @@ PyObject * Function_repr(Function * self)
 
 
 /** Implements the descriptor protocol to allow binding to class instances */
-PyObject * Function_descr_get(PyObject * self, PyObject * obj, PyObject * type)
+PyObject * Function::descr_get(PyObject * self, PyObject * obj, PyObject * type)
 {
   if (!obj)
   {
@@ -810,7 +817,7 @@ PyObject * Function_descr_get(PyObject * self, PyObject * obj, PyObject * type)
 
 
 /** Make members visible to the garbage collector */
-int Function_traverse(Function * self, visitproc visit, void * arg)
+int Function::traverse(Function * self, visitproc visit, void * arg)
 {
   Py_VISIT(self->extractor_);
   Py_VISIT(self->replacer_);
@@ -823,7 +830,7 @@ int Function_traverse(Function * self, visitproc visit, void * arg)
 
 
 /** Break reference cycles when being GCed */
-int Function_clear(Function * self)
+int Function::clear(Function * self)
 {
   self->extractor_.reset();
   self->replacer_.reset();
@@ -836,7 +843,7 @@ int Function_clear(Function * self)
 
 
 /** Support for pickle.dump */
-PyObject * Function___getstate__(Function * self, PyObject * /*args*/)
+PyObject * Function::getstate__(Function * self, PyObject * /*args*/)
 {
   auto domain = py_ref::steal(
     PyUnicode_FromStringAndSize(self->domain_key_.data(),
@@ -857,7 +864,7 @@ PyObject * Function___getstate__(Function * self, PyObject * /*args*/)
 
 
 /** Support for pickle.load */
-PyObject * Function___setstate__(Function * self, PyObject * args)
+PyObject * Function::setstate__(Function * self, PyObject * args)
 {
   PyObject * state_tuple = nullptr;
   if (!PyArg_ParseTuple(args, "O!", &PyTuple_Type, &state_tuple))
@@ -904,51 +911,51 @@ PyGetSetDef Function_getset[] =
 
 PyMethodDef Function_methods[] =
 {
-  {"__getstate__", (binaryfunc)Function___getstate__, METH_NOARGS, nullptr},
-  {"__setstate__", (binaryfunc)Function___setstate__, METH_VARARGS, nullptr},
+  {"__getstate__", (binaryfunc)Function::getstate__, METH_NOARGS, nullptr},
+  {"__setstate__", (binaryfunc)Function::setstate__, METH_VARARGS, nullptr},
   {NULL} /* Sentinel */
 };
 
 PyTypeObject FunctionType = {
   PyVarObject_HEAD_INIT(NULL, 0)
-  "uarray._uarray.Function",      /* tp_name */
-  sizeof(Function),               /* tp_basicsize */
-  0,                              /* tp_itemsize */
-  (destructor)Function::dealloc,  /* tp_dealloc */
-  0,                              /* tp_print */
-  0,                              /* tp_getattr */
-  0,                              /* tp_setattr */
-  0,                              /* tp_reserved */
-  (reprfunc)Function_repr,        /* tp_repr */
-  0,                              /* tp_as_number */
-  0,                              /* tp_as_sequence */
-  0,                              /* tp_as_mapping */
-  0,                              /* tp_hash  */
-  (ternaryfunc)Function_call,     /* tp_call */
-  0,                              /* tp_str */
-  PyObject_GenericGetAttr,        /* tp_getattro */
-  PyObject_GenericSetAttr,        /* tp_setattro */
-  0,                              /* tp_as_buffer */
+  "uarray._uarray.Function",       /* tp_name */
+  sizeof(Function),                /* tp_basicsize */
+  0,                               /* tp_itemsize */
+  (destructor)Function::dealloc,   /* tp_dealloc */
+  0,                               /* tp_print */
+  0,                               /* tp_getattr */
+  0,                               /* tp_setattr */
+  0,                               /* tp_reserved */
+  (reprfunc)Function::repr,        /* tp_repr */
+  0,                               /* tp_as_number */
+  0,                               /* tp_as_sequence */
+  0,                               /* tp_as_mapping */
+  0,                               /* tp_hash  */
+  (ternaryfunc)Function_call,      /* tp_call */
+  0,                               /* tp_str */
+  PyObject_GenericGetAttr,         /* tp_getattro */
+  PyObject_GenericSetAttr,         /* tp_setattro */
+  0,                               /* tp_as_buffer */
   (Py_TPFLAGS_DEFAULT
-   | Py_TPFLAGS_HAVE_GC),         /* tp_flags */
-  0,                              /* tp_doc */
-  (traverseproc)Function_traverse,/* tp_traverse */
-  (inquiry)Function_clear,        /* tp_clear */
-  0,                              /* tp_richcompare */
-  0,                              /* tp_weaklistoffset */
-  0,                              /* tp_iter */
-  0,                              /* tp_iternext */
-  Function_methods,               /* tp_methods */
-  0,                              /* tp_members */
-  Function_getset,                /* tp_getset */
-  0,                              /* tp_base */
-  0,                              /* tp_dict */
-  Function_descr_get,             /* tp_descr_get */
-  0,                              /* tp_descr_set */
-  offsetof(Function, dict_),      /* tp_dictoffset */
-  (initproc)Function::init,       /* tp_init */
-  0,                              /* tp_alloc */
-  Function::new_,                 /* tp_new */
+   | Py_TPFLAGS_HAVE_GC),          /* tp_flags */
+  0,                               /* tp_doc */
+  (traverseproc)Function::traverse,/* tp_traverse */
+  (inquiry)Function::clear,        /* tp_clear */
+  0,                               /* tp_richcompare */
+  0,                               /* tp_weaklistoffset */
+  0,                               /* tp_iter */
+  0,                               /* tp_iternext */
+  Function_methods,                /* tp_methods */
+  0,                               /* tp_members */
+  Function_getset,                 /* tp_getset */
+  0,                               /* tp_base */
+  0,                               /* tp_dict */
+  Function::descr_get,             /* tp_descr_get */
+  0,                               /* tp_descr_set */
+  offsetof(Function, dict_),       /* tp_dictoffset */
+  (initproc)Function::init,        /* tp_init */
+  0,                               /* tp_alloc */
+  Function::new_,                  /* tp_new */
 };
 
 
