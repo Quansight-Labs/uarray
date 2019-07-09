@@ -822,15 +822,83 @@ int Function_traverse(Function * self, visitproc visit, void * arg)
 }
 
 
+/** Support for pickle.dump */
+PyObject * Function___getstate__(Function * self, PyObject * /*args*/)
+{
+  auto domain = py_ref::steal(
+    PyUnicode_FromStringAndSize(self->domain_key_.data(),
+                                self->domain_key_.size()));
+  if (!domain)
+    return nullptr;
+
+  auto res = py_make_tuple(self->extractor_,
+                           self->replacer_,
+                           domain,
+                           self->def_args_,
+                           self->def_kwargs_,
+                           self->def_impl_,
+                           self->dict_ ? self->dict_ : Py_None);
+
+  return res.release();
+}
+
+
+/** Support for pickle.load */
+PyObject * Function___setstate__(Function * self, PyObject * args)
+{
+  PyObject * state_tuple = nullptr;
+  if (!PyArg_ParseTuple(args, "O!", &PyTuple_Type, &state_tuple))
+    return nullptr;
+
+  if (PyTuple_GET_SIZE(state_tuple) != 7)
+  {
+    PyErr_SetString(PyExc_ValueError, "State tuple must have 7 entries");
+    return nullptr;
+  }
+
+  auto init_args = py_ref::steal(PyTuple_GetSlice(state_tuple, 0, 6));
+  if (!init_args)
+    return nullptr;
+
+  if (Function::init(self, init_args, nullptr) < 0)
+    return nullptr;
+
+  auto dict = py_ref::ref(PyTuple_GET_ITEM(state_tuple, 6));
+  if (dict == Py_None)
+  {
+    self->dict_.reset();
+  }
+  else
+  {
+    if (!PyDict_CheckExact(dict))
+    {
+      PyErr_SetString(PyExc_TypeError, "State __dict__ is not a dict object");
+      return nullptr;
+    }
+
+    self->dict_ = std::move(dict);
+  }
+
+  Py_RETURN_NONE;
+}
+
+
 PyGetSetDef Function_getset[] =
 {
   {"__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict},
   {NULL} /* Sentinel */
 };
 
+PyMethodDef Function_methods[] =
+{
+  {"__getstate__", (binaryfunc)Function___getstate__, METH_NOARGS, nullptr},
+  {"__setstate__", (binaryfunc)Function___setstate__, METH_VARARGS, nullptr},
+  {NULL} /* Sentinel */
+};
+
 PyTypeObject FunctionType = {
   PyVarObject_HEAD_INIT(NULL, 0)
-  "_uarray.Function",             /* tp_name */
+  "uarray._uarray.Function",      /* tp_name */
   sizeof(Function),               /* tp_basicsize */
   0,                              /* tp_itemsize */
   (destructor)Function::dealloc,  /* tp_dealloc */
@@ -857,7 +925,7 @@ PyTypeObject FunctionType = {
   0,                              /* tp_weaklistoffset */
   0,                              /* tp_iter */
   0,                              /* tp_iternext */
-  0,                              /* tp_methods */
+  Function_methods,               /* tp_methods */
   0,                              /* tp_members */
   Function_getset,                /* tp_getset */
   0,                              /* tp_base */
@@ -879,7 +947,7 @@ PyMethodDef SetBackendContext_Methods[] = {
 
 PyTypeObject SetBackendContextType = {
   PyVarObject_HEAD_INIT(NULL, 0)
-  "_uarray.SetBackendContext",             /* tp_name */
+  "uarray._uarray.SetBackendContext",      /* tp_name */
   sizeof(SetBackendContext),               /* tp_basicsize */
   0,                                       /* tp_itemsize */
   (destructor)SetBackendContext::dealloc,  /* tp_dealloc */
@@ -927,7 +995,7 @@ PyMethodDef SkipBackendContext_Methods[] = {
 
 PyTypeObject SkipBackendContextType = {
   PyVarObject_HEAD_INIT(NULL, 0)
-  "_uarray.SkipBackendContext",             /* tp_name */
+  "uarray._uarray.SkipBackendContext",      /* tp_name */
   sizeof(SkipBackendContext),               /* tp_basicsize */
   0,                                        /* tp_itemsize */
   (destructor)SkipBackendContext::dealloc,  /* tp_dealloc */

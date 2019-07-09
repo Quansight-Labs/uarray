@@ -28,3 +28,26 @@ def test_nestedbackend():
     be_inner.__ua_function__ = be2_ua_func
     with ua.set_backend(be_outer), ua.set_backend(be_inner):
         assert mm2() is obj
+
+
+def _extractor():
+    return ()
+
+
+def _replacer(args, kwargs, dispatchables):
+    return (args, kwargs)
+
+
+def test_pickle_support():
+    import pickle
+
+    mm = ua.generate_multimethod(_extractor, _replacer, "ua_tests")
+    mm.attr = "hello"
+
+    state = mm.__getstate__()
+
+    s = pickle.dumps(mm)
+    mm_unpickled = pickle.loads(s)
+
+    assert mm_unpickled.attr == "hello"
+    assert mm_unpickled.__getstate__() == state
