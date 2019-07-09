@@ -822,6 +822,19 @@ int Function_traverse(Function * self, visitproc visit, void * arg)
 }
 
 
+/** Break reference cycles when being GCed */
+int Function_clear(Function * self)
+{
+  self->extractor_.reset();
+  self->replacer_.reset();
+  self->def_args_.reset();
+  self->def_kwargs_.reset();
+  self->def_impl_.reset();
+  self->dict_.reset();
+  return 0;
+}
+
+
 /** Support for pickle.dump */
 PyObject * Function___getstate__(Function * self, PyObject * /*args*/)
 {
@@ -920,7 +933,7 @@ PyTypeObject FunctionType = {
    | Py_TPFLAGS_HAVE_GC),         /* tp_flags */
   0,                              /* tp_doc */
   (traverseproc)Function_traverse,/* tp_traverse */
-  0,                              /* tp_clear */
+  (inquiry)Function_clear,        /* tp_clear */
   0,                              /* tp_richcompare */
   0,                              /* tp_weaklistoffset */
   0,                              /* tp_iter */
