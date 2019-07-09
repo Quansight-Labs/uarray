@@ -11,9 +11,7 @@ from typing import (
     List,
 )
 import inspect
-from contextvars import ContextVar
 import functools
-import contextlib
 from . import _uarray  # type: ignore
 
 ArgumentExtractorType = Callable[..., Tuple["Dispatchable", ...]]
