@@ -918,7 +918,7 @@ PyMethodDef Function_methods[] =
 
 PyTypeObject FunctionType = {
   PyVarObject_HEAD_INIT(NULL, 0)
-  "uarray._uarray.Function",       /* tp_name */
+  "uarray._Function",              /* tp_name */
   sizeof(Function),                /* tp_basicsize */
   0,                               /* tp_itemsize */
   (destructor)Function::dealloc,   /* tp_dealloc */
@@ -967,7 +967,7 @@ PyMethodDef SetBackendContext_Methods[] = {
 
 PyTypeObject SetBackendContextType = {
   PyVarObject_HEAD_INIT(NULL, 0)
-  "uarray._uarray.SetBackendContext",      /* tp_name */
+  "uarray._SetBackendContext",             /* tp_name */
   sizeof(SetBackendContext),               /* tp_basicsize */
   0,                                       /* tp_itemsize */
   (destructor)SetBackendContext::dealloc,  /* tp_dealloc */
@@ -1015,7 +1015,7 @@ PyMethodDef SkipBackendContext_Methods[] = {
 
 PyTypeObject SkipBackendContextType = {
   PyVarObject_HEAD_INIT(NULL, 0)
-  "uarray._uarray.SkipBackendContext",      /* tp_name */
+  "uarray._SkipBackendContext",             /* tp_name */
   sizeof(SkipBackendContext),               /* tp_basicsize */
   0,                                        /* tp_itemsize */
   (destructor)SkipBackendContext::dealloc,  /* tp_dealloc */
@@ -1099,18 +1099,18 @@ PyInit__uarray(void)
   if (PyType_Ready(&FunctionType) < 0)
     return nullptr;
   Py_INCREF(&FunctionType);
-  PyModule_AddObject(m, "Function", (PyObject *)&FunctionType);
+  PyModule_AddObject(m, "_Function", (PyObject *)&FunctionType);
 
   if (PyType_Ready(&SetBackendContextType) < 0)
     return nullptr;
   Py_INCREF(&SetBackendContextType);
-  PyModule_AddObject(m, "SetBackendContext", (PyObject*)&SetBackendContextType);
+  PyModule_AddObject(m, "_SetBackendContext", (PyObject*)&SetBackendContextType);
 
   if (PyType_Ready(&SkipBackendContextType) < 0)
     return nullptr;
   Py_INCREF(&SkipBackendContextType);
   PyModule_AddObject(
-    m, "SkipBackendContext", (PyObject*)&SkipBackendContextType);
+    m, "_SkipBackendContext", (PyObject*)&SkipBackendContextType);
 
   BackendNotImplementedError = py_ref::steal(
     PyErr_NewExceptionWithDoc(

@@ -110,6 +110,7 @@ possible.
 """
 
 from ._backend import *
+from ._backend import _Function
 from ._version import get_versions  # type: ignore
 
 __version__ = get_versions()["version"]

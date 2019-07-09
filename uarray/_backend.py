@@ -17,7 +17,12 @@ from . import _uarray  # type: ignore
 ArgumentExtractorType = Callable[..., Tuple["Dispatchable", ...]]
 ArgumentReplacerType = Callable[[Tuple, Dict, Tuple], Tuple[Tuple, Dict]]
 
-from ._uarray import BackendNotImplementedError
+from ._uarray import (
+    BackendNotImplementedError,
+    _Function,
+    _SkipBackendContext,
+    _SetBackendContext,
+)
 
 import atexit
 
@@ -107,7 +112,7 @@ def generate_multimethod(
         See the module documentation for how to override the method by creating backends.
     """
     kw_defaults, arg_defaults, opts = get_defaults(argument_extractor)
-    ua_func = _uarray.Function(
+    ua_func = _Function(
         argument_extractor,
         argument_replacer,
         domain,
@@ -134,7 +139,7 @@ def set_backend(backend, *args, **kwargs):
     BackendOptions: The backend plus options.
     skip_backend: A context manager that allows skipping of backends.
     """
-    return _uarray.SetBackendContext(backend, *args, **kwargs)
+    return _SetBackendContext(backend, *args, **kwargs)
 
 
 def skip_backend(backend):
@@ -152,7 +157,7 @@ def skip_backend(backend):
     --------
     set_backend: A context manager that allows setting of backends.
     """
-    return _uarray.SkipBackendContext(backend)
+    return _SkipBackendContext(backend)
 
 
 def get_defaults(f):
