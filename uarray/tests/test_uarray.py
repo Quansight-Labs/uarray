@@ -1,4 +1,5 @@
 import uarray as ua
+import pickle
 
 
 class Backend:
@@ -39,8 +40,6 @@ def _replacer(args, kwargs, dispatchables):
 
 
 def test_pickle_support():
-    import pickle
-
     mm = ua.generate_multimethod(_extractor, _replacer, "ua_tests")
     mm.attr = "hello"
 
@@ -51,3 +50,12 @@ def test_pickle_support():
 
     assert mm_unpickled.attr == "hello"
     assert mm_unpickled.__getstate__() == state
+
+
+def test_pickle_no_dict():
+    # Special case where Function->dict_ is nullptr
+    mm = ua._Function(_extractor, _replacer, "ua_tests", (), {}, None)
+    assert mm.__getstate__()[6] is None  # Holds __dict__
+
+    mm_unpickled = pickle.loads(pickle.dumps(mm))
+    assert mm_unpickled.__dict__ == mm.__dict__
