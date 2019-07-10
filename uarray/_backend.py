@@ -121,7 +121,7 @@ def generate_multimethod(
         default,
     )
 
-    return functools.update_wrapper(ua_func, argument_extractor)
+    return ua_func
 
 
 def set_backend(backend, *args, **kwargs):

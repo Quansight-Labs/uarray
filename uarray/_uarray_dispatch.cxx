@@ -115,7 +115,7 @@ static std::unordered_map<std::string, global_backends> global_domain_map;
 thread_local std::unordered_map<
   std::string, local_backends> local_domain_map;
 
-/** Constant Python string identifiers
+/** Constant Python string globals
 
 Using these with PyObject_GetAttr is faster than PyObject_GetAttrString which
 has to create a new python string internally.
@@ -125,6 +125,7 @@ struct
   py_ref ua_convert;
   py_ref ua_domain;
   py_ref ua_function;
+  py_ref update_wrapper;
 
   bool init()
     {
@@ -140,6 +141,15 @@ struct
       if (!ua_function)
         return false;
 
+      auto functools = py_ref::steal(PyImport_ImportModule("functools"));
+      if (!functools)
+        return false;
+      
+      update_wrapper = py_ref::steal(PyObject_GetAttrString(functools.get(), "update_wrapper"));
+
+      if (!update_wrapper)
+        return false;
+
       return true;
     }
 
@@ -148,8 +158,9 @@ struct
       ua_convert.reset();
       ua_domain.reset();
       ua_function.reset();
+      update_wrapper.reset();
     }
-} identifiers;
+} globals;
 
 
 std::string domain_to_string(PyObject * domain)
@@ -177,7 +188,7 @@ std::string domain_to_string(PyObject * domain)
 std::string backend_to_domain_string(PyObject * backend)
 {
   auto domain = py_ref::steal(
-    PyObject_GetAttr(backend, identifiers.ua_domain));
+    PyObject_GetAttr(backend, globals.ua_domain));
   if (!domain)
     return {};
 
@@ -194,7 +205,7 @@ PyObject * clear_all_globals(PyObject * /*self*/, PyObject * /*args*/)
 {
   global_domain_map.clear();
   BackendNotImplementedError.reset();
-  identifiers.clear();
+  globals.clear();
   Py_RETURN_NONE;
 }
 
@@ -517,6 +528,31 @@ struct Function
 
   static PyObject * new_(PyTypeObject * type, PyObject * args, PyObject * kwargs)
     {
+      if (PyTuple_GET_SIZE(args) == 2)
+      {
+        const char * module__str = nullptr,  * qualname__str = nullptr;
+        if (!PyArg_ParseTuple(
+          args, "ss", &module__str, &qualname__str
+        ))
+          return nullptr;
+
+        auto module__ = py_ref::steal(PyImport_ImportModule(module__str));
+        if (!module__)
+          return nullptr;
+        
+        auto obj = py_ref::steal(PyObject_GetAttrString(module__, qualname__str));
+
+        if (!PyObject_IsInstance(obj.get(), reinterpret_cast<PyObject *>(type)))
+        {
+          PyErr_SetString(PyExc_ValueError,
+            "Retrieved value isn't a uarray._Function object."
+          );
+          return nullptr;
+        }
+
+        return obj;
+      }
+
       auto self = reinterpret_cast<Function *>(type->tp_alloc(type, 0));
       if (self == nullptr)
         return nullptr;
@@ -528,6 +564,11 @@ struct Function
 
   static int init(Function * self, PyObject * args, PyObject * /*kwargs*/)
     {
+      if (PyTuple_GET_SIZE(args) == 2)
+      {
+        return 0;
+      }
+
       PyObject * extractor, * replacer;
       PyObject * domain;
       PyObject * def_args, * def_kwargs;
@@ -569,6 +610,9 @@ struct Function
       self->def_args_ = py_ref::ref(def_args);
       self->def_kwargs_ = py_ref::ref(def_kwargs);
       self->def_impl_ = py_ref::ref(def_impl);
+
+      if (PyObject_CallFunction(globals.update_wrapper.get(), "(OO)", reinterpret_cast<PyObject *>(self), extractor) == nullptr)
+        return -1;
 
       return 0;
     }
@@ -636,7 +680,7 @@ py_func_args Function::replace_dispatchables(
   PyObject * backend, PyObject * args, PyObject * kwargs, PyObject * coerce)
 {
   auto ua_convert = py_ref::steal(
-    PyObject_GetAttr(backend, identifiers.ua_convert));
+    PyObject_GetAttr(backend, globals.ua_convert));
 
   if (!ua_convert)
   {
@@ -720,7 +764,7 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
           return LoopReturn::Error;
 
         auto ua_function = py_ref::steal(
-          PyObject_GetAttr(backend, identifiers.ua_function));
+          PyObject_GetAttr(backend, globals.ua_function));
         if (!ua_function)
           return LoopReturn::Error;
 
@@ -845,6 +889,23 @@ int Function::clear(Function * self)
 /** Support for pickle.dump */
 PyObject * Function::getstate__(Function * self, PyObject * /*args*/)
 {
+  auto self_obj = reinterpret_cast<PyObject *>(self);
+  if (PyObject_HasAttrString(self_obj, "__module__") &&
+      PyObject_HasAttrString(self_obj, "__qualname__"))
+  {
+    auto module = py_ref::steal(PyObject_GetAttrString(self_obj, "__module__"));
+
+    if (!module)
+      return nullptr;
+    
+    auto qualname = py_ref::steal(PyObject_GetAttrString(self_obj, "__qualname__"));
+
+    if (!qualname)
+      return nullptr;
+
+    return py_make_tuple(module, qualname).release();
+  }
+
   auto domain = py_ref::steal(
     PyUnicode_FromStringAndSize(self->domain_key_.data(),
                                 self->domain_key_.size()));
@@ -870,6 +931,12 @@ PyObject * Function::setstate__(Function * self, PyObject * args)
   if (!PyArg_ParseTuple(args, "O!", &PyTuple_Type, &state_tuple))
     return nullptr;
 
+  // __new__ has already done everything.
+  if (PyTuple_GET_SIZE(state_tuple) == 2)
+  {
+    Py_RETURN_NONE;
+  }
+
   if (PyTuple_GET_SIZE(state_tuple) != 7)
   {
     PyErr_SetString(PyExc_ValueError, "State tuple must have 7 entries");
@@ -884,20 +951,13 @@ PyObject * Function::setstate__(Function * self, PyObject * args)
     return nullptr;
 
   auto dict = py_ref::ref(PyTuple_GET_ITEM(state_tuple, 6));
-  if (dict == Py_None)
+  if (!PyDict_CheckExact(dict))
   {
-    self->dict_.reset();
+    PyErr_SetString(PyExc_TypeError, "State __dict__ is not a dict object");
+    return nullptr;
   }
-  else
-  {
-    if (!PyDict_CheckExact(dict))
-    {
-      PyErr_SetString(PyExc_TypeError, "State __dict__ is not a dict object");
-      return nullptr;
-    }
 
-    self->dict_ = std::move(dict);
-  }
+  self->dict_ = std::move(dict);
 
   Py_RETURN_NONE;
 }
@@ -911,6 +971,7 @@ PyGetSetDef Function_getset[] =
 
 PyMethodDef Function_methods[] =
 {
+  {"__getnewargs__", (binaryfunc)Function::getstate__, METH_NOARGS, nullptr},
   {"__getstate__", (binaryfunc)Function::getstate__, METH_NOARGS, nullptr},
   {"__setstate__", (binaryfunc)Function::setstate__, METH_VARARGS, nullptr},
   {NULL} /* Sentinel */
@@ -1082,6 +1143,9 @@ PyModuleDef uarray_module =
 }  // namespace (anonymous)
 
 
+PyObject * functools_update_wrapper;
+
+
 #if defined(WIN32) || defined(_WIN32)
 #  define MODULE_EXPORT __declspec(dllexport)
 #else
@@ -1099,18 +1163,23 @@ PyInit__uarray(void)
   if (PyType_Ready(&FunctionType) < 0)
     return nullptr;
   Py_INCREF(&FunctionType);
-  PyModule_AddObject(m, "_Function", (PyObject *)&FunctionType);
+  
+  if (PyModule_AddObject(m, "_Function", (PyObject *)&FunctionType) < 0)
+    return nullptr;
 
   if (PyType_Ready(&SetBackendContextType) < 0)
     return nullptr;
   Py_INCREF(&SetBackendContextType);
-  PyModule_AddObject(m, "_SetBackendContext", (PyObject*)&SetBackendContextType);
+
+  if (PyModule_AddObject(m, "_SetBackendContext", (PyObject*)&SetBackendContextType) < 0)
+    return nullptr;
 
   if (PyType_Ready(&SkipBackendContextType) < 0)
     return nullptr;
   Py_INCREF(&SkipBackendContextType);
-  PyModule_AddObject(
-    m, "_SkipBackendContext", (PyObject*)&SkipBackendContextType);
+  if (PyModule_AddObject(
+      m, "_SkipBackendContext", (PyObject*)&SkipBackendContextType) < 0)
+      return nullptr;
 
   BackendNotImplementedError = py_ref::steal(
     PyErr_NewExceptionWithDoc(
@@ -1122,10 +1191,11 @@ PyInit__uarray(void)
   if (!BackendNotImplementedError)
     return nullptr;
   Py_INCREF(BackendNotImplementedError.get());
-  PyModule_AddObject(
-    m, "BackendNotImplementedError", BackendNotImplementedError);
+  if (PyModule_AddObject(
+      m, "BackendNotImplementedError", BackendNotImplementedError) < 0)
+      return nullptr;
 
-  if (!identifiers.init())
+  if (!globals.init())
     return nullptr;
 
   return m.release();
