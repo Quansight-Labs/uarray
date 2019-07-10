@@ -13,6 +13,9 @@ from typing import (
 import inspect
 import functools
 from . import _uarray  # type: ignore
+import copyreg
+import atexit
+import pickle
 
 ArgumentExtractorType = Callable[..., Tuple["Dispatchable", ...]]
 ArgumentReplacerType = Callable[[Tuple, Dict, Tuple], Tuple[Tuple, Dict]]
@@ -24,8 +27,38 @@ from ._uarray import (
     _SetBackendContext,
 )
 
-import atexit
 
+def unpickle_function(mod_name, qname):
+    import importlib
+
+    try:
+        module = importlib.import_module(mod_name)
+        func = getattr(module, qname)
+        return func
+    except (ImportError, AttributeError) as e:
+        from pickle import UnpicklingError
+
+        raise UnpicklingError from e
+
+
+def pickle_function(func):
+    mod_name = getattr(func, "__module__", None)
+    qname = getattr(func, "__qualname__", None)
+
+    try:
+        test = unpickle_function(mod_name, qname)
+    except pickle.UnpicklingError:
+        test = None
+
+    if test is not func:
+        raise pickle.PicklingError(
+            "Can't pickle {}: it's not the same object as {}".format(func, test)
+        )
+
+    return unpickle_function, (mod_name, qname)
+
+
+copyreg.pickle(_Function, pickle_function)
 atexit.register(_uarray.clear_all_globals)
 
 

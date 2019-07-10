@@ -31,31 +31,16 @@ def test_nestedbackend():
         assert mm2() is obj
 
 
-def _extractor():
-    return ()
-
-
 def _replacer(args, kwargs, dispatchables):
     return (args, kwargs)
 
 
+@ua.create_multimethod(_replacer, "ua_tests")
+def pickle_mm():
+    return ()
+
+
 def test_pickle_support():
-    mm = ua.generate_multimethod(_extractor, _replacer, "ua_tests")
-    mm.attr = "hello"
+    unpickle_mm = pickle.loads(pickle.dumps(pickle_mm))
 
-    state = mm.__getstate__()
-
-    s = pickle.dumps(mm)
-    mm_unpickled = pickle.loads(s)
-
-    assert mm_unpickled.attr == "hello"
-    assert mm_unpickled.__getstate__() == state
-
-
-def test_pickle_no_dict():
-    # Special case where Function->dict_ is nullptr
-    mm = ua._Function(_extractor, _replacer, "ua_tests", (), {}, None)
-    assert mm.__getstate__()[6] is None  # Holds __dict__
-
-    mm_unpickled = pickle.loads(pickle.dumps(mm))
-    assert mm_unpickled.__dict__ == mm.__dict__
+    assert unpickle_mm is pickle_mm
