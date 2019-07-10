@@ -126,6 +126,8 @@ struct
   py_ref ua_domain;
   py_ref ua_function;
   py_ref update_wrapper;
+  py_ref module;
+  py_ref qualname;
 
   bool init()
     {
@@ -149,6 +151,14 @@ struct
 
       if (!update_wrapper)
         return false;
+      
+      module = py_ref::steal(PyUnicode_InternFromString("__module__"));
+      if (!module)
+        return false;
+
+      qualname = py_ref::steal(PyUnicode_InternFromString("__qualname__"));
+      if (!qualname)
+        return false;
 
       return true;
     }
@@ -159,6 +169,8 @@ struct
       ua_domain.reset();
       ua_function.reset();
       update_wrapper.reset();
+      module.reset();
+      qualname.reset();
     }
 } globals;
 
@@ -890,15 +902,15 @@ int Function::clear(Function * self)
 PyObject * Function::getstate__(Function * self, PyObject * /*args*/)
 {
   auto self_obj = reinterpret_cast<PyObject *>(self);
-  if (PyObject_HasAttrString(self_obj, "__module__") &&
-      PyObject_HasAttrString(self_obj, "__qualname__"))
+  if (PyObject_HasAttr(self_obj, globals.module) &&
+      PyObject_HasAttr(self_obj, globals.qualname))
   {
-    auto module = py_ref::steal(PyObject_GetAttrString(self_obj, "__module__"));
+    auto module = py_ref::steal(PyObject_GetAttr(self_obj, globals.module));
 
     if (!module)
       return nullptr;
     
-    auto qualname = py_ref::steal(PyObject_GetAttrString(self_obj, "__qualname__"));
+    auto qualname = py_ref::steal(PyObject_GetAttr(self_obj, globals.qualname));
 
     if (!qualname)
       return nullptr;
@@ -918,7 +930,7 @@ PyObject * Function::getstate__(Function * self, PyObject * /*args*/)
                            self->def_args_,
                            self->def_kwargs_,
                            self->def_impl_,
-                           self->dict_ ? self->dict_ : Py_None);
+                           self->dict_);
 
   return res.release();
 }
@@ -971,6 +983,7 @@ PyGetSetDef Function_getset[] =
 
 PyMethodDef Function_methods[] =
 {
+  // Make sure that __new__ gets called.
   {"__getnewargs__", (binaryfunc)Function::getstate__, METH_NOARGS, nullptr},
   {"__getstate__", (binaryfunc)Function::getstate__, METH_NOARGS, nullptr},
   {"__setstate__", (binaryfunc)Function::setstate__, METH_VARARGS, nullptr},
