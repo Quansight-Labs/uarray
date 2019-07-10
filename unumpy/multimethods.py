@@ -56,7 +56,7 @@ class ufunc:
         self.nin, self.nout = nin, nout
 
     def __str__(self):
-        return f"<ufunc '{self.name}'>"
+        return "<ufunc '{}'>".format(self.name)
 
     @property  # type: ignore
     @create_numpy(_self_argreplacer)

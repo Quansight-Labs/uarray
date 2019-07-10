@@ -287,8 +287,8 @@ class Dispatchable:
         return (self.type, self.value)[index]
 
     def __str__(self):
-        return (
-            f"<{type(self).__name__}: type={repr(self.type)}, value={repr(self.value)}>"
+        return "<{0}: type={1!r}, value={2!r}>".format(
+            type(self).__name__, self.type, self.value
         )
 
     __repr__ = __str__
