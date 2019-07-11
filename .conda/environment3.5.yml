@@ -1,0 +1,24 @@
+name: uarray
+channels:
+  - pytorch
+  - xnd/label/dev
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.5
+  - pip
+  - sphinx
+  - sphinx_rtd_theme
+  - pytest
+  - pytest-cov
+  - mypy
+  - pytorch-cpu
+  - scipy
+  - gumath
+  - dask=1.2
+  - sparse
+  - doc8
+  - black
+  - pip:
+    - pytest-mypy
+    - pytest-black

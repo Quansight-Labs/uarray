@@ -1,0 +1,28 @@
+steps:
+- script: |
+    echo "##vso[task.prependpath]$CONDA/bin"
+    sudo chown -R $USER $CONDA
+  displayName: Prepare conda
+
+- script: |
+    conda config --set always_yes True
+    conda update -n base conda
+    conda init
+    conda env update -n uarray -f .conda/environment$(python_version).yml
+  displayName: Create environment.
+
+- script: |
+    conda activate uarray
+    MACOSX_DEPLOYMENT_TARGET=10.9 pip install -e . --no-deps
+  displayName: Install package
+
+- script: |
+    source activate uarray
+    pytest
+  displayName: Run tests
+
+- task: PublishCodeCoverageResults@1
+  inputs:
+    codeCoverageTool: Cobertura
+    summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/coverage.xml"
+    reportDirectory: "$(System.DefaultWorkingDirectory)/**/htmlcov"
