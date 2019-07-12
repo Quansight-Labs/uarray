@@ -1,7 +1,5 @@
 name: uarray
 channels:
-  - pytorch
-  - xnd/label/dev
   - defaults
   - conda-forge
 dependencies:
@@ -13,10 +11,6 @@ dependencies:
   - pytest-cov
   - mypy
   - pytorch-cpu
-  - scipy
-  - gumath
-  - dask=1.2
-  - sparse
   - doc8
   - black
   - pip:

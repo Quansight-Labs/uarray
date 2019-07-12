@@ -75,7 +75,7 @@ setup(
     maintainer_email="habbasi@quansight.com",
     license="BSD 3-Clause License (Revised)",
     keywords="uarray,numpy,scipy,pytorch,cupy,tensorflow",
-    packages=find_packages(include=["uarray", "uarray.*", "unumpy", "unumpy.*"]),
+    packages=find_packages(include=["uarray", "uarray.*"]),
     long_description=long_desc,
     long_description_content_type="text/markdown",
     install_requires=reqs,
