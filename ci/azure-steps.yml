@@ -12,7 +12,7 @@ steps:
   displayName: Create environment.
 
 - script: |
-    conda activate uarray
+    source activate uarray
     pip install -e . --no-deps
   displayName: Install package
 
