@@ -184,7 +184,7 @@ std::string backend_to_domain_string(PyObject * backend)
  * This must be installed in a python atexit handler. This prevents Py_DECREF
  * being called after the interpreter has already shudown.
  */
-PyObject * clear_all_globals(PyObject * /* self */)
+PyObject * clear_all_globals(PyObject * /* self */, PyObject * /* args */)
 {
   global_domain_map.clear();
   BackendNotImplementedError.reset();
@@ -250,7 +250,7 @@ void clear_single(const std::string& domain, bool registered, bool global)
 
   if (global)
   {
-    domain_globals->second.global.backend = py_ref::ref(nullptr);
+    domain_globals->second.global.backend.reset();
   }
 }
 
@@ -384,7 +384,7 @@ struct SetBackendContext
       return 0;
     }
 
-  static PyObject * enter__(SetBackendContext * self, PyObject * /* self */)
+  static PyObject * enter__(SetBackendContext * self, PyObject * /* args */)
     {
       if (!self->ctx_.enter())
         return nullptr;
@@ -1038,8 +1038,8 @@ PyMethodDef method_defs[] =
 {
   {"set_global_backend", set_global_backend, METH_VARARGS, nullptr},
   {"register_backend", register_backend, METH_VARARGS, nullptr},
-  {"clear_all_globals", (PyCFunction)clear_all_globals, METH_NOARGS, nullptr},
-  {"clear_backends", (PyCFunction)clear_backends, METH_VARARGS, nullptr},
+  {"clear_all_globals", clear_all_globals, METH_NOARGS, nullptr},
+  {"clear_backends", clear_backends, METH_VARARGS, nullptr},
   {NULL} /* Sentinel */
 };
 
