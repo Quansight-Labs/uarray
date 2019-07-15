@@ -15,6 +15,22 @@
 import os
 import sys
 
+
+# Mock Extension modules
+try:
+    import uarray._uarray
+except ImportError:
+    from unittest.mock import MagicMock
+
+    class Mock(MagicMock):
+        @classmethod
+        def __getattr__(cls, name):
+            return MagicMock()
+
+    MOCK_MODULES = ["uarray._uarray"]
+    sys.modules.update((mod, Mock()) for mod in MOCK_MODULES)
+
+
 # sys.path.insert(0, os.path.abspath('.'))
 from typing import List, Dict
 
