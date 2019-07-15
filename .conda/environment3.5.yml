@@ -4,13 +4,8 @@ channels:
   - conda-forge
 dependencies:
   - python=3.5
-  - pip=18.0
   - sphinx
   - sphinx_rtd_theme
   - pytest
   - pytest-cov
-  - mypy
-  - pytorch-cpu
   - doc8
-  - pip:
-    - pytest-mypy
