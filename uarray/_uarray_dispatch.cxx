@@ -184,7 +184,7 @@ std::string backend_to_domain_string(PyObject * backend)
  * This must be installed in a python atexit handler. This prevents Py_DECREF
  * being called after the interpreter has already shudown.
  */
-PyObject * clear_all_globals(PyObject * /*self*/)
+PyObject * clear_all_globals(PyObject * /* self */)
 {
   global_domain_map.clear();
   BackendNotImplementedError.reset();
@@ -193,7 +193,7 @@ PyObject * clear_all_globals(PyObject * /*self*/)
 }
 
 
-PyObject * set_global_backend(PyObject * Py_UNUSED(self), PyObject * args)
+PyObject * set_global_backend(PyObject * /* self */, PyObject * args)
 {
   PyObject * backend;
   int only = false, coerce = false;
@@ -216,7 +216,7 @@ PyObject * set_global_backend(PyObject * Py_UNUSED(self), PyObject * args)
   Py_RETURN_NONE;
 }
 
-PyObject * register_backend(PyObject * Py_UNUSED(self), PyObject * args)
+PyObject * register_backend(PyObject * /* self */, PyObject * args)
 {
   PyObject * backend;
   if (!PyArg_ParseTuple(args, "O", 
@@ -253,21 +253,21 @@ void clear_single(std::string domain, bool registered, bool global)
   }
 }
 
-PyObject * clear_backends(PyObject * Py_UNUSED(self), PyObject * args)
+PyObject * clear_backends(PyObject * /* self */, PyObject * args)
 {
-  char* domain = nullptr;
+  PyObject* domain = nullptr;
   int registered = true, global = false;
-  if (!PyArg_ParseTuple(args, "s|pp", 
+  if (!PyArg_ParseTuple(args, "O|pp", 
     &domain, &registered, &global))
     return nullptr;
 
-  if (!domain && registered && global)
+  if ((!domain || domain == Py_None)  && registered && global)
   {
     global_domain_map.clear();
     Py_RETURN_NONE;
   }
-
-  clear_single(domain, registered, global);
+  auto domain_str = domain_to_string(domain);
+  clear_single(domain_str, registered, global);
   Py_RETURN_NONE;
 }
 
@@ -382,7 +382,7 @@ struct SetBackendContext
       return 0;
     }
 
-  static PyObject * enter__(SetBackendContext * self)
+  static PyObject * enter__(SetBackendContext * self, PyObject * /* self */)
     {
       if (!self->ctx_.enter())
         return nullptr;
@@ -451,7 +451,7 @@ struct SkipBackendContext
       return 0;
     }
 
-  static PyObject * enter__(SkipBackendContext * self)
+  static PyObject * enter__(SkipBackendContext * self, PyObject * /* args */)
     {
       if (!self->ctx_.enter())
         return nullptr;
@@ -499,7 +499,7 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call)
   LoopReturn ret = LoopReturn::Continue;
   for (int i = pref.size()-1; i >= 0; --i)
   {
-    auto& options = pref[i];
+    auto options = pref[i];
     if (should_skip(options.backend))
       continue;
 
