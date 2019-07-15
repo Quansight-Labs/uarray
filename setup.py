@@ -32,9 +32,6 @@ def parse_requires():
     reqs_path = cwd / "requirements"
     reqs.extend(open_reqs_file("requirements.txt"))
 
-    if sys.version_info < (3, 7):
-        reqs.append("contextvars")
-
     for f in reqs_path.iterdir():
         extras_require[f.stem] = open_reqs_file(f.parts[-1], reqs_path=reqs_path)
 
@@ -43,6 +40,7 @@ parse_requires()
 
 with open("README.md") as f:
     long_desc = f.read()
+
 
 class build_cpp11_ext(build_ext):
     def build_extension(self, ext):
@@ -57,11 +55,7 @@ cmdclass.update(versioneer.get_cmdclass())
 
 
 extensions = [
-    Extension(
-        "uarray._uarray",
-        sources=["uarray/_uarray_dispatch.cxx"],
-        language="c++",
-    )
+    Extension("uarray._uarray", sources=["uarray/_uarray_dispatch.cxx"], language="c++")
 ]
 
 setup(
@@ -100,5 +94,5 @@ setup(
         "Tracker": "https://github.com/Quansight-Labs/uarray/issues",
     },
     python_requires=">=3.5, <4",
-    ext_modules=extensions
+    ext_modules=extensions,
 )
