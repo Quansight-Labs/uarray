@@ -25,7 +25,7 @@ def open_reqs_file(file, reqs_path=Path(cwd)):
 
 
 extras_require = {}
-reqs: list = []
+reqs = []
 
 
 def parse_requires():
