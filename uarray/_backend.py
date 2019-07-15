@@ -259,6 +259,33 @@ def register_backend(backend):
     _uarray.register_backend(backend)
 
 
+def clear_backends(domain, registered=True, globals=False):
+    """
+    This utility method clears registered backends.
+
+    .. warning::
+        We caution library authors against using this function in
+        their code. We do *not* support this use-case. This function
+        is meant to be used only by users themselves.
+
+    Parameters
+    ----------
+    domain : Optional[str]
+        The domain for which to de-register backends. ``None`` means
+        de-register for all domains.
+    registered : bool
+        Whether or not to clear registered backends. See :obj:`register_backend`.
+    globals : bool
+        Whether or not to clear global backends. See :obj:`set_global_backend`.
+    
+    See Also
+    --------
+    register_backend : Register a backend globally.
+    set_global_backend : Set a global backend.
+    """
+    _uarray.clear_backends(domain, registered, globals)
+
+
 class Dispatchable:
     """
     A utility class which marks an argument with a specific dispatch type.

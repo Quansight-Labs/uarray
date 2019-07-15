@@ -257,7 +257,7 @@ PyObject * clear_backends(PyObject * Py_UNUSED(self), PyObject * args)
 {
   char* domain = nullptr;
   int registered = true, global = false;
-  if (!PyArg_ParseTuple(args, "|spp", 
+  if (!PyArg_ParseTuple(args, "s|pp", 
     &domain, &registered, &global))
     return nullptr;
 
