@@ -12,12 +12,12 @@ steps:
   displayName: Create environment.
 
 - script: |
-    source activate uarray
+    conda activate uarray
     MACOSX_DEPLOYMENT_TARGET=10.9 pip install -e . --no-deps
   displayName: Install package
 
 - script: |
-    source activate uarray
+    conda activate uarray
     pytest
   displayName: Run tests
 
