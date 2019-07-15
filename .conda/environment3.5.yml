@@ -4,7 +4,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.5
-  - pip
+  - pip=18.0
   - sphinx
   - sphinx_rtd_theme
   - pytest
