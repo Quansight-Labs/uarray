@@ -12,6 +12,5 @@ dependencies:
   - mypy
   - pytorch-cpu
   - doc8
-  - black
   - pip:
     - pytest-mypy
