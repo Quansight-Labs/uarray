@@ -231,25 +231,26 @@ PyObject * register_backend(PyObject * /* self */, PyObject * args)
   Py_RETURN_NONE;
 }
 
-void clear_single(std::string domain, bool registered, bool global)
+void clear_single(const std::string& domain, bool registered, bool global)
 {
-  if (global_domain_map.find(domain) == global_domain_map.end())
+  auto domain_globals = global_domain_map.find(domain);
+  if (domain_globals == global_domain_map.end())
     return;
 
   if (registered && global)
     {
-      global_domain_map.erase(domain);
+      global_domain_map.erase(domain_globals);
       return;
     }
   
   if (registered)
   {
-    global_domain_map[domain].registered.clear();
+    domain_globals->second.registered.clear();
   }
 
   if (global)
   {
-    global_domain_map[domain].global.backend = py_ref::ref(nullptr);
+    domain_globals->second.global.backend = py_ref::ref(nullptr);
   }
 }
 
@@ -261,11 +262,12 @@ PyObject * clear_backends(PyObject * /* self */, PyObject * args)
     &domain, &registered, &global))
     return nullptr;
 
-  if ((!domain || domain == Py_None)  && registered && global)
+  if (domain == Py_None && registered && global)
   {
     global_domain_map.clear();
     Py_RETURN_NONE;
   }
+
   auto domain_str = domain_to_string(domain);
   clear_single(domain_str, registered, global);
   Py_RETURN_NONE;
