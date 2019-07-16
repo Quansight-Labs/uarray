@@ -3,13 +3,13 @@ uarray
 
 .. automodule:: uarray
 
-   
-   
+
+
    .. rubric:: Functions
 
    .. autosummary::
       :toctree:
-   
+
       all_of_type
       create_multimethod
       generate_multimethod
@@ -17,28 +17,30 @@ uarray
       set_backend
       set_global_backend
       register_backend
+      clear_backends
       skip_backend
-      wrap_single_convertor   
-   
+      wrap_single_convertor
 
-   
-   
+
+
+
+
    .. rubric:: Classes
 
    .. autosummary::
       :toctree:
-   
-      Dispatchable
-   
-   
 
-   
-   
+      Dispatchable
+
+
+
+
+
    .. rubric:: Exceptions
 
    .. autosummary::
       :toctree:
-   
+
       BackendNotImplementedError
 
 
