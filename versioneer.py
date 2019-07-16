@@ -372,7 +372,7 @@ class NotThisMethod(Exception):
 
 
 # these dictionaries contain VCS-specific tools
-LONG_VERSION_PY: Dict[str, str] = {}
+LONG_VERSION_PY = {}
 HANDLERS = {}
 
 
