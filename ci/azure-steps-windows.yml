@@ -2,20 +2,20 @@ steps:
 - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
   displayName: Add conda to PATH
 
-- script: |
+- powershell: |
     conda config --set always_yes True
     conda update -n base conda
     conda init
     conda env update -n uarray -f .conda/environment$(python_version).yml
   displayName: Create environment.
 
-- script: |
-    conda activate uarray
+- powershell: |
+    call activate uarray
     pip install -e . --no-deps
   displayName: Install package
 
-- script: |
-    conda activate uarray
+- powershell: |
+    call activate uarray
     pytest
   displayName: Run tests
 
