@@ -12,18 +12,16 @@ jobs:
           python_version: '3.7'
         Python36:
           python_version: '3.6'
-        Python35:
-          python_version: '3.5'
 - job: MacOS
   variables:
-    python_version: '3.5'
+    python_version: '3.6'
   pool:
     vmImage: 'macos-10.13'
   steps:
     - template: ci/azure-steps-macos.yml
 - job: Windows
   variables:
-    python_version: '3.5'
+    python_version: '3.6'
   pool:
     vmImage: 'vs2017-win2016'
   steps:

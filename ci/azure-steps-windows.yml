@@ -9,12 +9,12 @@ steps:
     conda env update -n uarray -f .conda/environment$(python_version).yml
   displayName: Create environment.
 
-- powershell: |
+- script: |
     call activate uarray
     pip install -e . --no-deps
   displayName: Install package
 
-- powershell: |
+- script: |
     call activate uarray
     pytest
   displayName: Run tests
@@ -23,4 +23,3 @@ steps:
   inputs:
     codeCoverageTool: Cobertura
     summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/coverage.xml"
-    reportDirectory: "$(System.DefaultWorkingDirectory)/**/htmlcov"
