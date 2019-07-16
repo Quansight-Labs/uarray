@@ -13,7 +13,7 @@ steps:
 
 - bash: |
     source activate uarray
-    python -m pip install -e . --no-deps
+    pip install -e . --no-deps
   displayName: Install package
 
 - bash: |

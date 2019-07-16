@@ -6,6 +6,7 @@ import versioneer
 from pathlib import Path
 import sys
 import os
+from typing import List
 
 cwd = Path(os.path.dirname(os.path.abspath(__file__)))
 
@@ -25,7 +26,7 @@ def open_reqs_file(file, reqs_path=Path(cwd)):
 
 
 extras_require = {}
-reqs = []
+reqs = []  # type: List[str]
 
 
 def parse_requires():
