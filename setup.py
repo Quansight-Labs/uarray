@@ -50,6 +50,7 @@ class build_cpp11_ext(build_ext):
             ext.extra_compile_args.append("--std=c++11")
         if self.plat_name.startswith("macosx"):
             ext.extra_compile_args.append("-mmacosx-version-min=10.9")
+            ext.extra_link_args.append("-mmacosx-version-min=10.9")
         build_ext.build_extension(self, ext)
 
 
