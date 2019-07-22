@@ -94,10 +94,6 @@ Choose the documentation page relevant to you:
 
     generated/uarray
 
-    generated/unumpy
-
-
-
 
 Indices and tables
 ==================

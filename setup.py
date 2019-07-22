@@ -6,6 +6,7 @@ import versioneer
 from pathlib import Path
 import sys
 import os
+from typing import List
 
 cwd = Path(os.path.dirname(os.path.abspath(__file__)))
 
@@ -25,15 +26,12 @@ def open_reqs_file(file, reqs_path=Path(cwd)):
 
 
 extras_require = {}
-reqs = []
+reqs = []  # type: List[str]
 
 
 def parse_requires():
     reqs_path = cwd / "requirements"
     reqs.extend(open_reqs_file("requirements.txt"))
-
-    if sys.version_info < (3, 7):
-        reqs.append("contextvars")
 
     for f in reqs_path.iterdir():
         extras_require[f.stem] = open_reqs_file(f.parts[-1], reqs_path=reqs_path)
@@ -52,6 +50,7 @@ class build_cpp11_ext(build_ext):
             ext.extra_compile_args.append("--std=c++11")
         if self.plat_name.startswith("macosx"):
             ext.extra_compile_args.append("-mmacosx-version-min=10.9")
+            ext.extra_link_args.append("-mmacosx-version-min=10.9")
         build_ext.build_extension(self, ext)
 
 
@@ -74,7 +73,7 @@ setup(
     maintainer_email="habbasi@quansight.com",
     license="BSD 3-Clause License (Revised)",
     keywords="uarray,numpy,scipy,pytorch,cupy,tensorflow",
-    packages=find_packages(include=["uarray", "uarray.*", "unumpy", "unumpy.*"]),
+    packages=find_packages(include=["uarray", "uarray.*"]),
     long_description=long_desc,
     long_description_content_type="text/markdown",
     install_requires=reqs,

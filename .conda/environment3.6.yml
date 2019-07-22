@@ -1,0 +1,17 @@
+name: uarray
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.6
+  - pip
+  - sphinx
+  - sphinx_rtd_theme
+  - pytest
+  - pytest-cov
+  - mypy
+  - doc8
+  - black
+  - pip:
+    - pytest-mypy
+    - pytest-black

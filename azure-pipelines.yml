@@ -1,29 +1,33 @@
 jobs:
-- job: Tests
+- job: Linux
+  variables:
+    python_version: '3.5'
   pool:
     vmImage: 'ubuntu-16.04'
-
   steps:
-  - script: |
-      echo "##vso[task.prependpath]$CONDA/bin"
-      conda env create -f .conda/environment.yml
-    displayName: Prepare conda
-
-  - script: |
-      source activate uarray
-      pip install -e . --no-deps
-    displayName: Install package
-
-  - script: |
-      source activate uarray
-      pytest
-    displayName: Run tests
-
-  - task: PublishCodeCoverageResults@1
-    inputs:
-      codeCoverageTool: Cobertura
-      summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/coverage.xml"
-      reportDirectory: "$(System.DefaultWorkingDirectory)/**/htmlcov"
+    - template: ci/azure-steps.yml
+  strategy:
+    matrix:
+        Python37:
+          python_version: '3.7'
+        Python36:
+          python_version: '3.6'
+        Python35:
+          python_version: '3.5'
+- job: MacOS
+  variables:
+    python_version: '3.5'
+  pool:
+    vmImage: 'macos-10.14'
+  steps:
+    - template: ci/azure-steps-macos.yml
+- job: Windows
+  variables:
+    python_version: '3.5'
+  pool:
+    vmImage: 'vs2017-win2016'
+  steps:
+    - template: ci/azure-steps-windows.yml
 - job: Docs
   pool:
     vmImage: 'ubuntu-16.04'
@@ -52,6 +56,7 @@ jobs:
     inputs:
       artifactName: 'Documentation'
       targetPath: '$(System.DefaultWorkingDirectory)/_build/html'
+
 
 trigger:
   branches:

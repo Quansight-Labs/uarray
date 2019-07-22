@@ -1,0 +1,25 @@
+steps:
+- powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+  displayName: Add conda to PATH
+
+- script: |
+    conda config --set always_yes True
+    conda update -n base conda
+    conda init
+    conda env update -n uarray -f .conda/environment$(python_version).yml
+  displayName: Create environment.
+
+- script: |
+    call activate uarray
+    pip install -e . --no-deps
+  displayName: Install package
+
+- script: |
+    call activate uarray
+    pytest
+  displayName: Run tests
+
+- task: PublishCodeCoverageResults@1
+  inputs:
+    codeCoverageTool: Cobertura
+    summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/coverage.xml"

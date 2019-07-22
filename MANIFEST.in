@@ -1,3 +1,2 @@
 include versioneer.py
 recursive-include uarray *.py
-recursive-include unumpy *.py
