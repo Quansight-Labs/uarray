@@ -1,28 +1,14 @@
 steps:
-- powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
-  displayName: Add conda to PATH
-
-- script: |
-    conda init
-    REM https://github.com/microsoft/azure-pipelines-tasks/issues/11016
-    REM call activate base
-    conda config --set always_yes True
-    REM https://github.com/conda/conda/issues/8865
-    REM conda update -n base conda
-    conda env update -n uarray -f .conda/environment$(python_version).yml
-  displayName: Create environment.
-
-- script: |
-    call activate uarray
-    pip install -e . --no-deps
-  displayName: Install package
-
-- script: |
-    call activate uarray
-    pytest
-  displayName: Run tests
-
-- task: PublishCodeCoverageResults@1
-  inputs:
-    codeCoverageTool: Cobertura
-    summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/coverage.xml"
+- {task: UsePythonVersion@0, inputs: {versionSpec: '3.5', architecture: x86}}
+- {task: UsePythonVersion@0, inputs: {versionSpec: '3.5', architecture: x64}}
+- {task: UsePythonVersion@0, inputs: {versionSpec: '3.6', architecture: x86}}
+- {task: UsePythonVersion@0, inputs: {versionSpec: '3.6', architecture: x64}}
+- {task: UsePythonVersion@0, inputs: {versionSpec: '3.7', architecture: x86}}
+- {task: UsePythonVersion@0, inputs: {versionSpec: '3.7', architecture: x64}}
+- bash: |
+    python -m pip install --upgrade pip
+    pip install cibuildwheel==0.11.1
+    cibuildwheel --output-dir wheelhouse .
+  displayName: Build and test wheels
+- task: PublishBuildArtifacts@1
+  inputs: {pathtoPublish: 'wheelhouse'}

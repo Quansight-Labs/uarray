@@ -114,7 +114,7 @@ html_favicon = "logo.png"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path: List[str] = []
+html_static_path = []  # type: List[str]
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
@@ -135,7 +135,7 @@ htmlhelp_basename = "uarraydoc"
 
 # -- Options for LaTeX output ------------------------------------------------
 
-latex_elements: Dict[str, str] = {
+latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
     #
     # 'papersize': 'letterpaper',
@@ -148,7 +148,7 @@ latex_elements: Dict[str, str] = {
     # Latex figure (float) alignment
     #
     # 'figure_align': 'htbp',
-}
+}  # type: Dict[str, str]
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,

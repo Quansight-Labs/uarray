@@ -1,7 +1,7 @@
 import uarray as ua
 import pickle
 
-import pytest
+import pytest  # type: ignore
 
 
 @pytest.fixture(scope="function")

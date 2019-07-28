@@ -1,67 +1,38 @@
+variables:
+  CIBW_TEST_COMMAND: "pip install -r {project}/requirements/tests.txt && pytest --pyargs uarray"
+  CIBW_BUILD: cp3?-*
+  CIBW_SKIP: cp34-*
+
 jobs:
 - job: Linux
-  variables:
-    python_version: '3.5'
   pool:
     vmImage: 'ubuntu-16.04'
   steps:
     - template: ci/azure-steps.yml
-  strategy:
-    matrix:
-        Python37:
-          python_version: '3.7'
-        Python36:
-          python_version: '3.6'
-        Python35:
-          python_version: '3.5'
 - job: MacOS
-  variables:
-    python_version: '3.5'
   pool:
     vmImage: 'macos-10.14'
   steps:
-    - template: ci/azure-steps-macos.yml
+    - template: ci/azure-steps.yml
 - job: Windows
-  variables:
-    python_version: '3.5'
   pool:
     vmImage: 'vs2017-win2016'
   steps:
     - template: ci/azure-steps-windows.yml
-- job: Docs
+- job: Docs_Linting_Coverage
   pool:
     vmImage: 'ubuntu-16.04'
   steps:
-  - script: |
-      echo "##vso[task.prependpath]$CONDA/bin"
-      conda env create -f .conda/environment.yml
-    displayName: Prepare conda
-
-  - script: |
-      source activate uarray
-      pip install -e . --no-deps
-    displayName: Install package
-
-  - script: |
-      source activate uarray
-      sphinx-build -W -b html docs/ _build/html
-    displayName: Build docs
-
-  - script: |
-      source activate uarray
-      doc8
-    displayName: Lint docs
-
-  - task: PublishPipelineArtifact@0
-    inputs:
-      artifactName: 'Documentation'
-      targetPath: '$(System.DefaultWorkingDirectory)/_build/html'
+    - template: ci/azure-doc-lint-cov.yml
 
 
 trigger:
   branches:
     include:
     - master
+  tags:
+    include:
+    - '*'
 
 pr:
 - master

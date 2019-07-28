@@ -1,0 +1,35 @@
+steps:
+- script: |
+    echo "##vso[task.prependpath]$CONDA/bin"
+    conda env create -f .conda/environment.yml
+  displayName: Prepare conda
+
+- script: |
+    source activate uarray
+    pip install -ve . --no-deps
+  displayName: Install package
+
+- script: |
+    source activate uarray
+    sphinx-build -W -b html docs/ _build/html
+  displayName: Build docs
+
+- task: PublishPipelineArtifact@0
+  inputs:
+    artifactName: 'Documentation'
+    targetPath: '$(System.DefaultWorkingDirectory)/_build/html'
+
+- script: |
+    source activate uarray
+    doc8
+  displayName: Lint docs
+
+- script: |
+    source activate uarray
+    pytest --pyargs uarray
+  displayName: Lint and Tests
+
+- task: PublishCodeCoverageResults@1
+  inputs:
+    codeCoverageTool: Cobertura
+    summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/coverage.xml" 
