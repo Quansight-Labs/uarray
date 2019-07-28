@@ -3,9 +3,12 @@ steps:
   displayName: Add conda to PATH
 
 - script: |
-    conda config --set always_yes True
-    conda update -n base conda
     conda init
+    REM https://github.com/microsoft/azure-pipelines-tasks/issues/11016
+    REM call activate base
+    conda config --set always_yes True
+    REM https://github.com/conda/conda/issues/8865
+    REM conda update -n base conda
     conda env update -n uarray -f .conda/environment$(python_version).yml
   displayName: Create environment.
 
