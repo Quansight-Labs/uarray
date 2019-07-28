@@ -13,14 +13,14 @@ from typing import (
 import inspect
 import functools
 from . import _uarray  # type: ignore
-import copyreg
+import copyreg  # type: ignore
 import atexit
 import pickle
 
 ArgumentExtractorType = Callable[..., Tuple["Dispatchable", ...]]
 ArgumentReplacerType = Callable[[Tuple, Dict, Tuple], Tuple[Tuple, Dict]]
 
-from ._uarray import (
+from ._uarray import (  # type: ignore
     BackendNotImplementedError,
     _Function,
     _SkipBackendContext,

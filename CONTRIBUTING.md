@@ -32,11 +32,11 @@ This will create an environment named `uarray` which you can use for development
 Tests can be run from the main uarray directory as follows:
 
 ```
-pytest
+pytest --pyargs uarray
 ```
 
 To run a subset of tests:
 
 ```
-pytest uarray/tests/test_backend.py
+pytest uarray.tests.test_backend
 ```
