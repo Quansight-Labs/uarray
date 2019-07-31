@@ -34,13 +34,9 @@ Setting the backend permanently
 -------------------------------
 
 To set the backend permanently, use the :obj:`set_global_backend`
-method. For this, you have to provide an additional piece of information,
-which is the domain. The domain, by convention, is the module where the
-multimethods reside, or one of its parents.
-
-It is a recommendation that the global backend should not depend on any
-other backend, as it is not guaranteed that another backend will be
-available.
+method. It is a recommendation that the global backend should not
+depend on any other backend, as it is not guaranteed that another
+backend will be available.
 
 You can also register backends other than the global backend for permanent
 use, but the global backend will be tried first outside of a :obj:`set_backend`

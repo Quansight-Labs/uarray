@@ -66,6 +66,14 @@ recursion. This allows the backend to implement its functions in terms of
 functions provided by other backends. This is the purpose of the
 :obj:`skip_backend` decorator.
 
+The process that takes place when the backend is tried
+------------------------------------------------------
+
+First of all, the backend's ``__ua_convert__`` method is tried. If it does not return
+:obj:`NotImplemented`, then the backend's ``__ua_function__`` protocol is tried. If a
+value other than :obj:`NotImplemented` is returned, it is assumed to be the final
+return value. Any exceptions raised are propagated up the call stack.
+
 Examples
 --------
 
