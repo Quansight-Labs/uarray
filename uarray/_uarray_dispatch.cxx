@@ -889,9 +889,11 @@ int Function::clear(Function * self)
 }
 
 
+// getset takes mutable char * in python < 3.7
+static char dict__[] = "__dict__";
 PyGetSetDef Function_getset[] =
 {
-  {"__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict},
+  {dict__, PyObject_GenericGetDict, PyObject_GenericSetDict},
   {NULL} /* Sentinel */
 };
 
