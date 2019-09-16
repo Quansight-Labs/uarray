@@ -797,7 +797,7 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
   auto kwargs = canonicalize_kwargs(kwargs_);
 
   py_ref result;
-  std::vector<py_errinf> errors;
+  std::vector<std::pair<py_ref, py_errinf>> errors;
 
 
   auto ret = for_each_backend(
@@ -827,7 +827,7 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
         // raise BackendNotImplemeted is equivalent to return NotImplemented
         if (!result && PyErr_ExceptionMatches(BackendNotImplementedError))
         {
-          errors.push_back(py_errinf::fetch());
+          errors.push_back({py_ref::ref(backend), py_errinf::fetch()});
           result = py_ref::ref(Py_NotImplemented);
         }
 
@@ -859,7 +859,7 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
 
           if (PyErr_Occurred() && PyErr_ExceptionMatches(BackendNotImplementedError))
           {
-            errors.push_back(py_errinf::fetch());
+            errors.push_back({py_ref::ref(backend), py_errinf::fetch()});
             result = py_ref::ref(Py_NotImplemented);
           }
 
@@ -888,7 +888,7 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
       if (!PyErr_ExceptionMatches(BackendNotImplementedError))
         return nullptr;
 
-      errors.push_back(py_errinf::fetch());
+      errors.push_back({py_ref::ref(Py_None), py_errinf::fetch()});
       result = py_ref::ref(Py_NotImplemented);
     }
     else if (result != Py_NotImplemented)
@@ -904,8 +904,12 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
       "No selected backends had an implementation for this function."));
   for (Py_ssize_t i = 0; i < errors.size(); ++i)
   {
+    auto pair = py_make_tuple(errors[i].first, errors[i].second.get_exception());
+    if (!pair)
+      return nullptr;
+
     PyTuple_SET_ITEM(
-      exception_tuple.get(), i+1, errors[i].get_exception().release());
+      exception_tuple.get(), i+1, pair.release());
   }
   PyErr_SetObject(BackendNotImplementedError, exception_tuple.get());
   return nullptr;

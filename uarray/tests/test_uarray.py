@@ -148,8 +148,9 @@ def test_raising_from_backend():
     def raise_(foo):
         raise foo
 
+    Foo = ua.BackendNotImplementedError("Foo")
     be = Backend()
-    be.__ua_function__ = lambda f, a, kw: raise_(ua.BackendNotImplementedError("Foo"))
+    be.__ua_function__ = lambda f, a, kw: raise_(Foo)
     mm = create_nullary_mm()
 
     # BackendNotImplementedErrors are nested
@@ -161,18 +162,19 @@ def test_raising_from_backend():
             e.value.args[0]
             == "No selected backends had an implementation for this function."
         )
-        assert type(e.value.args[1]) == ua.BackendNotImplementedError
-        assert e.value.args[1].args[0] == "Foo"
+        assert type(e.value.args[1]) == tuple
+        assert e.value.args[1] == (be, Foo)
 
+    Bar = ua.BackendNotImplementedError("Bar")
     be2 = Backend()
-    be2.__ua_function__ = lambda f, a, kw: raise_(ua.BackendNotImplementedError("Bar"))
+    be2.__ua_function__ = lambda f, a, kw: raise_(Bar)
     # Errors are in the order the backends were tried
     with ua.set_backend(be), ua.set_backend(be2):
         with pytest.raises(ua.BackendNotImplementedError) as e:
             mm()
 
-        assert e.value.args[1].args[0] == "Bar"
-        assert e.value.args[2].args[0] == "Foo"
+        assert e.value.args[1] == (be2, Bar)
+        assert e.value.args[2] == (be, Foo)
 
     be3 = Backend()
     be3.__ua_function__ = lambda f, a, kw: "Success"
