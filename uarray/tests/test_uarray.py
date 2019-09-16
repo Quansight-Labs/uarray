@@ -16,6 +16,12 @@ class Backend:
     __ua_domain__ = "ua_tests"
 
 
+def create_nullary_mm(default=None):
+    return ua.generate_multimethod(
+        lambda: (), lambda a, kw, d: (a, kw), "ua_tests", default=default
+    )
+
+
 def test_nestedbackend():
     obj = object()
     be_outer = Backend()
@@ -139,3 +145,40 @@ def test_clear_backends(cleanup_backends):
     ua.clear_backends(Backend.__ua_domain__, registered=True, globals=True)
     with pytest.raises(ua.BackendNotImplementedError):
         mm()
+
+
+def test_raising_from_backend():
+    def raise_(foo):
+        raise foo
+
+    be = Backend()
+    be.__ua_function__ = lambda f, a, kw: raise_(ua.BackendNotImplementedError("Foo"))
+    mm = create_nullary_mm()
+
+    # BackendNotImplementedErrors are nested
+    with ua.set_backend(be):
+        with pytest.raises(ua.BackendNotImplementedError) as e:
+            mm()
+
+        assert (
+            e.value.args[0]
+            == "No selected backends had an implementation for this function."
+        )
+        assert type(e.value.args[1]) == ua.BackendNotImplementedError
+        assert e.value.args[1].args[0] == "Foo"
+
+    be2 = Backend()
+    be2.__ua_function__ = lambda f, a, kw: raise_(ua.BackendNotImplementedError("Bar"))
+    # Errors are in the order the backends were tried
+    with ua.set_backend(be), ua.set_backend(be2):
+        with pytest.raises(ua.BackendNotImplementedError) as e:
+            mm()
+
+        assert e.value.args[1].args[0] == "Bar"
+        assert e.value.args[2].args[0] == "Foo"
+
+    be3 = Backend()
+    be3.__ua_function__ = lambda f, a, kw: "Success"
+    # Can succeed after a backend has raised BackendNotImplementedError
+    with ua.set_backend(be3), ua.set_backend(be):
+        assert mm() == "Success"

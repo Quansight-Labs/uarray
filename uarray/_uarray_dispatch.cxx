@@ -747,6 +747,49 @@ PyObject * Function_call(
   return self->call(args, kwargs);
 }
 
+class py_errinf
+{
+  py_ref type_, value_, traceback_;
+
+public:
+  static py_errinf fetch()
+  {
+    PyObject * type, * value, * traceback;
+    PyErr_Fetch(&type, &value, &traceback);
+    py_errinf err;
+    err.set(type, value, traceback);
+    return err;
+  }
+
+  py_ref get_exception()
+  {
+    normalize();
+    return value_;
+  }
+
+private:
+
+  void set(PyObject * type, PyObject * value, PyObject * traceback)
+  {
+    type_ = py_ref::steal(type);
+    value_ = py_ref::steal(value);
+    traceback_ = py_ref::steal(traceback);
+  }
+
+  void normalize()
+  {
+    auto type = type_.release();
+    auto value = value_.release();
+    auto traceback = value_.release();
+    PyErr_NormalizeException(&type, &value, &traceback);
+    if (traceback)
+    {
+      PyException_SetTraceback(value, traceback);
+    }
+    set(type, value, traceback);
+  }
+};
+
 
 PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
 {
@@ -754,6 +797,8 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
   auto kwargs = canonicalize_kwargs(kwargs_);
 
   py_ref result;
+  std::vector<py_errinf> errors;
+
 
   auto ret = for_each_backend(
     domain_key_,
@@ -778,6 +823,13 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
 
         result = py_ref::steal(
           PyObject_Call(ua_function, ua_func_args, nullptr));
+
+        // raise BackendNotImplemeted is equivalent to return NotImplemented
+        if (!result && PyErr_ExceptionMatches(BackendNotImplementedError))
+        {
+          errors.push_back(py_errinf::fetch());
+          result = py_ref::ref(Py_NotImplemented);
+        }
 
         // Try the default with this backend
         if (result == Py_NotImplemented && def_impl_ != Py_None)
@@ -807,7 +859,7 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
 
           if (PyErr_Occurred() && PyErr_ExceptionMatches(BackendNotImplementedError))
           {
-            PyErr_Clear();  // Suppress exception
+            errors.push_back(py_errinf::fetch());
             result = py_ref::ref(Py_NotImplemented);
           }
 
@@ -828,15 +880,35 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_)
   if (ret != LoopReturn::Continue)
     return result.release();
 
-  if (def_impl_ == Py_None)
+  if (def_impl_ != Py_None)
   {
-    PyErr_SetString(
-      BackendNotImplementedError,
-      "No selected backends had an implementation for this function.");
-    return nullptr;
+    result = py_ref::steal(PyObject_Call(def_impl_, args, kwargs));
+    if (!result)
+    {
+      if (!PyErr_ExceptionMatches(BackendNotImplementedError))
+        return nullptr;
+
+      errors.push_back(py_errinf::fetch());
+      result = py_ref::ref(Py_NotImplemented);
+    }
+    else if (result != Py_NotImplemented)
+      return result.release();
   }
 
-  return PyObject_Call(def_impl_, args, kwargs);
+
+  // All backends and defaults failed, construct the exception
+  auto exception_tuple = py_ref::steal(PyTuple_New(errors.size() + 1));
+  PyTuple_SET_ITEM(
+    exception_tuple.get(), 0,
+    PyUnicode_FromString(
+      "No selected backends had an implementation for this function."));
+  for (Py_ssize_t i = 0; i < errors.size(); ++i)
+  {
+    PyTuple_SET_ITEM(
+      exception_tuple.get(), i+1, errors[i].get_exception().release());
+  }
+  PyErr_SetObject(BackendNotImplementedError, exception_tuple.get());
+  return nullptr;
 }
 
 
