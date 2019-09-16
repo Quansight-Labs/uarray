@@ -27,15 +27,12 @@ def test_nestedbackend():
     be_outer = Backend()
     be_outer.__ua_function__ = lambda f, a, kw: obj
 
-    mm1 = ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
+    mm1 = create_nullary_mm()
 
     def default(*a, **kw):
         return mm1(*a, **kw)
 
-    mm2 = ua.generate_multimethod(
-        lambda: (), lambda a, kw, d: (a, kw), "ua_tests", default=default
-    )
-
+    mm2 = create_nullary_mm(default=default)
     be_inner = Backend()
 
     def be2_ua_func(f, a, kw):
@@ -66,7 +63,7 @@ def test_registration(cleanup_backends):
     obj = object()
     be = Backend()
     be.__ua_function__ = lambda f, a, kw: obj
-    mm = ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
+    mm = create_nullary_mm()
 
     ua.register_backend(be)
     assert mm() is obj
@@ -76,7 +73,7 @@ def test_global(cleanup_backends):
     obj = object()
     be = Backend()
     be.__ua_function__ = lambda f, a, kw: obj
-    mm = ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
+    mm = create_nullary_mm()
 
     ua.set_global_backend(be)
     assert mm() is obj
@@ -90,7 +87,7 @@ def ctx_before_global(cleanup_backends):
 
     be2 = Backend()
     be2.__ua_function__ = lambda f, a, kw: obj2
-    mm = ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
+    mm = create_nullary_mm()
 
     ua.set_global_backend(be)
 
@@ -106,7 +103,7 @@ def test_global_before_registered(cleanup_backends):
 
     be2 = Backend()
     be2.__ua_function__ = lambda f, a, kw: obj2
-    mm = ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
+    mm = create_nullary_mm()
 
     ua.set_global_backend(be)
     ua.register_backend(be2)
@@ -120,7 +117,7 @@ def test_global_only(cleanup_backends):
 
     be2 = Backend()
     be2.__ua_function__ = lambda f, a, kw: obj
-    mm = ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
+    mm = create_nullary_mm()
 
     ua.set_global_backend(be, only=True)
     ua.register_backend(be2)
@@ -137,7 +134,7 @@ def test_clear_backends(cleanup_backends):
 
     be2 = Backend()
     be2.__ua_function__ = lambda f, a, kw: obj2
-    mm = ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
+    mm = create_nullary_mm()
 
     ua.set_global_backend(be)
     ua.register_backend(be2)
