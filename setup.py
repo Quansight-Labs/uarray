@@ -93,7 +93,7 @@ setup(
         "Intended Audience :: Science/Research",
     ],
     project_urls={
-        # 'Documentation': 'https://uarray.readthedocs.io/',
+        'Documentation': 'https://uarray.org/',
         "Source": "https://github.com/Quansight-Labs/uarray/",
         "Tracker": "https://github.com/Quansight-Labs/uarray/issues",
     },
