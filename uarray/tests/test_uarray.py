@@ -16,20 +16,22 @@ class Backend:
     __ua_domain__ = "ua_tests"
 
 
-def test_nestedbackend():
+@pytest.fixture()
+def nullary_mm():
+    return ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
+
+
+def test_nestedbackend(nullary_mm):
     obj = object()
     be_outer = Backend()
     be_outer.__ua_function__ = lambda f, a, kw: obj
 
-    mm1 = ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
-
     def default(*a, **kw):
-        return mm1(*a, **kw)
+        return nullary_mm(*a, **kw)
 
     mm2 = ua.generate_multimethod(
         lambda: (), lambda a, kw, d: (a, kw), "ua_tests", default=default
     )
-
     be_inner = Backend()
 
     def be2_ua_func(f, a, kw):
@@ -56,27 +58,25 @@ def test_pickle_support():
     assert unpickle_mm is pickle_mm
 
 
-def test_registration(cleanup_backends):
+def test_registration(cleanup_backends, nullary_mm):
     obj = object()
     be = Backend()
     be.__ua_function__ = lambda f, a, kw: obj
-    mm = ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
 
     ua.register_backend(be)
-    assert mm() is obj
+    assert nullary_mm() is obj
 
 
-def test_global(cleanup_backends):
+def test_global(cleanup_backends, nullary_mm):
     obj = object()
     be = Backend()
     be.__ua_function__ = lambda f, a, kw: obj
-    mm = ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
 
     ua.set_global_backend(be)
-    assert mm() is obj
+    assert nullary_mm() is obj
 
 
-def ctx_before_global(cleanup_backends):
+def ctx_before_global(cleanup_backends, nullary_mm):
     obj = object()
     obj2 = object()
     be = Backend()
@@ -84,15 +84,14 @@ def ctx_before_global(cleanup_backends):
 
     be2 = Backend()
     be2.__ua_function__ = lambda f, a, kw: obj2
-    mm = ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
 
     ua.set_global_backend(be)
 
     with ua.set_backend(be2):
-        assert mm() is obj2
+        assert nullary_mm() is obj2
 
 
-def test_global_before_registered(cleanup_backends):
+def test_global_before_registered(cleanup_backends, nullary_mm):
     obj = object()
     obj2 = object()
     be = Backend()
@@ -100,30 +99,28 @@ def test_global_before_registered(cleanup_backends):
 
     be2 = Backend()
     be2.__ua_function__ = lambda f, a, kw: obj2
-    mm = ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
 
     ua.set_global_backend(be)
     ua.register_backend(be2)
-    assert mm() is obj
+    assert nullary_mm() is obj
 
 
-def test_global_only(cleanup_backends):
+def test_global_only(cleanup_backends, nullary_mm):
     obj = object()
     be = Backend()
     be.__ua_function__ = lambda f, a, kw: NotImplemented
 
     be2 = Backend()
     be2.__ua_function__ = lambda f, a, kw: obj
-    mm = ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
 
     ua.set_global_backend(be, only=True)
     ua.register_backend(be2)
 
     with pytest.raises(ua.BackendNotImplementedError):
-        mm()
+        nullary_mm()
 
 
-def test_clear_backends(cleanup_backends):
+def test_clear_backends(cleanup_backends, nullary_mm):
     obj = object()
     obj2 = object()
     be = Backend()
@@ -131,11 +128,48 @@ def test_clear_backends(cleanup_backends):
 
     be2 = Backend()
     be2.__ua_function__ = lambda f, a, kw: obj2
-    mm = ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
 
     ua.set_global_backend(be)
     ua.register_backend(be2)
 
     ua.clear_backends(Backend.__ua_domain__, registered=True, globals=True)
     with pytest.raises(ua.BackendNotImplementedError):
-        mm()
+        nullary_mm()
+
+
+def test_raising_from_backend(nullary_mm):
+    def raise_(foo):
+        raise foo
+
+    Foo = ua.BackendNotImplementedError("Foo")
+    be = Backend()
+    be.__ua_function__ = lambda f, a, kw: raise_(Foo)
+
+    # BackendNotImplementedErrors are nested
+    with ua.set_backend(be):
+        with pytest.raises(ua.BackendNotImplementedError) as e:
+            nullary_mm()
+
+        assert (
+            e.value.args[0]
+            == "No selected backends had an implementation for this function."
+        )
+        assert type(e.value.args[1]) == tuple
+        assert e.value.args[1] == (be, Foo)
+
+    Bar = ua.BackendNotImplementedError("Bar")
+    be2 = Backend()
+    be2.__ua_function__ = lambda f, a, kw: raise_(Bar)
+    # Errors are in the order the backends were tried
+    with ua.set_backend(be), ua.set_backend(be2):
+        with pytest.raises(ua.BackendNotImplementedError) as e:
+            nullary_mm()
+
+        assert e.value.args[1] == (be2, Bar)
+        assert e.value.args[2] == (be, Foo)
+
+    be3 = Backend()
+    be3.__ua_function__ = lambda f, a, kw: "Success"
+    # Can succeed after a backend has raised BackendNotImplementedError
+    with ua.set_backend(be3), ua.set_backend(be):
+        assert nullary_mm() == "Success"
