@@ -4,7 +4,7 @@
 
 <img src="docs/logo.png" style="width: 20em; text-align: center;" alt="uarray logo">
 
-- [Documentation](https://uarray.readthedocs.io/en/latest/)
+- [Documentation](https://uarray.org)
 - [Road Map](https://github.com/orgs/Quansight-Labs/projects/1)
 - [Future Meetings](https://calendar.google.com/calendar/embed?src=quansight.com_cg7sf4usbcn18gdhdb3l2c6v1g%40group.calendar.google.com&ctz=America%2FNew_York)
 - [Meeting Notes](https://github.com/Quansight-Labs/uarray/wiki/Meeting-Notes)

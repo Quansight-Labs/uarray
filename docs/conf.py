@@ -205,7 +205,7 @@ autoclass_content = "both"
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
-    "unumpy": ("https://unumpy.readthedocs.io/en/latest/", None),
+    "unumpy": ("https://unumpy.uarray.org/en/latest/", None),
 }
 
 doctest_global_setup = """
