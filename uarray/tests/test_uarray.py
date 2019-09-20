@@ -137,6 +137,19 @@ def test_clear_backends(cleanup_backends, nullary_mm):
         nullary_mm()
 
 
+def test_get_extractor_replacer(cleanup_backends):
+    def extractor():
+        return ()
+
+    def replacer(a, kw, d):
+        return a, kw
+
+    mm = ua.generate_multimethod(extractor, replacer, "ua_tests")
+
+    assert mm.arg_extractor is extractor
+    assert mm.arg_replacer is replacer
+
+
 def test_raising_from_backend(nullary_mm):
     def raise_(foo):
         raise foo
