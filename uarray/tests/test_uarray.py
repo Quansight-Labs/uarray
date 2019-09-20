@@ -139,3 +139,16 @@ def test_clear_backends(cleanup_backends):
     ua.clear_backends(Backend.__ua_domain__, registered=True, globals=True)
     with pytest.raises(ua.BackendNotImplementedError):
         mm()
+
+
+def test_get_extractor_replacer(cleanup_backends):
+    def extractor():
+        return ()
+
+    def replacer(a, kw, d):
+        return a, kw
+
+    mm = ua.generate_multimethod(extractor, replacer, "ua_tests")
+
+    assert mm.arg_extractor is extractor
+    assert mm.arg_replacer is replacer

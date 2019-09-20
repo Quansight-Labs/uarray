@@ -626,6 +626,8 @@ struct Function
   static PyObject * descr_get(PyObject * self, PyObject * obj, PyObject * type);
   static int traverse(Function * self, visitproc visit, void * arg);
   static int clear(Function * self);
+  static PyObject * get_extractor(Function * self);
+  static PyObject * get_replacer(Function * self);
 };
 
 
@@ -888,12 +890,28 @@ int Function::clear(Function * self)
   return 0;
 }
 
+PyObject * Function::get_extractor(Function * self)
+{
+  Py_INCREF(self->extractor_.get());
+  return self->extractor_.get();
+}
+
+PyObject * Function::get_replacer(Function * self)
+{
+  Py_INCREF(self->replacer_.get());
+  return self->replacer_.get();
+}
+
 
 // getset takes mutable char * in python < 3.7
 static char dict__[] = "__dict__";
+static char arg_extractor[] = "arg_extractor";
+static char arg_replacer[] = "arg_replacer";
 PyGetSetDef Function_getset[] =
 {
   {dict__, PyObject_GenericGetDict, PyObject_GenericSetDict},
+  {arg_extractor, (getter)Function::get_extractor, NULL},
+  {arg_replacer, (getter)Function::get_replacer, NULL},
   {NULL} /* Sentinel */
 };
 
