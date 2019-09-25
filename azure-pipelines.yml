@@ -2,6 +2,7 @@ variables:
   CIBW_TEST_COMMAND: "pip install -r {project}/requirements/tests.txt && pytest --pyargs uarray"
   CIBW_BUILD: cp3?-*
   CIBW_SKIP: cp34-*
+  PRE_WHEELS: "https://7933911d6844c6c53a7d-47bd50c35cd79bd838daf386af554a83.ssl.cf2.rackcdn.com"
 
 jobs:
 - job: Linux
@@ -24,6 +25,11 @@ jobs:
     vmImage: 'ubuntu-16.04'
   steps:
     - template: ci/azure-doc-lint-cov.yml
+- job: SciPy_FFT_Linux
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+    - template: ci/azure-test-scipy-fft.yml
 
 
 trigger:
