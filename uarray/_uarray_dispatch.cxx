@@ -311,9 +311,9 @@ public:
   bool exit()
     {
       bool success = true;
-      if (sizes_.size() == 0) {
+      if (sizes_.empty()) {
         PyErr_SetString(PyExc_SystemExit,
-                        "Found invalid context state while in __exit__");
+                        "__exit__ call has no matching __enter__");
         return false;
       }
       if (backends_->size() != sizes_.back()) {
