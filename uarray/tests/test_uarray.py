@@ -186,3 +186,34 @@ def test_raising_from_backend(nullary_mm):
     # Can succeed after a backend has raised BackendNotImplementedError
     with ua.set_backend(be3), ua.set_backend(be):
         assert nullary_mm() == "Success"
+
+
+def test_nested():
+    be = Backend()
+    be.__ua_function__ = lambda f, a, kw: None
+
+    ctx = ua.set_backend(be)
+
+    with ctx, ctx:
+        pass
+
+
+def test_invalid():
+    be1 = Backend()
+    be1.__ua_function__ = lambda f, a, kw: None
+
+    be2 = Backend()
+    be2.__ua_function__ = lambda f, a, kw: None
+
+    ctx1 = ua.set_backend(be1)
+    ctx2 = ua.set_backend(be2)
+
+    with pytest.raises(RuntimeError):
+        try:
+            ctx1.__enter__()
+            try:
+                ctx2.__enter__()
+            finally:
+                ctx1.__exit__(None, None, None)
+        finally:
+            ctx2.__exit__(None, None, None)

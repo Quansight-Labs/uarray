@@ -280,12 +280,11 @@ class context_helper
 {
   T new_backend_;
   std::vector<T> * backends_;
-  size_t enter_size_;
+  std::vector<size_t> sizes_;
 public:
 
   context_helper():
-    backends_(nullptr),
-    enter_size_(size_t(-1))
+    backends_(nullptr)
     {}
 
   bool init(std::vector<T> & backends, T new_backend)
@@ -297,8 +296,10 @@ public:
 
   bool enter()
     {
-      enter_size_ = backends_->size();
-      try { backends_->push_back(new_backend_); }
+      try {
+        backends_->push_back(new_backend_);
+        sizes_.push_back(backends_->size());
+      }
       catch(std::bad_alloc&)
       {
         PyErr_NoMemory();
@@ -309,14 +310,20 @@ public:
 
   bool exit()
     {
-      bool success = (enter_size_ + 1 == backends_->size()
-                      && backends_->back() == new_backend_);
-      if (enter_size_ < backends_->size())
-        backends_->resize(enter_size_);
-
-      if (!success)
+      bool success = true;
+      if (sizes_.size() == 0) {
+        PyErr_SetString(PyExc_SystemExit,
+                        "Found invalid context state while in __exit__");
+        return false;
+      }
+      if (backends_->size() != sizes_.back()) {
         PyErr_SetString(PyExc_RuntimeError,
                         "Found invalid context state while in __exit__");
+        success = false;
+      }
+
+      sizes_.pop_back();
+      backends_->pop_back();
       return success;
     }
 };
