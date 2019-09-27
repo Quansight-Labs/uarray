@@ -1,24 +1,16 @@
-from typing import (
-    Callable,
-    Iterable,
-    Dict,
-    Tuple,
-    Any,
-    Set,
-    Optional,
-    Type,
-    Union,
-    List,
-)
+import typing
 import inspect
 import functools
 from . import _uarray  # type: ignore
 import copyreg  # type: ignore
 import atexit
 import pickle
+import weakref
 
-ArgumentExtractorType = Callable[..., Tuple["Dispatchable", ...]]
-ArgumentReplacerType = Callable[[Tuple, Dict, Tuple], Tuple[Tuple, Dict]]
+ArgumentExtractorType = typing.Callable[..., typing.Tuple["Dispatchable", ...]]
+ArgumentReplacerType = typing.Callable[
+    [typing.Tuple, typing.Dict, typing.Tuple], typing.Tuple[typing.Tuple, typing.Dict]
+]
 
 from ._uarray import (  # type: ignore
     BackendNotImplementedError,
@@ -42,6 +34,9 @@ __all__ = [
     "all_of_type",
     "mark_as",
 ]
+
+_set_backend_cache = {}
+_skip_backend_cache = weakref.WeakKeyDictionary()
 
 
 def unpickle_function(mod_name, qname):
@@ -103,7 +98,7 @@ def generate_multimethod(
     argument_extractor: ArgumentExtractorType,
     argument_replacer: ArgumentReplacerType,
     domain: str,
-    default: Optional[Callable] = None,
+    default: typing.Optional[typing.Callable] = None,
 ):
     """
     Generates a multimethod.
@@ -191,7 +186,17 @@ def set_backend(backend, coerce=False, only=False):
     skip_backend: A context manager that allows skipping of backends.
     set_global_backend: Set a single, global backend for a domain.
     """
-    return _SetBackendContext(backend, coerce, only)
+    try:
+        return _set_backend_cache[weakref.ref(backend), coerce, only]
+    except KeyError:
+
+        def del_attr(x):
+            del _set_backend_cache[x, coerce, only]
+
+        ref = weakref.ref(backend, del_attr)
+        ctx = _SetBackendContext(backend, coerce, only)
+        _set_backend_cache[ref, coerce, only] = ctx
+        return ctx
 
 
 def skip_backend(backend):
@@ -210,7 +215,12 @@ def skip_backend(backend):
     set_backend: A context manager that allows setting of backends.
     set_global_backend: Set a single, global backend for a domain.
     """
-    return _SkipBackendContext(backend)
+    try:
+        return _skip_backend_cache[backend]
+    except KeyError:
+        ctx = _SkipBackendContext(backend)
+        _skip_backend_cache[backend] = ctx
+        return ctx
 
 
 def get_defaults(f):
