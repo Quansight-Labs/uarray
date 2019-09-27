@@ -282,6 +282,10 @@ class context_helper
   std::vector<T> * backends_;
   std::vector<size_t> sizes_;
 public:
+  const T& get_backend() const
+    {
+      return new_backend_;
+    }
 
   context_helper():
     backends_(nullptr)
@@ -404,6 +408,12 @@ struct SetBackendContext
         return nullptr;
       Py_RETURN_NONE;
     }
+
+  static int traverse(SetBackendContext * self, visitproc visit, void * arg)
+    {
+      Py_VISIT(self->ctx_.get_backend().backend.get());
+      return 0;
+    }
 };
 
 
@@ -472,6 +482,13 @@ struct SkipBackendContext
       if (!self->ctx_.exit())
         return nullptr;
       Py_RETURN_NONE;
+    }
+
+  static int traverse(SkipBackendContext * self, visitproc visit, void * arg)
+    {
+      Py_VISIT(self->ctx_.get_backend().get());
+      return 0;
+      return 0;
     }
 };
 
@@ -1069,7 +1086,7 @@ PyTypeObject SetBackendContextType = {
   0,                                       /* tp_as_buffer */
   Py_TPFLAGS_DEFAULT,                      /* tp_flags */
   0,                                       /* tp_doc */
-  0,                                       /* tp_traverse */
+  (traverseproc)SetBackendContext::traverse,/* tp_traverse */
   0,                                       /* tp_clear */
   0,                                       /* tp_richcompare */
   0,                                       /* tp_weaklistoffset */
@@ -1117,7 +1134,7 @@ PyTypeObject SkipBackendContextType = {
   0,                                        /* tp_as_buffer */
   Py_TPFLAGS_DEFAULT,                       /* tp_flags */
   0,                                        /* tp_doc */
-  0,                                        /* tp_traverse */
+  (traverseproc)SkipBackendContext::traverse,/* tp_traverse */
   0,                                        /* tp_clear */
   0,                                        /* tp_richcompare */
   0,                                        /* tp_weaklistoffset */
