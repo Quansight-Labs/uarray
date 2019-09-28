@@ -217,3 +217,41 @@ def test_invalid():
                 ctx1.__exit__(None, None, None)
         finally:
             ctx2.__exit__(None, None, None)
+
+
+def test_skip_comparison(nullary_mm):
+    be1 = Backend()
+    be1.__ua_function__ = lambda f, a, kw: None
+
+    class Backend2(Backend):
+        @staticmethod
+        def __ua_function__(f, a, kw):
+            pass
+
+        def __eq__(self, other):
+            return other is self or other is be1
+
+    with pytest.raises(ua.BackendNotImplementedError):
+        with ua.set_backend(be1), ua.skip_backend(Backend2()):
+            nullary_mm()
+
+
+def test_skip_raises(nullary_mm):
+    be1 = Backend()
+    be1.__ua_function__ = lambda f, a, kw: None
+
+    foo = Exception("Foo")
+
+    class Backend2(Backend):
+        @staticmethod
+        def __ua_function__(f, a, kw):
+            pass
+
+        def __eq__(self, other):
+            raise foo
+
+    with pytest.raises(Exception) as e:
+        with ua.set_backend(be1), ua.skip_backend(Backend2()):
+            nullary_mm()
+
+    assert e.value is foo
