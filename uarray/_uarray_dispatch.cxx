@@ -536,10 +536,10 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call)
 
   auto& globals = global_domain_map[domain_key];
   auto& global_options = globals.global;
-  int skip_current = global_options.backend.get() != nullptr ? should_skip(global_options.backend) : 1;
+  int skip_current = global_options.backend ? should_skip(global_options.backend) : 1;
   if (skip_current < 0)
     return LoopReturn::Error;
-  if (global_options.backend && !skip_current)
+  if (!skip_current)
   {
     ret = call(global_options.backend.get(), global_options.coerce);
     if (ret != LoopReturn::Continue)
