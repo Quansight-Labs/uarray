@@ -513,11 +513,22 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call)
   auto & pref = locals->preferred;
 
   auto should_skip =
-    [&](PyObject * backend)
+    [&](PyObject * backend) -> int
       {
+        bool success = true;
         auto it = std::find_if(
           skip.begin(), skip.end(),
-          [&](const py_ref & be) { return be.get() == backend; });
+          [&](const py_ref & be)
+          {
+            auto result = PyObject_RichCompareBool(be.get(), backend, Py_EQ);
+            success = (result >= 0);
+            return (result != 0);
+          });
+
+        if (!success)
+        {
+          return -1;
+        }
 
         return (it != skip.end());
       };
@@ -526,7 +537,10 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call)
   for (int i = pref.size()-1; i >= 0; --i)
   {
     auto options = pref[i];
-    if (should_skip(options.backend))
+    int skip_current = should_skip(options.backend);
+    if (skip_current < 0)
+      return LoopReturn::Error;
+    if (skip_current)
       continue;
 
     ret = call(options.backend.get(), options.coerce);
@@ -539,7 +553,10 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call)
 
   auto& globals = global_domain_map[domain_key];
   auto& global_options = globals.global;
-  if (global_options.backend && !should_skip(global_options.backend))
+  int skip_current = global_options.backend ? should_skip(global_options.backend) : 1;
+  if (skip_current < 0)
+    return LoopReturn::Error;
+  if (!skip_current)
   {
     ret = call(global_options.backend.get(), global_options.coerce);
     if (ret != LoopReturn::Continue)
@@ -552,7 +569,10 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call)
   for (size_t i = 0; i < globals.registered.size(); ++i)
   {
     py_ref backend = globals.registered[i];
-    if (should_skip(backend))
+    int skip_current = should_skip(backend);
+    if (skip_current < 0)
+      return LoopReturn::Error;
+    if (skip_current)
       continue;
 
     ret = call(backend.get(), false);
