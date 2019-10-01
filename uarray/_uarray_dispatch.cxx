@@ -89,6 +89,11 @@ struct backend_options
               && coerce == other.coerce
               && only == other.only);
     }
+
+  bool operator != (const backend_options & other) const
+    {
+      return !(*this == other);
+    }
 };
 
 struct global_backends
@@ -280,7 +285,6 @@ class context_helper
 {
   T new_backend_;
   std::vector<T> * backends_;
-  std::vector<size_t> sizes_;
 public:
   const T& get_backend() const
     {
@@ -302,7 +306,6 @@ public:
     {
       try {
         backends_->push_back(new_backend_);
-        sizes_.push_back(backends_->size());
       }
       catch(std::bad_alloc&)
       {
@@ -315,18 +318,17 @@ public:
   bool exit()
     {
       bool success = true;
-      if (sizes_.empty()) {
+      if (backends_->empty()) {
         PyErr_SetString(PyExc_SystemExit,
                         "__exit__ call has no matching __enter__");
         return false;
       }
-      if (backends_->size() != sizes_.back()) {
+      if (backends_->back() != new_backend_) {
         PyErr_SetString(PyExc_RuntimeError,
                         "Found invalid context state while in __exit__");
         success = false;
       }
 
-      sizes_.pop_back();
       backends_->pop_back();
       return success;
     }
