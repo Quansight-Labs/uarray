@@ -325,7 +325,8 @@ public:
       }
       if (backends_->back() != new_backend_) {
         PyErr_SetString(PyExc_RuntimeError,
-                        "Found invalid context state while in __exit__");
+                        "Found invalid context state while in __exit__. "
+                        "__enter__ and __exit__ may be unmatched");
         success = false;
       }
 
