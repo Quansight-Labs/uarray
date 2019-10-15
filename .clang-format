@@ -1,0 +1,18 @@
+---
+BasedOnStyle: LLVM
+SpaceBeforeCtorInitializerColon: false
+DerivePointerAlignment: false
+PointerAlignment: Middle
+ColumnLimit: 80
+AlwaysBreakTemplateDeclarations: true
+AlignAfterOpenBracket: AlwaysBreak
+AlwaysBreakAfterReturnType: None
+AllowAllParametersOfDeclarationOnNextLine: true
+BinPackParameters: true
+PenaltyReturnTypeOnItsOwnLine: 1000
+IndentPPDirectives: AfterHash
+MaxEmptyLinesToKeep: 2
+
+# Macros that aren't followed by a semi-colon
+StatementMacros:
+    - PyObject_HEAD
