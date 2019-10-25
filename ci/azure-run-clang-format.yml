@@ -1,0 +1,16 @@
+steps:
+- bash: |
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+    sudo add-apt-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main"
+    sudo apt-get update
+    sudo apt-get install -y clang-format-8
+  displayName: Install clang-format
+- bash: |
+    clang-format-8 -i uarray/_uarray_dispatch.cxx
+    DIFF=$(git diff)
+    if [ $DIFF != "" ]; then
+      echo "Detected formatting errors, suggested changes below:"
+      git diff
+      exit 1
+    fi
+  displayName: Run clang-format

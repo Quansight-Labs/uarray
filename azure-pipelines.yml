@@ -30,6 +30,11 @@ jobs:
     vmImage: 'ubuntu-16.04'
   steps:
     - template: ci/azure-test-scipy-fft.yml
+- job: clang_format
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+    - template: ci/azure-run-clang-format.yml
 
 
 trigger:
