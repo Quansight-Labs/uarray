@@ -362,8 +362,7 @@ struct SkipBackendContext {
 
   context_helper<py_ref> ctx_;
 
-  static void dealloc(SkipBackendContext * self)
-    {
+  static void dealloc(SkipBackendContext * self) {
     self->~SkipBackendContext();
     Py_TYPE(self)->tp_free(self);
   }
