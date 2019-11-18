@@ -69,7 +69,7 @@ functions provided by other backends. This is the purpose of the
 The process that takes place when the backend is tried
 ------------------------------------------------------
 
-First of all, the backend's ``__ua_convert__`` method is tried. If returns
+First of all, the backend's ``__ua_convert__`` method is tried. If this returns
 :obj:`NotImplemented`, then the backend is skipped, otherwise its
 ``__ua_function__`` protocol is tried. If a value other than
 :obj:`NotImplemented` is returned, it is assumed to be the final
