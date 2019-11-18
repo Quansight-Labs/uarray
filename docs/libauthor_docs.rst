@@ -69,7 +69,7 @@ functions provided by other backends. This is the purpose of the
 The process that takes place when the backend is tried
 ------------------------------------------------------
 
-First of all, the backend's ``__ua_convert__`` method is tried. If it does not return
+First of all, the backend's ``__ua_convert__`` method is tried. If it returns
 :obj:`NotImplemented`, then the backend's ``__ua_function__`` protocol is tried. If a
 value other than :obj:`NotImplemented` is returned, it is assumed to be the final
 return value. Any exceptions raised are propagated up the call stack.
@@ -77,5 +77,5 @@ return value. Any exceptions raised are propagated up the call stack.
 Examples
 --------
 
-Examples for library authors can be found `in the source of unumpy.numpy_backend <https://github.com/Quansight-Labs/uarray/blob/master/unumpy/numpy_backend.py>`_
-and other ``*_backend.py`` files in `this directory <https://github.com/Quansight-Labs/uarray/tree/master/unumpy>`_.
+Examples for library authors can be found `in the source of unumpy.numpy_backend <https://github.com/Quansight-Labs/unumpy/blob/master/unumpy/numpy_backend.py>`_
+and other ``*_backend.py`` files in `this directory <https://github.com/Quansight-Labs/unumpy/tree/master/unumpy>`_.
