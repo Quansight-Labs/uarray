@@ -69,10 +69,14 @@ functions provided by other backends. This is the purpose of the
 The process that takes place when the backend is tried
 ------------------------------------------------------
 
-First of all, the backend's ``__ua_convert__`` method is tried. If it returns
-:obj:`NotImplemented`, then the backend's ``__ua_function__`` protocol is tried. If a
-value other than :obj:`NotImplemented` is returned, it is assumed to be the final
-return value. Any exceptions raised are propagated up the call stack.
+First of all, the backend's ``__ua_convert__`` method is tried. If this returns
+:obj:`NotImplemented`, then the backend is skipped, otherwise its
+``__ua_function__`` protocol is tried. If a value other than
+:obj:`NotImplemented` is returned, it is assumed to be the final
+return value. Any exceptions raised are propagated up the call stack, except a
+:obj:`BackendNotImplementedError`, which signals a skip of the backend. If all
+backends are exhausted, or if a backend with its ``only`` flag set to ``True``
+is encountered, a :obj:`BackendNotImplementedError` is raised.
 
 Examples
 --------
