@@ -14,7 +14,7 @@ Let's start with the simplest:
 
 ``__ua_domain__`` defines the back-end *domain*. The domain consists of period-
 separated string consisting of the modules you extend plus the submodule. For
-example, if a submoduleDispatchable ``module2.submodule`` extends ``module1``
+example, if a submodule ``module2.submodule`` extends ``module1``
 (i.e., it exposes dispatchables marked as types available in ``module1``),
 then the domain string should be ``"module1.module2.submodule"``.
 
