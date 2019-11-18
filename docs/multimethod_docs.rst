@@ -48,13 +48,13 @@ Argument replacer
 
 The argument replacer takes in the arguments and dispatchable arguments, and
 its job is to replace the arguments previously extracted by the argument
-extractor by by other arguments provided in the list. Therefore, the
+extractor by other arguments provided in the list. Therefore, the
 signature of this function is ``(args, kwargs, dispatchable_args)``,
 and it returns an ``args``/``kwargs`` pair. We realise this is a hard problem
 in general, so we have provided a few simplifications, such as that the
 default-valued keyword arguments will be removed from the list.
 
-We recommend following the pattern in `this file <https://github.com/Quansight-Labs/uarray/blob/master/unumpy/multimethods.py>`_
+We recommend following the pattern in `this file <https://github.com/Quansight-Labs/unumpy/blob/master/unumpy/multimethods.py>`_
 for optimal operation: passing the ``args``/``kwargs`` into a function with a
 similar signature and then return the modified ``args``/``kwargs``.
 
@@ -69,7 +69,7 @@ downstream multimethods is not defined.
 Examples
 --------
 
-Examples of writing multimethods are found in `this file <https://github.com/Quansight-Labs/uarray/blob/master/unumpy/multimethods.py>`_.
+Examples of writing multimethods are found in `this file <https://github.com/Quansight-Labs/unumpy/blob/master/unumpy/_multimethods.py>`_.
 It also teaches some advanced techniques, such as overriding instance methods,
 including ``__call__``. The same philosophy may be used to override properties,
 static methods and class methods.
