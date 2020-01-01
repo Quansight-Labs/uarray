@@ -44,11 +44,28 @@ public:
     return *this;
   }
 
+  friend bool operator==(const py_ref & lhs, const py_ref & rhs) {
+    return lhs.obj_ == rhs.obj_;
+  }
+  friend bool operator==(PyObject * lhs, const py_ref & rhs) {
+    return lhs == rhs.obj_;
+  }
+  friend bool operator==(const py_ref & lhs, PyObject * rhs) {
+    return lhs.obj_ == rhs;
+  }
+  friend bool operator!=(const py_ref & lhs, const py_ref & rhs) {
+    return lhs.obj_ != rhs.obj_;
+  }
+  friend bool operator!=(PyObject * lhs, const py_ref & rhs) {
+    return lhs != rhs.obj_;
+  }
+  friend bool operator!=(const py_ref & lhs, PyObject * rhs) {
+    return lhs.obj_ != rhs;
+  }
+
   void swap(py_ref & other) noexcept { std::swap(other.obj_, obj_); }
 
   explicit operator bool() const { return obj_ != nullptr; }
-
-  operator PyObject *() const { return get(); }
 
   PyObject * get() const { return obj_; }
   PyObject * release() {
@@ -62,11 +79,13 @@ private:
   PyObject * obj_;
 };
 
+PyObject * py_get(const py_ref & ref) { return ref.get(); }
+PyObject * py_get(PyObject * obj) { return obj; }
+
 /** Make tuple from variadic set of PyObjects */
 template <typename... Ts>
-py_ref py_make_tuple(Ts... args) {
-  using py_obj = PyObject *;
-  return py_ref::steal(PyTuple_Pack(sizeof...(args), py_obj{args}...));
+py_ref py_make_tuple(const Ts &... args) {
+  return py_ref::steal(PyTuple_Pack(sizeof...(args), py_get(args)...));
 }
 
 struct backend_options {
@@ -152,11 +171,12 @@ std::string domain_to_string(PyObject * domain) {
 }
 
 std::string backend_to_domain_string(PyObject * backend) {
-  auto domain = py_ref::steal(PyObject_GetAttr(backend, identifiers.ua_domain));
+  auto domain =
+      py_ref::steal(PyObject_GetAttr(backend, identifiers.ua_domain.get()));
   if (!domain)
     return {};
 
-  return domain_to_string(domain);
+  return domain_to_string(domain.get());
 }
 
 
@@ -455,7 +475,7 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call) {
   LoopReturn ret = LoopReturn::Continue;
   for (int i = pref.size() - 1; i >= 0; --i) {
     auto options = pref[i];
-    int skip_current = should_skip(options.backend);
+    int skip_current = should_skip(options.backend.get());
     if (skip_current < 0)
       return LoopReturn::Error;
     if (skip_current)
@@ -472,7 +492,7 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call) {
   auto & globals = global_domain_map[domain_key];
   auto & global_options = globals.global;
   int skip_current =
-      global_options.backend ? should_skip(global_options.backend) : 1;
+      global_options.backend ? should_skip(global_options.backend.get()) : 1;
   if (skip_current < 0)
     return LoopReturn::Error;
   if (!skip_current) {
@@ -486,7 +506,7 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call) {
 
   for (size_t i = 0; i < globals.registered.size(); ++i) {
     py_ref backend = globals.registered[i];
-    int skip_current = should_skip(backend);
+    int skip_current = should_skip(backend.get());
     if (skip_current < 0)
       return LoopReturn::Error;
     if (skip_current)
@@ -617,7 +637,7 @@ py_ref Function::canonicalize_kwargs(PyObject * kwargs) {
 
   PyObject *key, *def_value;
   Py_ssize_t pos = 0;
-  while (PyDict_Next(def_kwargs_, &pos, &key, &def_value)) {
+  while (PyDict_Next(def_kwargs_.get(), &pos, &key, &def_value)) {
     auto val = PyDict_GetItem(kwargs, key);
     if (val && is_default(val, def_value)) {
       PyDict_DelItem(kwargs, key);
@@ -630,19 +650,21 @@ py_ref Function::canonicalize_kwargs(PyObject * kwargs) {
 py_func_args Function::replace_dispatchables(
     PyObject * backend, PyObject * args, PyObject * kwargs, PyObject * coerce) {
   auto ua_convert =
-      py_ref::steal(PyObject_GetAttr(backend, identifiers.ua_convert));
+      py_ref::steal(PyObject_GetAttr(backend, identifiers.ua_convert.get()));
 
   if (!ua_convert) {
     PyErr_Clear();
     return {py_ref::ref(args), py_ref::ref(kwargs)};
   }
 
-  auto dispatchables = py_ref::steal(PyObject_Call(extractor_, args, kwargs));
+  auto dispatchables =
+      py_ref::steal(PyObject_Call(extractor_.get(), args, kwargs));
   if (!dispatchables)
     return {};
 
   auto convert_args = py_make_tuple(dispatchables, coerce);
-  auto res = py_ref::steal(PyObject_Call(ua_convert, convert_args, nullptr));
+  auto res = py_ref::steal(
+      PyObject_Call(ua_convert.get(), convert_args.get(), nullptr));
   if (!res) {
     return {};
   }
@@ -651,7 +673,7 @@ py_func_args Function::replace_dispatchables(
     return {std::move(res), nullptr};
   }
 
-  auto replaced_args = py_ref::steal(PySequence_Tuple(res));
+  auto replaced_args = py_ref::steal(PySequence_Tuple(res.get()));
   if (!replaced_args)
     return {};
 
@@ -659,11 +681,12 @@ py_func_args Function::replace_dispatchables(
   if (!replacer_args)
     return {};
 
-  res = py_ref::steal(PyObject_Call(replacer_, replacer_args, nullptr));
+  res = py_ref::steal(
+      PyObject_Call(replacer_.get(), replacer_args.get(), nullptr));
   if (!res)
     return {};
 
-  if (!PyTuple_Check(res) || PyTuple_Size(res) != 2) {
+  if (!PyTuple_Check(res.get()) || PyTuple_Size(res.get()) != 2) {
     PyErr_SetString(
         PyExc_TypeError,
         "Argument replacer must return a 2-tuple (args, kwargs)");
@@ -673,9 +696,9 @@ py_func_args Function::replace_dispatchables(
   auto new_args = py_ref::ref(PyTuple_GET_ITEM(res.get(), 0));
   auto new_kwargs = py_ref::ref(PyTuple_GET_ITEM(res.get(), 1));
 
-  new_kwargs = canonicalize_kwargs(new_kwargs);
+  new_kwargs = canonicalize_kwargs(new_kwargs.get());
 
-  if (!PyTuple_Check(new_args) || !PyDict_Check(new_kwargs)) {
+  if (!PyTuple_Check(new_args.get()) || !PyDict_Check(new_kwargs.get())) {
     PyErr_SetString(PyExc_ValueError, "Invalid return from argument_replacer");
     return {};
   }
@@ -736,14 +759,14 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_) {
   auto ret =
       for_each_backend(domain_key_, [&, this](PyObject * backend, bool coerce) {
         auto new_args = replace_dispatchables(
-            backend, args, kwargs, coerce ? Py_True : Py_False);
+            backend, args.get(), kwargs.get(), coerce ? Py_True : Py_False);
         if (new_args.args == Py_NotImplemented)
           return LoopReturn::Continue;
         if (new_args.args == nullptr)
           return LoopReturn::Error;
 
-        auto ua_function =
-            py_ref::steal(PyObject_GetAttr(backend, identifiers.ua_function));
+        auto ua_function = py_ref::steal(
+            PyObject_GetAttr(backend, identifiers.ua_function.get()));
         if (!ua_function)
           return LoopReturn::Error;
 
@@ -752,11 +775,12 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_) {
         if (!ua_func_args)
           return LoopReturn::Error;
 
-        result =
-            py_ref::steal(PyObject_Call(ua_function, ua_func_args, nullptr));
+        result = py_ref::steal(
+            PyObject_Call(ua_function.get(), ua_func_args.get(), nullptr));
 
         // raise BackendNotImplemeted is equivalent to return NotImplemented
-        if (!result && PyErr_ExceptionMatches(BackendNotImplementedError)) {
+        if (!result &&
+            PyErr_ExceptionMatches(BackendNotImplementedError.get())) {
           errors.push_back({py_ref::ref(backend), py_errinf::fetch()});
           result = py_ref::ref(Py_NotImplemented);
         }
@@ -780,11 +804,11 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_) {
           if (!ctx.enter())
             return LoopReturn::Error;
 
-          result = py_ref::steal(
-              PyObject_Call(def_impl_, new_args.args, new_args.kwargs));
+          result = py_ref::steal(PyObject_Call(
+              def_impl_.get(), new_args.args.get(), new_args.kwargs.get()));
 
           if (PyErr_Occurred() &&
-              PyErr_ExceptionMatches(BackendNotImplementedError)) {
+              PyErr_ExceptionMatches(BackendNotImplementedError.get())) {
             errors.push_back({py_ref::ref(backend), py_errinf::fetch()});
             result = py_ref::ref(Py_NotImplemented);
           }
@@ -806,9 +830,10 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_) {
     return result.release();
 
   if (def_impl_ != Py_None) {
-    result = py_ref::steal(PyObject_Call(def_impl_, args, kwargs));
+    result =
+        py_ref::steal(PyObject_Call(def_impl_.get(), args.get(), kwargs.get()));
     if (!result) {
-      if (!PyErr_ExceptionMatches(BackendNotImplementedError))
+      if (!PyErr_ExceptionMatches(BackendNotImplementedError.get()))
         return nullptr;
 
       errors.push_back({py_ref::ref(Py_None), py_errinf::fetch()});
@@ -832,14 +857,14 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_) {
 
     PyTuple_SET_ITEM(exception_tuple.get(), i + 1, pair.release());
   }
-  PyErr_SetObject(BackendNotImplementedError, exception_tuple.get());
+  PyErr_SetObject(BackendNotImplementedError.get(), exception_tuple.get());
   return nullptr;
 }
 
 
 PyObject * Function::repr(Function * self) {
   if (self->dict_)
-    if (auto name = PyDict_GetItemString(self->dict_, "__name__"))
+    if (auto name = PyDict_GetItemString(self->dict_.get(), "__name__"))
       return PyUnicode_FromFormat("<uarray multimethod '%S'>", name);
 
   return PyUnicode_FromString("<uarray multimethod>");
@@ -860,12 +885,12 @@ PyObject * Function::descr_get(
 
 /** Make members visible to the garbage collector */
 int Function::traverse(Function * self, visitproc visit, void * arg) {
-  Py_VISIT(self->extractor_);
-  Py_VISIT(self->replacer_);
-  Py_VISIT(self->def_args_);
-  Py_VISIT(self->def_kwargs_);
-  Py_VISIT(self->def_impl_);
-  Py_VISIT(self->dict_);
+  Py_VISIT(self->extractor_.get());
+  Py_VISIT(self->replacer_.get());
+  Py_VISIT(self->def_args_.get());
+  Py_VISIT(self->def_kwargs_.get());
+  Py_VISIT(self->def_impl_.get());
+  Py_VISIT(self->dict_.get());
   return 0;
 }
 
@@ -1073,19 +1098,19 @@ extern "C" MODULE_EXPORT PyObject * PyInit__uarray(void) {
   if (PyType_Ready(&FunctionType) < 0)
     return nullptr;
   Py_INCREF(&FunctionType);
-  PyModule_AddObject(m, "_Function", (PyObject *)&FunctionType);
+  PyModule_AddObject(m.get(), "_Function", (PyObject *)&FunctionType);
 
   if (PyType_Ready(&SetBackendContextType) < 0)
     return nullptr;
   Py_INCREF(&SetBackendContextType);
   PyModule_AddObject(
-      m, "_SetBackendContext", (PyObject *)&SetBackendContextType);
+      m.get(), "_SetBackendContext", (PyObject *)&SetBackendContextType);
 
   if (PyType_Ready(&SkipBackendContextType) < 0)
     return nullptr;
   Py_INCREF(&SkipBackendContextType);
   PyModule_AddObject(
-      m, "_SkipBackendContext", (PyObject *)&SkipBackendContextType);
+      m.get(), "_SkipBackendContext", (PyObject *)&SkipBackendContextType);
 
   BackendNotImplementedError = py_ref::steal(PyErr_NewExceptionWithDoc(
       "uarray.BackendNotImplementedError",
@@ -1096,7 +1121,7 @@ extern "C" MODULE_EXPORT PyObject * PyInit__uarray(void) {
     return nullptr;
   Py_INCREF(BackendNotImplementedError.get());
   PyModule_AddObject(
-      m, "BackendNotImplementedError", BackendNotImplementedError);
+      m.get(), "BackendNotImplementedError", BackendNotImplementedError.get());
 
   if (!identifiers.init())
     return nullptr;

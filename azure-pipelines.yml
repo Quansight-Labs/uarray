@@ -35,6 +35,11 @@ jobs:
     vmImage: 'ubuntu-16.04'
   steps:
     - template: ci/azure-run-clang-format.yml
+- job: pypy3
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+    - template: ci/azure-pypy3.yml
 
 
 trigger:

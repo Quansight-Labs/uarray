@@ -1,0 +1,23 @@
+steps:
+- checkout: self
+  path: uarray
+- bash: |
+    echo "##vso[task.prependpath]$CONDA/bin"
+    conda create -y -n pypy3-env
+    conda install -y -n pypy3-env -c conda-forge pypy3.6=7.3.0
+  displayName: Prepare conda
+- bash: |
+    source activate pypy3-env
+    which pypy3
+    pypy3 -m ensurepip
+    pypy3 -m pip install pytest pytest-cov
+  displayName: Setup pypy3 packages
+- bash: |
+    source activate pypy3-env
+    pypy3 -m pip install .
+  displayName: Build uarray
+- bash: |
+    source activate pypy3-env
+    pytest --pyargs uarray
+  workingDirectory: $(Agent.BuildDirectory)
+  displayName: Test uarray
