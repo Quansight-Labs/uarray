@@ -20,6 +20,8 @@ uarray
       clear_backends
       skip_backend
       wrap_single_convertor
+      get_state
+      set_state
 
 
 

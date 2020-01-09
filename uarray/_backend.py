@@ -16,6 +16,7 @@ from ._uarray import (  # type: ignore
     _Function,
     _SkipBackendContext,
     _SetBackendContext,
+    _BackendState,
 )
 
 __all__ = [
@@ -32,6 +33,11 @@ __all__ = [
     "wrap_single_convertor",
     "all_of_type",
     "mark_as",
+    "set_state",
+    "get_state",
+    "_BackendState",
+    "_SkipBackendContext",
+    "_SetBackendContext",
 ]
 
 
@@ -65,8 +71,49 @@ def pickle_function(func):
     return unpickle_function, (mod_name, qname)
 
 
+def pickle_state(state):
+    return _uarray._BackendState._unpickle, state._pickle()
+
+
+def pickle_set_backend_context(ctx):
+    return _SetBackendContext, ctx._pickle()
+
+
+def pickle_skip_backend_context(ctx):
+    return _SkipBackendContext, ctx._pickle()
+
+
 copyreg.pickle(_Function, pickle_function)
+copyreg.pickle(_uarray._BackendState, pickle_state)
+copyreg.pickle(_SetBackendContext, pickle_set_backend_context)
+copyreg.pickle(_SkipBackendContext, pickle_skip_backend_context)
 atexit.register(_uarray.clear_all_globals)
+
+
+def get_state():
+    """
+    Returns an opaque object containing the current state of all the backends.
+
+    Can be used for synchronization between threads/processes.
+
+    See Also
+    --------
+    set_state
+        Sets the state returned by this function.
+    """
+    return _uarray.get_state()
+
+
+def set_state(state):
+    """
+    Sets the state of the backends to one returned by :obj:`get_state`.
+
+    See Also
+    --------
+    get_state
+        Gets a state to be set by this function.
+    """
+    return _uarray.set_state(state)
 
 
 def create_multimethod(*args, **kwargs):

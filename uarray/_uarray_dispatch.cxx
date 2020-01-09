@@ -113,10 +113,12 @@ struct local_backends {
   std::vector<backend_options> preferred;
 };
 
+typedef std::unordered_map<std::string, global_backends> global_state_t;
+typedef std::unordered_map<std::string, local_backends> local_state_t;
 
 static py_ref BackendNotImplementedError;
-static std::unordered_map<std::string, global_backends> global_domain_map;
-thread_local std::unordered_map<std::string, local_backends> local_domain_map;
+static global_state_t global_state;
+thread_local local_state_t local_state;
 
 /** Constant Python string identifiers
 
@@ -179,6 +181,261 @@ std::string backend_to_domain_string(PyObject * backend) {
   return domain_to_string(domain.get());
 }
 
+struct BackendState {
+  PyObject_HEAD
+  global_state_t globals;
+  local_state_t locals;
+
+  static void dealloc(BackendState * self) {
+    self->~BackendState();
+    Py_TYPE(self)->tp_free(self);
+  }
+
+  static PyObject * new_(
+      PyTypeObject * type, PyObject * args, PyObject * kwargs) {
+    auto self = reinterpret_cast<BackendState *>(type->tp_alloc(type, 0));
+    if (self == nullptr)
+      return nullptr;
+
+    // Placement new
+    self = new (self) BackendState;
+    return reinterpret_cast<PyObject *>(self);
+  }
+
+  static PyObject * pickle_(BackendState * self) {
+    try {
+      py_ref py_global = BackendState::convert_py(self->globals);
+      py_ref py_locals = BackendState::convert_py(self->locals);
+
+      return Py_BuildValue("(OO)", py_global.get(), py_locals.get());
+    } catch (std::runtime_error &) {
+      return nullptr;
+    }
+  }
+
+  static PyObject * unpickle_(PyObject * cls, PyObject * args) {
+    try {
+      PyObject *py_locals, *py_global;
+      if (!PyArg_ParseTuple(args, "OO", &py_global, &py_locals))
+        return nullptr;
+      local_state_t locals = convert_local_state(py_ref::ref(py_locals));
+      global_state_t globals = convert_global_state(py_ref::ref(py_global));
+
+      py_ref empty_tuple = py_ref::steal(PyTuple_New(0));
+      if (!empty_tuple)
+        return nullptr;
+
+      BackendState * output = reinterpret_cast<BackendState *>(
+          PyObject_Call(cls, empty_tuple.get(), NULL));
+      if (output == nullptr)
+        return nullptr;
+
+      output->locals = locals;
+      output->globals = globals;
+
+      return reinterpret_cast<PyObject *>(output);
+    } catch (std::invalid_argument &) {
+      return nullptr;
+    } catch (std::bad_alloc &) {
+      PyErr_NoMemory();
+      return nullptr;
+    }
+  }
+
+  template <typename T, typename Convertor>
+  static std::vector<T> convert_iter(py_ref input, Convertor item_convertor) {
+    std::vector<T> output;
+    py_ref iterator = py_ref::steal(PyObject_GetIter(input.get()));
+    if (!iterator)
+      throw std::invalid_argument("");
+
+    py_ref item;
+    while ((item = py_ref::steal(PyIter_Next(iterator.get())))) {
+      output.push_back(item_convertor(item));
+    }
+
+    if (PyErr_Occurred())
+      throw std::invalid_argument("");
+
+    return std::move(output);
+  }
+
+  template <
+      typename K, typename V, typename KeyConvertor, typename ValueConvertor>
+  static std::unordered_map<K, V> convert_dict(
+      py_ref input, KeyConvertor key_convertor,
+      ValueConvertor value_convertor) {
+    std::unordered_map<K, V> output;
+
+    if (!PyDict_Check(input.get()))
+      throw std::invalid_argument("");
+
+    PyObject *key, *value;
+    Py_ssize_t pos = 0;
+
+    while (PyDict_Next(input.get(), &pos, &key, &value)) {
+      output[key_convertor(py_ref::ref(key))] =
+          value_convertor(py_ref::ref(value));
+    }
+
+    if (PyErr_Occurred())
+      throw std::invalid_argument("");
+
+    return std::move(output);
+  }
+
+  static std::string convert_domain(py_ref input) {
+    std::string output = domain_to_string(input.get());
+    if (output.empty())
+      throw std::invalid_argument("");
+
+    return output;
+  }
+
+  static backend_options convert_backend_options(py_ref input) {
+    backend_options output;
+    int coerce, only;
+    PyObject * py_backend;
+    if (!PyArg_ParseTuple(input.get(), "Opp", &py_backend, &coerce, &only))
+      throw std::invalid_argument("");
+
+    output.backend = py_ref::ref(py_backend);
+    output.coerce = coerce;
+    output.only = only;
+
+    return output;
+  }
+
+  static py_ref convert_backend(py_ref input) { return input; }
+
+  static local_backends convert_local_backends(py_ref input) {
+    PyObject *py_skipped, *py_preferred;
+    if (!PyArg_ParseTuple(input.get(), "OO", &py_skipped, &py_preferred))
+      throw std::invalid_argument("");
+
+    local_backends output;
+    output.skipped =
+        convert_iter<py_ref, decltype(BackendState::convert_backend)>(
+            py_ref::ref(py_skipped), BackendState::convert_backend);
+    output.preferred = convert_iter<
+        backend_options, decltype(BackendState::convert_backend_options)>(
+        py_ref::ref(py_preferred), BackendState::convert_backend_options);
+
+    return output;
+  }
+
+  static global_backends convert_global_backends(py_ref input) {
+    PyObject *py_global, *py_registered;
+    if (!PyArg_ParseTuple(input.get(), "OO", &py_global, &py_registered))
+      throw std::invalid_argument("");
+
+    global_backends output;
+    output.global =
+        BackendState::convert_backend_options(py_ref::ref(py_global));
+    output.registered =
+        convert_iter<py_ref, decltype(BackendState::convert_backend)>(
+            py_ref::ref(py_registered), BackendState::convert_backend);
+
+    return output;
+  }
+
+  static global_state_t convert_global_state(py_ref input) {
+    return convert_dict<
+        std::string, global_backends, decltype(BackendState::convert_domain),
+        decltype(BackendState::convert_global_backends)>(
+        input, BackendState::convert_domain,
+        BackendState::convert_global_backends);
+  }
+
+  static local_state_t convert_local_state(py_ref input) {
+    return convert_dict<
+        std::string, local_backends, decltype(BackendState::convert_domain),
+        decltype(BackendState::convert_local_backends)>(
+        input, BackendState::convert_domain,
+        BackendState::convert_local_backends);
+  }
+
+  static py_ref convert_py(py_ref input) { return input; }
+
+  static py_ref convert_py(backend_options input) {
+    py_ref output = py_ref::steal(Py_BuildValue(
+        "(ONN)", input.backend.get(), PyBool_FromLong(input.coerce),
+        PyBool_FromLong(input.only)));
+    if (!output)
+      throw std::runtime_error("");
+    return output;
+  }
+
+  static py_ref convert_py(const std::string & input) {
+    py_ref output =
+        py_ref::steal(PyUnicode_FromStringAndSize(input.c_str(), input.size()));
+    if (!output)
+      throw std::runtime_error("");
+    return output;
+  }
+
+  template <typename T>
+  static py_ref convert_py(const std::vector<T> & input) {
+    py_ref output = py_ref::steal(PyList_New(input.size()));
+
+    if (!output)
+      throw std::runtime_error("");
+
+    for (size_t i = 0; i < input.size(); i++) {
+      py_ref element = convert_py(input[i]);
+      Py_INCREF(element.get());
+      PyList_SET_ITEM(output.get(), i, element.get());
+    }
+
+    return output;
+  }
+
+  static py_ref convert_py(const local_backends & input) {
+    py_ref py_skipped = BackendState::convert_py(input.skipped);
+    py_ref py_preferred = BackendState::convert_py(input.preferred);
+    py_ref output = py_ref::steal(
+        Py_BuildValue("(OO)", py_skipped.get(), py_preferred.get()));
+
+    if (!output)
+      throw std::runtime_error("");
+
+    return output;
+  }
+
+  static py_ref convert_py(const global_backends & input) {
+    py_ref py_globals = BackendState::convert_py(input.global);
+    py_ref py_registered = BackendState::convert_py(input.registered);
+    py_ref output = py_ref::steal(
+        Py_BuildValue("(OO)", py_globals.get(), py_registered.get()));
+
+    if (!output)
+      throw std::runtime_error("");
+
+    return output;
+  }
+
+  template <typename K, typename V>
+  static py_ref convert_py(const std::unordered_map<K, V> & input) {
+    py_ref output = py_ref::steal(PyDict_New());
+
+    if (!output)
+      throw std::runtime_error("");
+
+    for (const auto & kv : input) {
+      py_ref py_key = convert_py(kv.first);
+      py_ref py_value = convert_py(kv.second);
+
+      Py_INCREF(py_key.get());
+      Py_INCREF(py_value.get());
+
+      if (PyDict_SetItem(output.get(), py_key.get(), py_value.get()) < 0) {
+        throw std::runtime_error("");
+      }
+    }
+
+    return output;
+  }
+};
 
 /** Use to clean up python references before the interpreter is finalized.
  *
@@ -186,7 +443,7 @@ std::string backend_to_domain_string(PyObject * backend) {
  * being called after the interpreter has already shudown.
  */
 PyObject * clear_all_globals(PyObject * /* self */, PyObject * /* args */) {
-  global_domain_map.clear();
+  global_state.clear();
   BackendNotImplementedError.reset();
   identifiers.clear();
   Py_RETURN_NONE;
@@ -207,7 +464,7 @@ PyObject * set_global_backend(PyObject * /* self */, PyObject * args) {
   options.coerce = coerce;
   options.only = only;
 
-  global_domain_map[domain].global = options;
+  global_state[domain].global = options;
   Py_RETURN_NONE;
 }
 
@@ -220,17 +477,17 @@ PyObject * register_backend(PyObject * /* self */, PyObject * args) {
   if (domain.empty())
     return nullptr;
 
-  global_domain_map[domain].registered.push_back(py_ref::ref(backend));
+  global_state[domain].registered.push_back(py_ref::ref(backend));
   Py_RETURN_NONE;
 }
 
 void clear_single(const std::string & domain, bool registered, bool global) {
-  auto domain_globals = global_domain_map.find(domain);
-  if (domain_globals == global_domain_map.end())
+  auto domain_globals = global_state.find(domain);
+  if (domain_globals == global_state.end())
     return;
 
   if (registered && global) {
-    global_domain_map.erase(domain_globals);
+    global_state.erase(domain_globals);
     return;
   }
 
@@ -250,7 +507,7 @@ PyObject * clear_backends(PyObject * /* self */, PyObject * args) {
     return nullptr;
 
   if (domain == Py_None && registered && global) {
-    global_domain_map.clear();
+    global_state.clear();
     Py_RETURN_NONE;
   }
 
@@ -258,7 +515,6 @@ PyObject * clear_backends(PyObject * /* self */, PyObject * args) {
   clear_single(domain_str, registered, global);
   Py_RETURN_NONE;
 }
-
 
 /** Common functionality of set_backend and skip_backend */
 template <typename T>
@@ -348,7 +604,7 @@ struct SetBackendContext {
     opt.only = only;
 
     try {
-      if (!self->ctx_.init(local_domain_map[domain].preferred, std::move(opt)))
+      if (!self->ctx_.init(local_state[domain].preferred, std::move(opt)))
         return -1;
     } catch (std::bad_alloc &) {
       PyErr_NoMemory();
@@ -373,6 +629,13 @@ struct SetBackendContext {
   static int traverse(SetBackendContext * self, visitproc visit, void * arg) {
     Py_VISIT(self->ctx_.get_backend().backend.get());
     return 0;
+  }
+
+  static PyObject * pickle_(SetBackendContext * self, PyObject * /*args*/) {
+    const backend_options & opt = self->ctx_.get_backend();
+    return Py_BuildValue(
+        "(ONN)", opt.backend.get(), PyBool_FromLong(opt.coerce),
+        PyBool_FromLong(opt.only));
   }
 };
 
@@ -412,8 +675,7 @@ struct SkipBackendContext {
       return -1;
 
     try {
-      if (!self->ctx_.init(
-              local_domain_map[domain].skipped, py_ref::ref(backend)))
+      if (!self->ctx_.init(local_state[domain].skipped, py_ref::ref(backend)))
         return -1;
     } catch (std::bad_alloc &) {
       PyErr_NoMemory();
@@ -438,7 +700,10 @@ struct SkipBackendContext {
   static int traverse(SkipBackendContext * self, visitproc visit, void * arg) {
     Py_VISIT(self->ctx_.get_backend().get());
     return 0;
-    return 0;
+  }
+
+  static PyObject * pickle_(SkipBackendContext * self, PyObject * /*args*/) {
+    return Py_BuildValue("(O)", self->ctx_.get_backend().get());
   }
 };
 
@@ -448,7 +713,7 @@ template <typename Callback>
 LoopReturn for_each_backend(const std::string & domain_key, Callback call) {
   local_backends * locals = nullptr;
   try {
-    locals = &local_domain_map[domain_key];
+    locals = &local_state[domain_key];
   } catch (std::bad_alloc &) {
     PyErr_NoMemory();
     return LoopReturn::Error;
@@ -489,7 +754,7 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call) {
       return ret;
   }
 
-  auto & globals = global_domain_map[domain_key];
+  auto & globals = global_state[domain_key];
   auto & global_options = globals.global;
   int skip_current =
       global_options.backend ? should_skip(global_options.backend.get()) : 1;
@@ -793,8 +1058,7 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_) {
           opt.only = true;
           context_helper<backend_options> ctx;
           try {
-            if (!ctx.init(
-                    local_domain_map[domain_key_].preferred, std::move(opt)))
+            if (!ctx.init(local_state[domain_key_].preferred, std::move(opt)))
               return LoopReturn::Error;
           } catch (std::bad_alloc &) {
             PyErr_NoMemory();
@@ -917,6 +1181,88 @@ PyObject * Function::get_replacer(Function * self) {
 }
 
 
+PyMethodDef BackendState_Methods[] = {
+    {"_pickle", (PyCFunction)BackendState::pickle_, METH_NOARGS, nullptr},
+    {"_unpickle", (PyCFunction)BackendState::unpickle_,
+     METH_VARARGS | METH_CLASS, nullptr},
+    {NULL} /* Sentinel */
+};
+
+PyTypeObject BackendStateType = {
+    PyVarObject_HEAD_INIT(NULL, 0)     /* boilerplate */
+    "uarray._BackendState",            /* tp_name */
+    sizeof(BackendState),              /* tp_basicsize */
+    0,                                 /* tp_itemsize */
+    (destructor)BackendState::dealloc, /* tp_dealloc */
+    0,                                 /* tp_print */
+    0,                                 /* tp_getattr */
+    0,                                 /* tp_setattr */
+    0,                                 /* tp_reserved */
+    0,                                 /* tp_repr */
+    0,                                 /* tp_as_number */
+    0,                                 /* tp_as_sequence */
+    0,                                 /* tp_as_mapping */
+    0,                                 /* tp_hash  */
+    0,                                 /* tp_call */
+    0,                                 /* tp_str */
+    0,                                 /* tp_getattro */
+    0,                                 /* tp_setattro */
+    0,                                 /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT,                /* tp_flags */
+    0,                                 /* tp_doc */
+    0,                                 /* tp_traverse */
+    0,                                 /* tp_clear */
+    0,                                 /* tp_richcompare */
+    0,                                 /* tp_weaklistoffset */
+    0,                                 /* tp_iter */
+    0,                                 /* tp_iternext */
+    BackendState_Methods,              /* tp_methods */
+    0,                                 /* tp_members */
+    0,                                 /* tp_getset */
+    0,                                 /* tp_base */
+    0,                                 /* tp_dict */
+    0,                                 /* tp_descr_get */
+    0,                                 /* tp_descr_set */
+    0,                                 /* tp_dictoffset */
+    0,                                 /* tp_init */
+    0,                                 /* tp_alloc */
+    BackendState::new_,                /* tp_new */
+};
+
+PyObject * get_state(PyObject * /* self */, PyObject * /* args */) {
+  py_ref new_tuple = py_ref::steal(PyTuple_New(0));
+  if (!new_tuple)
+    return nullptr;
+
+  BackendState * output = reinterpret_cast<BackendState *>(PyObject_Call(
+      reinterpret_cast<PyObject *>(&BackendStateType), new_tuple.get(), NULL));
+
+  output->locals = local_state;
+  output->globals = global_state;
+
+  return reinterpret_cast<PyObject *>(output);
+}
+
+PyObject * set_state(PyObject * /* self */, PyObject * args) {
+  PyObject * arg;
+  if (!PyArg_ParseTuple(args, "O", &arg))
+    return nullptr;
+
+  if (!PyObject_IsInstance(
+          arg, reinterpret_cast<PyObject *>(&BackendStateType))) {
+    PyErr_SetString(
+        PyExc_TypeError, "state must be a uarray._BackendState object.");
+    return nullptr;
+  }
+
+  BackendState * state = reinterpret_cast<BackendState *>(arg);
+  local_state = state->locals;
+  global_state = state->globals;
+
+  Py_RETURN_NONE;
+}
+
+
 // getset takes mutable char * in python < 3.7
 static char dict__[] = "__dict__";
 static char arg_extractor[] = "arg_extractor";
@@ -974,6 +1320,7 @@ PyMethodDef SetBackendContext_Methods[] = {
     {"__enter__", (PyCFunction)SetBackendContext::enter__, METH_NOARGS,
      nullptr},
     {"__exit__", (PyCFunction)SetBackendContext::exit__, METH_VARARGS, nullptr},
+    {"_pickle", (PyCFunction)SetBackendContext::pickle_, METH_NOARGS, nullptr},
     {NULL} /* Sentinel */
 };
 
@@ -1024,6 +1371,7 @@ PyMethodDef SkipBackendContext_Methods[] = {
      nullptr},
     {"__exit__", (PyCFunction)SkipBackendContext::exit__, METH_VARARGS,
      nullptr},
+    {"_pickle", (PyCFunction)SkipBackendContext::pickle_, METH_NOARGS, nullptr},
     {NULL} /* Sentinel */
 };
 
@@ -1074,6 +1422,8 @@ PyMethodDef method_defs[] = {
     {"register_backend", register_backend, METH_VARARGS, nullptr},
     {"clear_all_globals", clear_all_globals, METH_NOARGS, nullptr},
     {"clear_backends", clear_backends, METH_VARARGS, nullptr},
+    {"get_state", get_state, METH_NOARGS, nullptr},
+    {"set_state", set_state, METH_VARARGS, nullptr},
     {NULL} /* Sentinel */
 };
 
@@ -1111,6 +1461,11 @@ extern "C" MODULE_EXPORT PyObject * PyInit__uarray(void) {
   Py_INCREF(&SkipBackendContextType);
   PyModule_AddObject(
       m.get(), "_SkipBackendContext", (PyObject *)&SkipBackendContextType);
+
+  if (PyType_Ready(&BackendStateType) < 0)
+    return nullptr;
+  Py_INCREF(&BackendStateType);
+  PyModule_AddObject(m.get(), "_BackendState", (PyObject *)&BackendStateType);
 
   BackendNotImplementedError = py_ref::steal(PyErr_NewExceptionWithDoc(
       "uarray.BackendNotImplementedError",
