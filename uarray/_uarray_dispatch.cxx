@@ -88,6 +88,8 @@ py_ref py_make_tuple(const Ts &... args) {
   return py_ref::steal(PyTuple_Pack(sizeof...(args), py_get(args)...));
 }
 
+py_ref py_bool(bool input) { return py_ref::ref(input ? Py_True : Py_False); }
+
 struct backend_options {
   py_ref backend;
   bool coerce, only;
@@ -207,7 +209,7 @@ struct BackendState {
       py_ref py_global = BackendState::convert_py(self->globals);
       py_ref py_locals = BackendState::convert_py(self->locals);
 
-      return Py_BuildValue("(OO)", py_global.get(), py_locals.get());
+      return py_make_tuple(py_global, py_locals).release();
     } catch (std::runtime_error &) {
       return nullptr;
     }
@@ -225,15 +227,15 @@ struct BackendState {
       if (!empty_tuple)
         return nullptr;
 
-      BackendState * output = reinterpret_cast<BackendState *>(
-          PyObject_Call(cls, empty_tuple.get(), NULL));
+      py_ref ref = py_ref::steal(PyObject_Call(cls, empty_tuple.get(), NULL));
+      BackendState * output = reinterpret_cast<BackendState *>(ref.get());
       if (output == nullptr)
         return nullptr;
 
-      output->locals = locals;
-      output->globals = globals;
+      output->locals = std::move(locals);
+      output->globals = std::move(globals);
 
-      return reinterpret_cast<PyObject *>(output);
+      return ref.release();
     } catch (std::invalid_argument &) {
       return nullptr;
     } catch (std::bad_alloc &) {
@@ -257,7 +259,7 @@ struct BackendState {
     if (PyErr_Occurred())
       throw std::invalid_argument("");
 
-    return std::move(output);
+    return output;
   }
 
   template <
@@ -358,9 +360,8 @@ struct BackendState {
   static py_ref convert_py(py_ref input) { return input; }
 
   static py_ref convert_py(backend_options input) {
-    py_ref output = py_ref::steal(Py_BuildValue(
-        "(ONN)", input.backend.get(), PyBool_FromLong(input.coerce),
-        PyBool_FromLong(input.only)));
+    py_ref output = py_make_tuple(
+        input.backend, py_bool(input.coerce), py_bool(input.only));
     if (!output)
       throw std::runtime_error("");
     return output;
@@ -393,8 +394,7 @@ struct BackendState {
   static py_ref convert_py(const local_backends & input) {
     py_ref py_skipped = BackendState::convert_py(input.skipped);
     py_ref py_preferred = BackendState::convert_py(input.preferred);
-    py_ref output = py_ref::steal(
-        Py_BuildValue("(OO)", py_skipped.get(), py_preferred.get()));
+    py_ref output = py_make_tuple(py_skipped, py_preferred);
 
     if (!output)
       throw std::runtime_error("");
@@ -405,8 +405,7 @@ struct BackendState {
   static py_ref convert_py(const global_backends & input) {
     py_ref py_globals = BackendState::convert_py(input.global);
     py_ref py_registered = BackendState::convert_py(input.registered);
-    py_ref output = py_ref::steal(
-        Py_BuildValue("(OO)", py_globals.get(), py_registered.get()));
+    py_ref output = py_make_tuple(py_globals, py_registered);
 
     if (!output)
       throw std::runtime_error("");
@@ -424,9 +423,6 @@ struct BackendState {
     for (const auto & kv : input) {
       py_ref py_key = convert_py(kv.first);
       py_ref py_value = convert_py(kv.second);
-
-      Py_INCREF(py_key.get());
-      Py_INCREF(py_value.get());
 
       if (PyDict_SetItem(output.get(), py_key.get(), py_value.get()) < 0) {
         throw std::runtime_error("");
@@ -633,9 +629,8 @@ struct SetBackendContext {
 
   static PyObject * pickle_(SetBackendContext * self, PyObject * /*args*/) {
     const backend_options & opt = self->ctx_.get_backend();
-    return Py_BuildValue(
-        "(ONN)", opt.backend.get(), PyBool_FromLong(opt.coerce),
-        PyBool_FromLong(opt.only));
+    return py_make_tuple(opt.backend, py_bool(opt.coerce), py_bool(opt.only))
+        .release();
   }
 };
 
@@ -703,7 +698,7 @@ struct SkipBackendContext {
   }
 
   static PyObject * pickle_(SkipBackendContext * self, PyObject * /*args*/) {
-    return Py_BuildValue("(O)", self->ctx_.get_backend().get());
+    return py_make_tuple(self->ctx_.get_backend()).release();
   }
 };
 
@@ -1234,13 +1229,14 @@ PyObject * get_state(PyObject * /* self */, PyObject * /* args */) {
   if (!new_tuple)
     return nullptr;
 
-  BackendState * output = reinterpret_cast<BackendState *>(PyObject_Call(
+  py_ref ref = py_ref::steal(PyObject_Call(
       reinterpret_cast<PyObject *>(&BackendStateType), new_tuple.get(), NULL));
+  BackendState * output = reinterpret_cast<BackendState *>(ref.get());
 
   output->locals = local_state;
   output->globals = global_state;
 
-  return reinterpret_cast<PyObject *>(output);
+  return ref.release();
 }
 
 PyObject * set_state(PyObject * /* self */, PyObject * args) {

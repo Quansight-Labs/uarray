@@ -6,8 +6,8 @@ import pytest  # type: ignore
 
 @pytest.fixture(scope="function", autouse=True)
 def cleanup_backends():
-    yield
-    ua.set_state(ua._BackendState())
+    with ua.reset_state():
+        yield
 
 
 class Backend:
@@ -266,8 +266,8 @@ def test_getset_state(cleanup_backends):
 
     assert pstate != ua.get_state()._pickle()
 
-    ua.set_state(state)
-    assert pstate == ua.get_state()._pickle()
+    with ua.set_state(state):
+        assert pstate == ua.get_state()._pickle()
 
 
 class ComparableBackend(Backend):

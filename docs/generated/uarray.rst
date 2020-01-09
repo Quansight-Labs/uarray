@@ -22,6 +22,7 @@ uarray
       wrap_single_convertor
       get_state
       set_state
+      reset_state
 
 
 

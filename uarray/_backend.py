@@ -5,6 +5,7 @@ from . import _uarray  # type: ignore
 import copyreg  # type: ignore
 import atexit
 import pickle
+import contextlib
 
 ArgumentExtractorType = typing.Callable[..., typing.Tuple["Dispatchable", ...]]
 ArgumentReplacerType = typing.Callable[
@@ -35,6 +36,7 @@ __all__ = [
     "mark_as",
     "set_state",
     "get_state",
+    "reset_state",
     "_BackendState",
     "_SkipBackendContext",
     "_SetBackendContext",
@@ -104,16 +106,38 @@ def get_state():
     return _uarray.get_state()
 
 
+@contextlib.contextmanager
+def reset_state():
+    """
+    Returns a context manager that resets all state once exited.
+
+    See Also
+    --------
+    set_state
+        Context manager that sets the backend state.
+    get_state
+        Gets a state to be set by this function.
+    """
+    state = get_state()
+    try:
+        yield
+    finally:
+        _uarray.set_state(state)
+
+
+@contextlib.contextmanager
 def set_state(state):
     """
-    Sets the state of the backends to one returned by :obj:`get_state`.
+    A context manager that sets the state of the backends to one returned by :obj:`get_state`.
 
     See Also
     --------
     get_state
-        Gets a state to be set by this function.
+        Gets a state to be set by this context manager.
     """
-    return _uarray.set_state(state)
+    with reset_state():
+        _uarray.set_state(state)
+        yield
 
 
 def create_multimethod(*args, **kwargs):
