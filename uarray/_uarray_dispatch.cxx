@@ -220,8 +220,8 @@ struct BackendState {
       PyObject *py_locals, *py_global;
       if (!PyArg_ParseTuple(args, "OO", &py_global, &py_locals))
         return nullptr;
-      local_state_t locals = convert_local_state(py_ref::ref(py_locals));
-      global_state_t globals = convert_global_state(py_ref::ref(py_global));
+      local_state_t locals = convert_local_state(py_locals);
+      global_state_t globals = convert_global_state(py_global);
 
       py_ref empty_tuple = py_ref::steal(PyTuple_New(0));
       if (!empty_tuple)
@@ -245,15 +245,16 @@ struct BackendState {
   }
 
   template <typename T, typename Convertor>
-  static std::vector<T> convert_iter(py_ref input, Convertor item_convertor) {
+  static std::vector<T> convert_iter(
+      PyObject * input, Convertor item_convertor) {
     std::vector<T> output;
-    py_ref iterator = py_ref::steal(PyObject_GetIter(input.get()));
+    py_ref iterator = py_ref::steal(PyObject_GetIter(input));
     if (!iterator)
       throw std::invalid_argument("");
 
     py_ref item;
     while ((item = py_ref::steal(PyIter_Next(iterator.get())))) {
-      output.push_back(item_convertor(item));
+      output.push_back(item_convertor(item.get()));
     }
 
     if (PyErr_Occurred())
@@ -265,19 +266,18 @@ struct BackendState {
   template <
       typename K, typename V, typename KeyConvertor, typename ValueConvertor>
   static std::unordered_map<K, V> convert_dict(
-      py_ref input, KeyConvertor key_convertor,
+      PyObject * input, KeyConvertor key_convertor,
       ValueConvertor value_convertor) {
     std::unordered_map<K, V> output;
 
-    if (!PyDict_Check(input.get()))
+    if (!PyDict_Check(input))
       throw std::invalid_argument("");
 
     PyObject *key, *value;
     Py_ssize_t pos = 0;
 
-    while (PyDict_Next(input.get(), &pos, &key, &value)) {
-      output[key_convertor(py_ref::ref(key))] =
-          value_convertor(py_ref::ref(value));
+    while (PyDict_Next(input, &pos, &key, &value)) {
+      output[key_convertor(key)] = value_convertor(value);
     }
 
     if (PyErr_Occurred())
@@ -286,19 +286,19 @@ struct BackendState {
     return std::move(output);
   }
 
-  static std::string convert_domain(py_ref input) {
-    std::string output = domain_to_string(input.get());
+  static std::string convert_domain(PyObject * input) {
+    std::string output = domain_to_string(input);
     if (output.empty())
       throw std::invalid_argument("");
 
     return output;
   }
 
-  static backend_options convert_backend_options(py_ref input) {
+  static backend_options convert_backend_options(PyObject * input) {
     backend_options output;
     int coerce, only;
     PyObject * py_backend;
-    if (!PyArg_ParseTuple(input.get(), "Opp", &py_backend, &coerce, &only))
+    if (!PyArg_ParseTuple(input, "Opp", &py_backend, &coerce, &only))
       throw std::invalid_argument("");
 
     if (py_backend != Py_None) {
@@ -310,51 +310,43 @@ struct BackendState {
     return output;
   }
 
-  static py_ref convert_backend(py_ref input) { return input; }
+  static py_ref convert_backend(PyObject * input) { return py_ref::ref(input); }
 
-  static local_backends convert_local_backends(py_ref input) {
+  static local_backends convert_local_backends(PyObject * input) {
     PyObject *py_skipped, *py_preferred;
-    if (!PyArg_ParseTuple(input.get(), "OO", &py_skipped, &py_preferred))
+    if (!PyArg_ParseTuple(input, "OO", &py_skipped, &py_preferred))
       throw std::invalid_argument("");
 
     local_backends output;
     output.skipped =
-        convert_iter<py_ref, decltype(BackendState::convert_backend)>(
-            py_ref::ref(py_skipped), BackendState::convert_backend);
-    output.preferred = convert_iter<
-        backend_options, decltype(BackendState::convert_backend_options)>(
-        py_ref::ref(py_preferred), BackendState::convert_backend_options);
+        convert_iter<py_ref>(py_skipped, BackendState::convert_backend);
+    output.preferred = convert_iter<backend_options>(
+        py_preferred, BackendState::convert_backend_options);
 
     return output;
   }
 
-  static global_backends convert_global_backends(py_ref input) {
+  static global_backends convert_global_backends(PyObject * input) {
     PyObject *py_global, *py_registered;
-    if (!PyArg_ParseTuple(input.get(), "OO", &py_global, &py_registered))
+    if (!PyArg_ParseTuple(input, "OO", &py_global, &py_registered))
       throw std::invalid_argument("");
 
     global_backends output;
-    output.global =
-        BackendState::convert_backend_options(py_ref::ref(py_global));
+    output.global = BackendState::convert_backend_options(py_global);
     output.registered =
-        convert_iter<py_ref, decltype(BackendState::convert_backend)>(
-            py_ref::ref(py_registered), BackendState::convert_backend);
+        convert_iter<py_ref>(py_registered, BackendState::convert_backend);
 
     return output;
   }
 
-  static global_state_t convert_global_state(py_ref input) {
-    return convert_dict<
-        std::string, global_backends, decltype(BackendState::convert_domain),
-        decltype(BackendState::convert_global_backends)>(
+  static global_state_t convert_global_state(PyObject * input) {
+    return convert_dict<std::string, global_backends>(
         input, BackendState::convert_domain,
         BackendState::convert_global_backends);
   }
 
-  static local_state_t convert_local_state(py_ref input) {
-    return convert_dict<
-        std::string, local_backends, decltype(BackendState::convert_domain),
-        decltype(BackendState::convert_local_backends)>(
+  static local_state_t convert_local_state(PyObject * input) {
+    return convert_dict<std::string, local_backends>(
         input, BackendState::convert_domain,
         BackendState::convert_local_backends);
   }
