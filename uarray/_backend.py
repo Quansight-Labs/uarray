@@ -116,7 +116,7 @@ def reset_state():
     set_state
         Context manager that sets the backend state.
     get_state
-        Gets a state to be set by this function.
+        Gets a state to be set by this context manager.
     """
     state = get_state()
     try:

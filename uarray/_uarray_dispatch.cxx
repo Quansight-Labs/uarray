@@ -119,7 +119,7 @@ typedef std::unordered_map<std::string, global_backends> global_state_t;
 typedef std::unordered_map<std::string, local_backends> local_state_t;
 
 static py_ref BackendNotImplementedError;
-static global_state_t global_state;
+thread_local global_state_t global_state;
 thread_local local_state_t local_state;
 
 /** Constant Python string identifiers
