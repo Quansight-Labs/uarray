@@ -301,7 +301,9 @@ struct BackendState {
     if (!PyArg_ParseTuple(input.get(), "Opp", &py_backend, &coerce, &only))
       throw std::invalid_argument("");
 
-    output.backend = py_ref::ref(py_backend);
+    if (py_backend != Py_None) {
+      output.backend = py_ref::ref(py_backend);
+    }
     output.coerce = coerce;
     output.only = only;
 
@@ -360,6 +362,9 @@ struct BackendState {
   static py_ref convert_py(py_ref input) { return input; }
 
   static py_ref convert_py(backend_options input) {
+    if (!input.backend) {
+      input.backend = py_ref::ref(Py_None);
+    }
     py_ref output = py_make_tuple(
         input.backend, py_bool(input.coerce), py_bool(input.only));
     if (!output)
