@@ -267,7 +267,7 @@ def test_getset_state(cleanup_backends):
     assert pstate != ua.get_state()._pickle()
 
     with ua.set_state(state):
-        assert pstate == ua.get_state()._pickle()
+        assert pstate[:2] == ua.get_state()._pickle()[:2]
 
 
 class ComparableBackend(Backend):

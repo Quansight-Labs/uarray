@@ -119,7 +119,9 @@ typedef std::unordered_map<std::string, global_backends> global_state_t;
 typedef std::unordered_map<std::string, local_backends> local_state_t;
 
 static py_ref BackendNotImplementedError;
-thread_local global_state_t global_state;
+static global_state_t global_state;
+thread_local bool use_thread_local_globals = false;
+thread_local global_state_t thread_global_state;
 thread_local local_state_t local_state;
 
 /** Constant Python string identifiers
@@ -187,6 +189,7 @@ struct BackendState {
   PyObject_HEAD
   global_state_t globals;
   local_state_t locals;
+  bool use_thread_local_globals;
 
   static void dealloc(BackendState * self) {
     self->~BackendState();
@@ -208,8 +211,11 @@ struct BackendState {
     try {
       py_ref py_global = BackendState::convert_py(self->globals);
       py_ref py_locals = BackendState::convert_py(self->locals);
+      py_ref py_use_local_globals =
+          BackendState::convert_py(self->use_thread_local_globals);
 
-      return py_make_tuple(py_global, py_locals).release();
+      return py_make_tuple(py_global, py_locals, py_use_local_globals)
+          .release();
     } catch (std::runtime_error &) {
       return nullptr;
     }
@@ -218,11 +224,6 @@ struct BackendState {
   static PyObject * unpickle_(PyObject * cls, PyObject * args) {
     try {
       PyObject *py_locals, *py_global;
-      if (!PyArg_ParseTuple(args, "OO", &py_global, &py_locals))
-        return nullptr;
-      local_state_t locals = convert_local_state(py_locals);
-      global_state_t globals = convert_global_state(py_global);
-
       py_ref empty_tuple = py_ref::steal(PyTuple_New(0));
       if (!empty_tuple)
         return nullptr;
@@ -232,8 +233,16 @@ struct BackendState {
       if (output == nullptr)
         return nullptr;
 
+      int use_thread_local_globals;
+      if (!PyArg_ParseTuple(
+              args, "OOp", &py_global, &py_locals, &use_thread_local_globals))
+        return nullptr;
+      local_state_t locals = convert_local_state(py_locals);
+      global_state_t globals = convert_global_state(py_global);
+
       output->locals = std::move(locals);
       output->globals = std::move(globals);
+      output->use_thread_local_globals = use_thread_local_globals;
 
       return ref.release();
     } catch (std::invalid_argument &) {
@@ -352,6 +361,8 @@ struct BackendState {
   }
 
   static py_ref convert_py(py_ref input) { return input; }
+
+  static py_ref convert_py(bool input) { return py_bool(input); }
 
   static py_ref convert_py(backend_options input) {
     if (!input.backend) {
@@ -746,7 +757,8 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call) {
       return ret;
   }
 
-  auto & globals = global_state[domain_key];
+  auto & globals = use_thread_local_globals ? thread_global_state[domain_key]
+                                            : global_state[domain_key];
   auto & global_options = globals.global;
   int skip_current =
       global_options.backend ? should_skip(global_options.backend.get()) : 1;
@@ -1231,14 +1243,20 @@ PyObject * get_state(PyObject * /* self */, PyObject * /* args */) {
   BackendState * output = reinterpret_cast<BackendState *>(ref.get());
 
   output->locals = local_state;
-  output->globals = global_state;
+  output->use_thread_local_globals = use_thread_local_globals;
+
+  if (use_thread_local_globals)
+    output->globals = global_state;
+  else
+    output->globals = thread_global_state;
 
   return ref.release();
 }
 
 PyObject * set_state(PyObject * /* self */, PyObject * args) {
   PyObject * arg;
-  if (!PyArg_ParseTuple(args, "O", &arg))
+  int reset_allowed = false;
+  if (!PyArg_ParseTuple(args, "O|p", &arg, &reset_allowed))
     return nullptr;
 
   if (!PyObject_IsInstance(
@@ -1251,6 +1269,10 @@ PyObject * set_state(PyObject * /* self */, PyObject * args) {
   BackendState * state = reinterpret_cast<BackendState *>(arg);
   local_state = state->locals;
   global_state = state->globals;
+  if (reset_allowed)
+    use_thread_local_globals = state->use_thread_local_globals;
+  else
+    use_thread_local_globals = true;
 
   Py_RETURN_NONE;
 }

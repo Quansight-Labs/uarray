@@ -122,7 +122,7 @@ def reset_state():
     try:
         yield
     finally:
-        _uarray.set_state(state)
+        _uarray.set_state(state, True)
 
 
 @contextlib.contextmanager
