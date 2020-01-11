@@ -1,4 +1,5 @@
 import typing
+import types
 import inspect
 import functools
 from . import _uarray  # type: ignore
@@ -43,12 +44,19 @@ __all__ = [
 ]
 
 
-def unpickle_function(mod_name, qname):
+def unpickle_function(mod_name, qname, self_):
     import importlib
 
     try:
         module = importlib.import_module(mod_name)
-        func = getattr(module, qname)
+        qname = qname.split(".")
+        func = module
+        for q in qname:
+            func = getattr(func, q)
+
+        if self_ is not None:
+            func = types.MethodType(func, self_)
+
         return func
     except (ImportError, AttributeError) as e:
         from pickle import UnpicklingError
@@ -59,9 +67,10 @@ def unpickle_function(mod_name, qname):
 def pickle_function(func):
     mod_name = getattr(func, "__module__", None)
     qname = getattr(func, "__qualname__", None)
+    self_ = getattr(func, "__self__", None)
 
     try:
-        test = unpickle_function(mod_name, qname)
+        test = unpickle_function(mod_name, qname, self_)
     except pickle.UnpicklingError:
         test = None
 
@@ -70,7 +79,7 @@ def pickle_function(func):
             "Can't pickle {}: it's not the same object as {}".format(func, test)
         )
 
-    return unpickle_function, (mod_name, qname)
+    return unpickle_function, (mod_name, qname, self_)
 
 
 def pickle_state(state):
