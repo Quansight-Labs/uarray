@@ -127,11 +127,8 @@ def reset_state():
     get_state
         Gets a state to be set by this context manager.
     """
-    state = get_state()
-    try:
+    with set_state(get_state()):
         yield
-    finally:
-        _uarray.set_state(state, True)
 
 
 @contextlib.contextmanager
@@ -144,9 +141,12 @@ def set_state(state):
     get_state
         Gets a state to be set by this context manager.
     """
-    with reset_state():
-        _uarray.set_state(state)
+    old_state = get_state()
+    _uarray.set_state(state)
+    try:
         yield
+    finally:
+        _uarray.set_state(old_state, True)
 
 
 def create_multimethod(*args, **kwargs):

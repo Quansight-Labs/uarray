@@ -119,10 +119,10 @@ typedef std::unordered_map<std::string, global_backends> global_state_t;
 typedef std::unordered_map<std::string, local_backends> local_state_t;
 
 static py_ref BackendNotImplementedError;
-static global_state_t global_state;
-thread_local bool use_thread_local_globals = false;
-thread_local global_state_t thread_global_state;
-thread_local local_state_t local_state;
+static global_state_t global_domain_map;
+thread_local global_state_t * current_global_state = &global_domain_map;
+thread_local global_state_t thread_local_domain_map;
+thread_local local_state_t local_domain_map;
 
 /** Constant Python string identifiers
 
@@ -189,7 +189,7 @@ struct BackendState {
   PyObject_HEAD
   global_state_t globals;
   local_state_t locals;
-  bool use_thread_local_globals;
+  bool use_thread_local_globals = true;
 
   static void dealloc(BackendState * self) {
     self->~BackendState();
@@ -447,7 +447,8 @@ struct BackendState {
  * being called after the interpreter has already shudown.
  */
 PyObject * clear_all_globals(PyObject * /* self */, PyObject * /* args */) {
-  global_state.clear();
+  global_domain_map.clear();
+  thread_local_domain_map.clear();
   BackendNotImplementedError.reset();
   identifiers.clear();
   Py_RETURN_NONE;
@@ -468,7 +469,7 @@ PyObject * set_global_backend(PyObject * /* self */, PyObject * args) {
   options.coerce = coerce;
   options.only = only;
 
-  global_state[domain].global = options;
+  (*current_global_state)[domain].global = options;
   Py_RETURN_NONE;
 }
 
@@ -481,17 +482,17 @@ PyObject * register_backend(PyObject * /* self */, PyObject * args) {
   if (domain.empty())
     return nullptr;
 
-  global_state[domain].registered.push_back(py_ref::ref(backend));
+  (*current_global_state)[domain].registered.push_back(py_ref::ref(backend));
   Py_RETURN_NONE;
 }
 
 void clear_single(const std::string & domain, bool registered, bool global) {
-  auto domain_globals = global_state.find(domain);
-  if (domain_globals == global_state.end())
+  auto domain_globals = current_global_state->find(domain);
+  if (domain_globals == current_global_state->end())
     return;
 
   if (registered && global) {
-    global_state.erase(domain_globals);
+    current_global_state->erase(domain_globals);
     return;
   }
 
@@ -511,7 +512,7 @@ PyObject * clear_backends(PyObject * /* self */, PyObject * args) {
     return nullptr;
 
   if (domain == Py_None && registered && global) {
-    global_state.clear();
+    current_global_state->clear();
     Py_RETURN_NONE;
   }
 
@@ -608,7 +609,7 @@ struct SetBackendContext {
     opt.only = only;
 
     try {
-      if (!self->ctx_.init(local_state[domain].preferred, std::move(opt)))
+      if (!self->ctx_.init(local_domain_map[domain].preferred, std::move(opt)))
         return -1;
     } catch (std::bad_alloc &) {
       PyErr_NoMemory();
@@ -678,7 +679,8 @@ struct SkipBackendContext {
       return -1;
 
     try {
-      if (!self->ctx_.init(local_state[domain].skipped, py_ref::ref(backend)))
+      if (!self->ctx_.init(
+              local_domain_map[domain].skipped, py_ref::ref(backend)))
         return -1;
     } catch (std::bad_alloc &) {
       PyErr_NoMemory();
@@ -716,7 +718,7 @@ template <typename Callback>
 LoopReturn for_each_backend(const std::string & domain_key, Callback call) {
   local_backends * locals = nullptr;
   try {
-    locals = &local_state[domain_key];
+    locals = &local_domain_map[domain_key];
   } catch (std::bad_alloc &) {
     PyErr_NoMemory();
     return LoopReturn::Error;
@@ -757,8 +759,7 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call) {
       return ret;
   }
 
-  auto & globals = use_thread_local_globals ? thread_global_state[domain_key]
-                                            : global_state[domain_key];
+  auto & globals = (*current_global_state)[domain_key];
   auto & global_options = globals.global;
   int skip_current =
       global_options.backend ? should_skip(global_options.backend.get()) : 1;
@@ -1062,7 +1063,8 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_) {
           opt.only = true;
           context_helper<backend_options> ctx;
           try {
-            if (!ctx.init(local_state[domain_key_].preferred, std::move(opt)))
+            if (!ctx.init(
+                    local_domain_map[domain_key_].preferred, std::move(opt)))
               return LoopReturn::Error;
           } catch (std::bad_alloc &) {
             PyErr_NoMemory();
@@ -1242,13 +1244,10 @@ PyObject * get_state(PyObject * /* self */, PyObject * /* args */) {
       reinterpret_cast<PyObject *>(&BackendStateType), new_tuple.get(), NULL));
   BackendState * output = reinterpret_cast<BackendState *>(ref.get());
 
-  output->locals = local_state;
-  output->use_thread_local_globals = use_thread_local_globals;
-
-  if (use_thread_local_globals)
-    output->globals = global_state;
-  else
-    output->globals = thread_global_state;
+  output->locals = local_domain_map;
+  output->use_thread_local_globals =
+      (current_global_state != &global_domain_map);
+  output->globals = *current_global_state;
 
   return ref.release();
 }
@@ -1267,12 +1266,14 @@ PyObject * set_state(PyObject * /* self */, PyObject * args) {
   }
 
   BackendState * state = reinterpret_cast<BackendState *>(arg);
-  local_state = state->locals;
-  global_state = state->globals;
-  if (reset_allowed)
-    use_thread_local_globals = state->use_thread_local_globals;
-  else
-    use_thread_local_globals = true;
+  local_domain_map = state->locals;
+  bool use_thread_local_globals =
+      (!reset_allowed) || state->use_thread_local_globals;
+  current_global_state =
+      use_thread_local_globals ? &thread_local_domain_map : &global_domain_map;
+
+  if (use_thread_local_globals)
+    thread_local_domain_map = state->globals;
 
   Py_RETURN_NONE;
 }
