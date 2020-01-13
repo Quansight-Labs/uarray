@@ -392,8 +392,7 @@ struct BackendState {
 
     for (size_t i = 0; i < input.size(); i++) {
       py_ref element = convert_py(input[i]);
-      Py_INCREF(element.get());
-      PyList_SET_ITEM(output.get(), i, element.get());
+      PyList_SET_ITEM(output.get(), i, element.release());
     }
 
     return output;
@@ -448,7 +447,6 @@ struct BackendState {
  */
 PyObject * clear_all_globals(PyObject * /* self */, PyObject * /* args */) {
   global_domain_map.clear();
-  thread_local_domain_map.clear();
   BackendNotImplementedError.reset();
   identifiers.clear();
   Py_RETURN_NONE;
@@ -1274,6 +1272,9 @@ PyObject * set_state(PyObject * /* self */, PyObject * args) {
 
   if (use_thread_local_globals)
     thread_local_domain_map = state->globals;
+  else
+    thread_local_domain_map.clear();
+
 
   Py_RETURN_NONE;
 }
