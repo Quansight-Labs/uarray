@@ -4,12 +4,10 @@ import pickle
 import pytest  # type: ignore
 
 
-@pytest.fixture(scope="function")
-def cleanup_backends(request):
-    def cleanup():
-        ua.clear_backends("ua_tests", registered=True, globals=True)
-
-    request.addfinalizer(cleanup)
+@pytest.fixture(scope="function", autouse=True)
+def cleanup_backends():
+    with ua.reset_state():
+        yield
 
 
 class Backend:
@@ -58,7 +56,7 @@ def test_pickle_support():
     assert unpickle_mm is pickle_mm
 
 
-def test_registration(cleanup_backends, nullary_mm):
+def test_registration(nullary_mm):
     obj = object()
     be = Backend()
     be.__ua_function__ = lambda f, a, kw: obj
@@ -67,7 +65,7 @@ def test_registration(cleanup_backends, nullary_mm):
     assert nullary_mm() is obj
 
 
-def test_global(cleanup_backends, nullary_mm):
+def test_global(nullary_mm):
     obj = object()
     be = Backend()
     be.__ua_function__ = lambda f, a, kw: obj
@@ -76,7 +74,7 @@ def test_global(cleanup_backends, nullary_mm):
     assert nullary_mm() is obj
 
 
-def ctx_before_global(cleanup_backends, nullary_mm):
+def ctx_before_global(nullary_mm):
     obj = object()
     obj2 = object()
     be = Backend()
@@ -91,7 +89,7 @@ def ctx_before_global(cleanup_backends, nullary_mm):
         assert nullary_mm() is obj2
 
 
-def test_global_before_registered(cleanup_backends, nullary_mm):
+def test_global_before_registered(nullary_mm):
     obj = object()
     obj2 = object()
     be = Backend()
@@ -105,7 +103,7 @@ def test_global_before_registered(cleanup_backends, nullary_mm):
     assert nullary_mm() is obj
 
 
-def test_global_only(cleanup_backends, nullary_mm):
+def test_global_only(nullary_mm):
     obj = object()
     be = Backend()
     be.__ua_function__ = lambda f, a, kw: NotImplemented
@@ -120,7 +118,7 @@ def test_global_only(cleanup_backends, nullary_mm):
         nullary_mm()
 
 
-def test_clear_backends(cleanup_backends, nullary_mm):
+def test_clear_backends(nullary_mm):
     obj = object()
     obj2 = object()
     be = Backend()
@@ -137,7 +135,7 @@ def test_clear_backends(cleanup_backends, nullary_mm):
         nullary_mm()
 
 
-def test_get_extractor_replacer(cleanup_backends):
+def test_get_extractor_replacer():
     def extractor():
         return ()
 
@@ -255,3 +253,44 @@ def test_skip_raises(nullary_mm):
             nullary_mm()
 
     assert e.value is foo
+
+
+def test_getset_state(cleanup_backends):
+    ua.set_global_backend(Backend())
+    ua.register_backend(Backend())
+
+    with ua.set_backend(Backend()), ua.skip_backend(Backend()):
+        state = ua.get_state()
+
+    pstate = state._pickle()
+
+    assert pstate != ua.get_state()._pickle()
+
+    with ua.set_state(state):
+        assert pstate[:2] == ua.get_state()._pickle()[:2]
+
+
+class ComparableBackend(Backend):
+    def __init__(self, obj):
+        super().__init__()
+        self.obj = obj
+
+    def __eq__(self, other):
+        return isinstance(other, ComparableBackend) and self.obj == other.obj
+
+    def __ne__(self, other):
+        return not (self == other)
+
+
+def test_pickle_state():
+    ua.set_global_backend(ComparableBackend("a"))
+    ua.register_backend(ComparableBackend("b"))
+
+    with ua.set_backend(ComparableBackend("c")), ua.skip_backend(
+        ComparableBackend("d")
+    ):
+        state = ua.get_state()
+
+    state_loaded = pickle.loads(pickle.dumps(state))
+
+    assert state._pickle() == state_loaded._pickle()
