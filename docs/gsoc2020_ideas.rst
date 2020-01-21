@@ -97,6 +97,8 @@ The second objective here would be to allow backends to target submodules
 of projects rather than the whole project. For example, targeting just
 ``numpy.random`` or ``numpy.fft`` without targeting all of NumPy.
 
+For more detail see `this issue <https://github.com/Quansight-Labs/uarray/issues/189>`_.
+
 This project has a somewhat complicated design and needs some involved
 implementation work, and will require interacting with the mentors to flesh
 out and work through.
