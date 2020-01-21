@@ -33,20 +33,19 @@ and are considering participating:
    important advice on the process.
 2. Read `advice on writing a proposal <http://turnbull.sk.tsukuba.ac.jp/Blog/SPAM.txt#how-to-spam-in-detail>`_
    (written with the Mailman project in mind, but generally applicable)
-3. Look at the guidelines on how to contribute to Scipy.
-4. Make a enhancement/bugfix/documentation fix -- it does not have to be big,
+3. Make a enhancement/bugfix/documentation fix -- it does not have to be big,
    and it does not need to be related to your proposal. Doing so before
    applying for the GSoC is a hard requirement for ``uarray``. It helps
    everyone you get some idea how things would work during GSoC.
-5. Start writing your proposal early, post a draft to the the mentors' email
-   addresses mailing list and iterate based on the feedback you receive. This
-   will both improve the quality of your proposal and help you find a suitable mentor.
+4. Start writing your proposal early, post a draft to the issue tracker and
+   iterate based on the feedback you receive. This will both improve the
+   quality of your proposal and help you find a suitable mentor.
 
 Contact
 -------
 
 If you have a question *after checking all guideline pages above*, you can
-email the mentors.
+open an issue in the issue tracker.
 
 ``uarray`` project ideas
 ------------------------
@@ -75,12 +74,13 @@ This project has a straightforward design and needs some implementation work,
 and will require interacting with the mentors to implement and polish.
 
 * Required knowledge: Python C-API and C++
-* Difficulty level: easy
+* Difficulty level: medium
 * Potential mentors: Peter Bell and Hameer Abbasi
 
 ``uarray``: Allow subdomains
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-This idea would allow a backend to encompass functions from more than one domain.
+This idea would allow a backend to encompass functions from more than one
+domain.
 
 The primary goal of this project would be:
 
@@ -88,14 +88,21 @@ The primary goal of this project would be:
   which domains it supports, **while maintaining backward compatibility**.
 
 This would allow a backend targeting NumPy to also target, for example, the
-``numpy.random`` submodule.
+``numpy.random`` submodule. Since the domain for functions in
+``numpy.random`` will be just that: ``numpy.random``, it won't match
+backends defined with the ``numpy`` domain, since it's an exact string
+match.
+
+The second objective here would be to allow backends to target submodules
+of projects rather than the whole project. For example, targeting just
+``numpy.random`` or ``numpy.fft`` without targeting all of NumPy.
 
 This project has a somewhat complicated design and needs some involved
 implementation work, and will require interacting with the mentors to flesh
 out and work through.
 
 * Required knowledge: Python C-API and C++
-* Difficulty level: easy
+* Difficulty level: hard
 * Potential mentors: Peter Bell and Hameer Abbasi
 
 ``unumpy``: Expand overall coverage
@@ -103,11 +110,12 @@ out and work through.
 
 This project is split into two parts:
 
-* Adding further converage of the NumPy API.
-* Adding more backends to NumPy.
+* Adding further coverage of the NumPy API.
+* Adding more backends to ``unumpy``.
 
 We realise this is a large (possibly open-ended) undertaking, and so there
-will need to be a minimum amount of work done in order to pass.
+will need to be a minimum amount of work done in order to pass (~150 functions,
+if time allows a JAX backend).
 
 * Required knowledge: Python (intermediate level)
 * Difficulty level: easy
@@ -130,5 +138,5 @@ implementation work, and will require interacting with the mentors to flesh
 out and work through.
 
 * Required knowledge: Python (intermediate level) and calculus
-* Difficulty level: easy
+* Difficulty level: medium
 * Potential mentors: Prasun Anand and Hameer Abbasi
