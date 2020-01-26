@@ -94,6 +94,8 @@ Choose the documentation page relevant to you:
 
     generated/uarray
 
+    gsoc/2020/ideas
+
 
 Indices and tables
 ==================
