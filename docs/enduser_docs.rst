@@ -5,7 +5,7 @@
 End-user quickstart
 ===================
 
-Ideally, the only thing an end-user should have to do is set the backend and
+Ideally, the only thing an end-user should have to do is set the backend
 and its options. Given a backend, you (as the end-user) can decide to
 do one of two things:
 
@@ -15,7 +15,7 @@ do one of two things:
 .. note::
     API authors may want to wrap these methods and provide their own methods.
 
-Also of note may be the :obj:`BackendNotImplementedError`, which is raised
+Also of a note may be the :obj:`BackendNotImplementedError`, which is raised
 when none of the selected backends have an implementation for a multimethod.
 
 Setting the backend temporarily
