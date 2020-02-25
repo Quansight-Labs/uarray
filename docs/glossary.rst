@@ -26,13 +26,13 @@ Domain
 ------
 
 A domain is a collection or grouping of multimethods. A domain's string,
-by convention (although not by force) is the name of the module that provides
+by convention (although not by force), is the name of the module that provides
 the multimethods.
 
 Dispatching
 -----------
 
-Dispatching is the process of forward a function call to an implementation
+Dispatching is the process of forwarding a function call to an implementation
 in a backend.
 
 Conversion
