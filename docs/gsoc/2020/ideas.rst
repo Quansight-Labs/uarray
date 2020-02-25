@@ -5,13 +5,13 @@ Introduction
 ------------
 
 This is the Google Summer of Code 2020 (GSoC'20) ideas page for ``uarray``,
-``unumpy`` and ``udiff``. The ``uarray`` library is is a backend mechanism
+``unumpy`` and ``udiff``. The ``uarray`` library is a backend mechanism
 geared towards array computing, but intended for general use. ``unumpy`` is an
 incomplete stub of the NumPy API that can be dispatched by ``uarray``.
 ``udiff`` is a general-purpose automatic differentiation library built
 on top of ``unumpy`` and ``uarray``.
 
-This page lists a number of ideas for Google Summer of Code projects for
+This page lists several ideas for Google Summer of Code projects for
 ``uarray``, plus gives some pointers for potential GSoC students on how to get
 started with contributing and putting together their application.
 
@@ -36,7 +36,7 @@ and are considering participating:
 3. Make a enhancement/bugfix/documentation fix -- it does not have to be big,
    and it does not need to be related to your proposal. Doing so before
    applying for the GSoC is a hard requirement for ``uarray``. It helps
-   everyone you get some idea how things would work during GSoC.
+   everyone to get some idea of how things would work during GSoC.
 4. Start writing your proposal early, post a draft to the issue tracker and
    iterate based on the feedback you receive. This will both improve the
    quality of your proposal and help you find a suitable mentor.
@@ -123,7 +123,7 @@ This project is split into two parts:
 * Adding more backends to ``unumpy``.
 
 We realise this is a large (possibly open-ended) undertaking, and so there
-will need to be a minimum amount of work done in order to pass (~150 function stubs,
+will need to be a minimum amount of work done to pass (~150 function stubs,
 if time allows a `JAX <https://jax.readthedocs.io/en/latest/>`_ backend). You may
 see the existing methods and figure out how they are written using a combination
 of the `documentation for writing multimethods <https://uarray.readthedocs.io/en/latest/multimethod_docs.html>`_
@@ -137,7 +137,7 @@ in combination with the already existing backends in `this directory <https://gi
 
 ``udiff``: Completion and Packaging
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-This requires completion and packaging of the `udiff <https://github.com/Quansight-Labs/udiff>`_ library. Potential
+This requires the completion and packaging of the `udiff <https://github.com/Quansight-Labs/udiff>`_ library. Potential
 goals include:
 
 1. Publishing an initial version to PyPI. Here's a `guide <https://realpython.com/pypi-publish-python-package/>`_
@@ -152,7 +152,7 @@ goals include:
      is how derivatives are registered.
    * The second task here will be to add the "separation" between the data
      dimensions and the differentiation dimensions. For example, the input
-     could be a vector, or an array of scalars, and this might need to be
+     could be a vector or an array of scalars, and this might need to be
      taken into account when doing the differentiation. That will require
      some work in `this file <https://github.com/Quansight-Labs/udiff/blob/40975788639c2c93ebfb96c44a07d8ab01fbcbad/udiff/_diff_array.py>`_,
      and possibly `this one as well <https://github.com/Quansight-Labs/udiff/blob/40975788639c2c93ebfb96c44a07d8ab01fbcbad/udiff/_diff_array.py>`_.
@@ -169,7 +169,7 @@ goals include:
 
 This project has a somewhat some minimal design and needs some involved
 implementation work. It will allow the accepted student to get an idea of
-what it's like to actually publish, test and document a small Python package.
+what it's like to publish, test and document a small Python package.
 
 * Required knowledge: Python (intermediate level) and calculus
 * Difficulty level: medium
