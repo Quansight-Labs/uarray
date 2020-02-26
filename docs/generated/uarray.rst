@@ -62,7 +62,7 @@ the core backend and dispatch machinery, and :obj:`unumpy` holds the actual
 multimethods. Also, :obj:`unumpy` can be developed completely separately to
 :obj:`uarray`, although the ideal place to have it would be NumPy itself.
 
-However, the benefit to having it separate is that it could span multiple
+However, the benefit of having it separate is that it could span multiple
 NumPy versions, even before NEP-18 (or even NEP-13) was available. Another
 benefit is that it can have a faster release cycle to help it achieve this.
 
@@ -82,7 +82,7 @@ Extensibility *and* Choice
 If some effort is put into the dispatch machinery, it's possible to
 dispatch over arbitrary objects --- including arrays, dtypes, and
 so on. A method defines the type of each dispatchable argument, and
-backends are *only* passed types they know how to dispatch over, when
+backends are *only* passed types they know how to dispatch over when
 deciding whether or not to use that backend. For example, if a backend
 doesn't know how to dispatch over dtypes, it won't be asked to decide
 based on that front.
@@ -138,8 +138,8 @@ Addressing past flaws
 
 The progress on NumPy's side for defining an override mechanism has been slow, with
 NEP-13 being first introduced in 2013, and with the wealth of dispatchable objects
-(including arrays, ufuns and dtypes), and with the advent of libraries like Dask,
-CuPy, Xarray, PyData/Sparse and XND, it has become clear that the need for alternative
+(including arrays, ufuns, and dtypes), and with the advent of libraries like Dask,
+CuPy, Xarray, PyData/Sparse, and XND, it has become clear that the need for alternative
 array-like implementations is growing. There are even other libraries like PyTorch, and
 TensorFlow that'd be possible to express in NumPy API-like terms. Another example
 includes the Keras API, for which an overridable ``ukeras`` could be created, similar
@@ -147,6 +147,6 @@ to :obj:`unumpy`.
 
 :obj:`uarray` is intended to have fast development to fill the need posed by these
 communities, while keeping itself as general as possible, and quickly reach maturity,
-after which backwards compatibility will be guaranteed.
+after which backward compatibility will be guaranteed.
 
 Performance considerations will come only after such a state has been reached.

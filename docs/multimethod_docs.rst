@@ -72,4 +72,4 @@ Examples
 Examples of writing multimethods are found in `this file <https://github.com/Quansight-Labs/unumpy/blob/master/unumpy/_multimethods.py>`_.
 It also teaches some advanced techniques, such as overriding instance methods,
 including ``__call__``. The same philosophy may be used to override properties,
-static methods and class methods.
+static methods, and class methods.

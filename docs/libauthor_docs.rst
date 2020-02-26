@@ -19,7 +19,7 @@ the last is optional.
 
 ``__ua_domain__`` is a string containing the domain of the backend. This is,
 by convention, the name of the module (or one of its dependencies or parents)
-that contain the multimethods. For example, ``scipy`` and ``numpy.fft`` could
+that contains the multimethods. For example, ``scipy`` and ``numpy.fft`` could
 both use the ``numpy`` domain.
 
 ``__ua_function__``
@@ -41,7 +41,7 @@ operation.
 
 All dispatchable arguments are passed through ``__ua_convert__`` before being
 passed into ``__ua_function__``. This protocol has the signature
-``(dispatchables, coerce)``, where ``dispatchables`` is an iterable of
+``(dispatchables, coerce)``, where ``dispatchables`` is iterable of
 :obj:`Dispatchable` and ``coerce`` is whether or not to coerce forcefully.
 ``dispatch_type`` is the mark of the object to be converted, and ``coerce``
 specifies whether or not to "force" the conversion. By convention, operations
@@ -53,13 +53,13 @@ coerced, then one should return ``NotImplemented``.
 A convenience wrapper for converting a single object,
 :obj:`wrap_single_convertor` is provided.
 
-Returning :obj:`NotImplemented` signals that the backend does not support
+Returning :obj:`NotImplemented` signals that the backend does not support the
 conversion of the given object.
 
 :obj:`skip_backend`
 -------------------
 
-If a backend consumes multimethods from a domain, and provides multimethods
+If a backend consumes multimethods from a domain and provides multimethods
 for that same domain, it may wish to have the ability to use multimethods while
 excluding itself from the list of tried backends in order to avoid infinite
 recursion. This allows the backend to implement its functions in terms of
@@ -70,7 +70,7 @@ The process that takes place when the backend is tried
 ------------------------------------------------------
 
 First of all, the backend's ``__ua_convert__`` method is tried. If this returns
-:obj:`NotImplemented`, then the backend is skipped, otherwise its
+:obj:`NotImplemented`, then the backend is skipped, otherwise, its
 ``__ua_function__`` protocol is tried. If a value other than
 :obj:`NotImplemented` is returned, it is assumed to be the final
 return value. Any exceptions raised are propagated up the call stack, except a

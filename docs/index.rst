@@ -11,7 +11,7 @@
 
 .. note::
     This page describes the overall philosophy behind :obj:`uarray`. For usage instructions,
-    see the :obj:`uarray` API documentation page. If you are interested in an augmentation
+    see the :obj:`uarray` API documentation page. If you are interested in augmentation
     for NEP-22, please see the :obj:`unumpy` page.
 
 `uarray` is a backend system for Python that allows you to separately define an API,
@@ -29,10 +29,10 @@ library independent.
 
 :obj:`unumpy` is the first approach to leverage :obj:`uarray` in order to build a
 generic backend system for (what we hope will be) the core NumPy API. It will be
-possible to create a backend object, and use that to perform operations. In addition,
+possible to create a backend object and use that to perform operations. In addition,
 it will be possible to change the used backend via a context manager.
 
-Benefits for end users
+Benefits for end-users
 ----------------------
 
 End-users can easily take their code written for one backend and use it on another
