@@ -2,8 +2,8 @@ import typing
 import types
 import inspect
 import functools
-from . import _uarray  # type: ignore
-import copyreg  # type: ignore
+from . import _uarray
+import copyreg
 import atexit
 import pickle
 import contextlib
