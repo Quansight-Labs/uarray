@@ -3,7 +3,7 @@ import sys
 
 def pytest_cmdline_preparse(args):
     try:
-        import pytest_black
+        import pytest_black  # type: ignore
     except ImportError:
         pass
     else:
@@ -11,7 +11,7 @@ def pytest_cmdline_preparse(args):
         print("uarray: Enabling pytest-black")
 
     try:
-        import pytest_mypy
+        import pytest_mypy  # type: ignore
     except ImportError:
         pass
     else:
