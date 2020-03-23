@@ -2,8 +2,8 @@ import typing
 import types
 import inspect
 import functools
-from . import _uarray  # type: ignore
-import copyreg  # type: ignore
+from . import _uarray
+import copyreg
 import atexit
 import pickle
 import contextlib
@@ -13,7 +13,7 @@ ArgumentReplacerType = typing.Callable[
     [typing.Tuple, typing.Dict, typing.Tuple], typing.Tuple[typing.Tuple, typing.Dict]
 ]
 
-from ._uarray import (  # type: ignore
+from ._uarray import (
     BackendNotImplementedError,
     _Function,
     _SkipBackendContext,
