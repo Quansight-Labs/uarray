@@ -340,7 +340,7 @@ struct BackendState {
     PyObject *py_global, *py_registered;
     int try_global_backend_last;
     if (!PyArg_ParseTuple(
-          input, "OOp", &py_global, &py_registered, &try_global_backend_last))
+            input, "OOp", &py_global, &py_registered, &try_global_backend_last))
       throw std::invalid_argument("");
 
     global_backends output;
@@ -417,7 +417,7 @@ struct BackendState {
     py_ref py_globals = BackendState::convert_py(input.global);
     py_ref py_registered = BackendState::convert_py(input.registered);
     py_ref output = py_make_tuple(
-      py_globals, py_registered, py_bool(input.try_global_backend_last));
+        py_globals, py_registered, py_bool(input.try_global_backend_last));
 
     if (!output)
       throw std::runtime_error("");
@@ -472,7 +472,7 @@ PyObject * set_global_backend(PyObject * /* self */, PyObject * args) {
   options.coerce = coerce;
   options.only = only;
 
-  auto &domain_globals = (*current_global_state)[domain];
+  auto & domain_globals = (*current_global_state)[domain];
   domain_globals.global = options;
   domain_globals.try_global_backend_last = try_last;
 
@@ -767,20 +767,19 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call) {
   }
 
   auto & globals = (*current_global_state)[domain_key];
-  auto try_global_backend =
-    [&]{
-      auto & options = globals.global;
-      if (!options.backend)
-        return LoopReturn::Continue;
+  auto try_global_backend = [&] {
+    auto & options = globals.global;
+    if (!options.backend)
+      return LoopReturn::Continue;
 
-      int skip_current = should_skip(options.backend.get());
-      if (skip_current < 0)
-        return LoopReturn::Error;
-      if (skip_current > 0)
-        return LoopReturn::Continue;
+    int skip_current = should_skip(options.backend.get());
+    if (skip_current < 0)
+      return LoopReturn::Error;
+    if (skip_current > 0)
+      return LoopReturn::Continue;
 
-      return call(options.backend.get(), options.coerce);
-    };
+    return call(options.backend.get(), options.coerce);
+  };
 
   if (!globals.try_global_backend_last) {
     ret = try_global_backend();
