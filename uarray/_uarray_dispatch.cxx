@@ -108,6 +108,7 @@ struct backend_options {
 struct global_backends {
   backend_options global;
   std::vector<py_ref> registered;
+  bool try_global_backend_last = false;
 };
 
 struct local_backends {
@@ -115,8 +116,8 @@ struct local_backends {
   std::vector<backend_options> preferred;
 };
 
-typedef std::unordered_map<std::string, global_backends> global_state_t;
-typedef std::unordered_map<std::string, local_backends> local_state_t;
+using global_state_t = std::unordered_map<std::string, global_backends>;
+using local_state_t = std::unordered_map<std::string, local_backends>;
 
 static py_ref BackendNotImplementedError;
 static global_state_t global_domain_map;
@@ -337,13 +338,16 @@ struct BackendState {
 
   static global_backends convert_global_backends(PyObject * input) {
     PyObject *py_global, *py_registered;
-    if (!PyArg_ParseTuple(input, "OO", &py_global, &py_registered))
+    int try_global_backend_last;
+    if (!PyArg_ParseTuple(
+          input, "OOp", &py_global, &py_registered, &try_global_backend_last))
       throw std::invalid_argument("");
 
     global_backends output;
     output.global = BackendState::convert_backend_options(py_global);
     output.registered =
         convert_iter<py_ref>(py_registered, BackendState::convert_backend);
+    output.try_global_backend_last = try_global_backend_last;
 
     return output;
   }
@@ -412,7 +416,8 @@ struct BackendState {
   static py_ref convert_py(const global_backends & input) {
     py_ref py_globals = BackendState::convert_py(input.global);
     py_ref py_registered = BackendState::convert_py(input.registered);
-    py_ref output = py_make_tuple(py_globals, py_registered);
+    py_ref output = py_make_tuple(
+      py_globals, py_registered, py_bool(input.try_global_backend_last));
 
     if (!output)
       throw std::runtime_error("");
@@ -454,8 +459,8 @@ PyObject * clear_all_globals(PyObject * /* self */, PyObject * /* args */) {
 
 PyObject * set_global_backend(PyObject * /* self */, PyObject * args) {
   PyObject * backend;
-  int only = false, coerce = false;
-  if (!PyArg_ParseTuple(args, "O|pp", &backend, &coerce, &only))
+  int only = false, coerce = false, try_last = false;
+  if (!PyArg_ParseTuple(args, "O|ppp", &backend, &coerce, &only, &try_last))
     return nullptr;
 
   auto domain = backend_to_domain_string(backend);
@@ -467,7 +472,10 @@ PyObject * set_global_backend(PyObject * /* self */, PyObject * args) {
   options.coerce = coerce;
   options.only = only;
 
-  (*current_global_state)[domain].global = options;
+  auto &domain_globals = (*current_global_state)[domain];
+  domain_globals.global = options;
+  domain_globals.try_global_backend_last = try_last;
+
   Py_RETURN_NONE;
 }
 
@@ -500,6 +508,7 @@ void clear_single(const std::string & domain, bool registered, bool global) {
 
   if (global) {
     domain_globals->second.global.backend.reset();
+    domain_globals->second.try_global_backend_last = false;
   }
 }
 
@@ -758,17 +767,26 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call) {
   }
 
   auto & globals = (*current_global_state)[domain_key];
-  auto & global_options = globals.global;
-  int skip_current =
-      global_options.backend ? should_skip(global_options.backend.get()) : 1;
-  if (skip_current < 0)
-    return LoopReturn::Error;
-  if (!skip_current) {
-    ret = call(global_options.backend.get(), global_options.coerce);
-    if (ret != LoopReturn::Continue)
-      return ret;
+  auto try_global_backend =
+    [&]{
+      auto & options = globals.global;
+      if (!options.backend)
+        return LoopReturn::Continue;
 
-    if (global_options.only || global_options.coerce)
+      int skip_current = should_skip(options.backend.get());
+      if (skip_current < 0)
+        return LoopReturn::Error;
+      if (skip_current > 0)
+        return LoopReturn::Continue;
+
+      return call(options.backend.get(), options.coerce);
+    };
+
+  if (!globals.try_global_backend_last) {
+    ret = try_global_backend();
+
+    bool is_last = globals.global.coerce || globals.global.only;
+    if (ret != LoopReturn::Continue || is_last)
       return ret;
   }
 
@@ -784,7 +802,11 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call) {
     if (ret != LoopReturn::Continue)
       return ret;
   }
-  return ret;
+
+  if (!globals.try_global_backend_last) {
+    return ret;
+  }
+  return try_global_backend();
 }
 
 struct py_func_args {

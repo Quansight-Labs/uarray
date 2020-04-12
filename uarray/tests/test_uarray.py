@@ -103,6 +103,20 @@ def test_global_before_registered(nullary_mm):
     assert nullary_mm() is obj
 
 
+def test_global_try_last(nullary_mm):
+    obj = object()
+    obj2 = object()
+    be = Backend()
+    be.__ua_function__ = lambda f, a, kw: obj
+
+    be2 = Backend()
+    be2.__ua_function__ = lambda f, a, kw: obj2
+
+    ua.set_global_backend(be, try_last=True)
+    ua.register_backend(be2)
+    assert nullary_mm() is obj2
+
+
 def test_global_only(nullary_mm):
     obj = object()
     be = Backend()
