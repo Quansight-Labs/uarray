@@ -320,7 +320,7 @@ def get_defaults(f):
     return kw_defaults, tuple(arg_defaults), opts
 
 
-def set_global_backend(backend, coerce=False, only=False):
+def set_global_backend(backend, coerce=False, only=False, *, try_last=False):
     """
     This utility method replaces the default backend for permanent use. It
     will be tried in the list of backends automatically, unless the
@@ -339,13 +339,20 @@ def set_global_backend(backend, coerce=False, only=False):
     ----------
     backend
         The backend to register.
+    coerce : bool
+        Whether to coerce input types when trying this backend.
+    only : bool
+        If ``True``, no more backends will be tried if this fails.
+        Implied by ``coerce=True``.
+    try_last : bool
+        If ``True``, the global backend is tried after registered backends.
 
     See Also
     --------
     set_backend: A context manager that allows setting of backends.
     skip_backend: A context manager that allows skipping of backends.
     """
-    _uarray.set_global_backend(backend, coerce, only)
+    _uarray.set_global_backend(backend, coerce, only, try_last)
 
 
 def register_backend(backend):
