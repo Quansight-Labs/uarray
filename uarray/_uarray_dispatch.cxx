@@ -823,6 +823,24 @@ LoopReturn for_each_backend_in_domain(const std::string & domain_key, Callback c
   return try_global_backend();
 }
 
+template <typename Callback>
+LoopReturn for_each_backend(std::string domain, Callback call) {
+  do {
+    auto ret = for_each_backend_in_domain(domain, call);
+    if (ret != LoopReturn::Continue) {
+      return ret;
+    }
+
+    auto dot_pos = domain.rfind('.');
+    if (dot_pos == std::string::npos) {
+      return ret;
+    }
+
+    domain.resize(dot_pos);
+  } while (!domain.empty());
+  return LoopReturn::Continue;
+}
+
 struct py_func_args {
   py_ref args, kwargs;
 };
