@@ -779,7 +779,7 @@ LoopReturn for_each_backend_in_domain(
       return ret;
 
     if (options.only || options.coerce)
-      return ret;
+      return LoopReturn::Break;
   }
 
   auto & globals = get_global_backends(domain_key);
@@ -799,10 +799,11 @@ LoopReturn for_each_backend_in_domain(
 
   if (!globals.try_global_backend_last) {
     ret = try_global_backend();
-
-    bool is_last = globals.global.coerce || globals.global.only;
-    if (ret != LoopReturn::Continue || is_last)
+    if (ret != LoopReturn::Continue)
       return ret;
+
+    if (globals.global.only || globals.global.coerce)
+      return LoopReturn::Break;
   }
 
   for (size_t i = 0; i < globals.registered.size(); ++i) {
@@ -1149,7 +1150,10 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_) {
         return LoopReturn::Break; // Backend called successfully
       });
 
-  if (ret != LoopReturn::Continue)
+  if (ret == LoopReturn::Error)
+    return nullptr;
+
+  if (result && result != Py_NotImplemented)
     return result.release();
 
   if (def_impl_ != Py_None) {

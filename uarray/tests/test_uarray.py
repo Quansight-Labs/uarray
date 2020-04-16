@@ -368,3 +368,9 @@ def test_hierarchical_backends():
     for i in range(depth):
         with pytest.raises(ua.BackendNotImplementedError):
             mms[i]()
+
+    # only=True prevents all further domain checking
+    be[0].active = True
+    be[1].active = True
+    with ua.set_backend(be[2], only=True), pytest.raises(ua.BackendNotImplementedError):
+        mms[2]()
