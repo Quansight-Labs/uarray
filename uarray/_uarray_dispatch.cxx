@@ -743,7 +743,8 @@ const global_backends & get_global_backends(const std::string & domain_key) {
 enum class LoopReturn { Continue, Break, Error };
 
 template <typename Callback>
-LoopReturn for_each_backend_in_domain(const std::string & domain_key, Callback call) {
+LoopReturn for_each_backend_in_domain(
+    const std::string & domain_key, Callback call) {
   const local_backends & locals = get_local_backends(domain_key);
 
   auto & skip = locals.skipped;

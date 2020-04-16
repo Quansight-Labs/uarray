@@ -309,15 +309,20 @@ def test_pickle_state():
 
     assert state._pickle() == state_loaded._pickle()
 
+
 def test_hierarchical_backends():
-    mm = ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests.foo.bar")
-    subdomains = "ua_tests.foo.bar".split('.')
+    mm = ua.generate_multimethod(
+        lambda: (), lambda a, kw, d: (a, kw), "ua_tests.foo.bar"
+    )
+    subdomains = "ua_tests.foo.bar".split(".")
     depth = len(subdomains)
 
     mms = [
         ua.generate_multimethod(
-            lambda: (), lambda a, kw, d: (a, kw), ".".join(subdomains[:i+1]))
-        for i in range(depth)]
+            lambda: (), lambda a, kw, d: (a, kw), ".".join(subdomains[: i + 1])
+        )
+        for i in range(depth)
+    ]
 
     class DisableBackend:
         def __init__(self, domain):
@@ -331,10 +336,10 @@ def test_hierarchical_backends():
 
             raise ua.BackendNotImplementedError(self.__ua_domain__)
 
-    be = [DisableBackend(".".join(subdomains[:i+1])) for i in range(depth)]
+    be = [DisableBackend(".".join(subdomains[: i + 1])) for i in range(depth)]
 
     ua.set_global_backend(be[1])
-    with pytest.raises(BackendNotImplementedError):
+    with pytest.raises(ua.BackendNotImplementedError):
         mms[0]()
 
     for i in range(1, depth):
@@ -363,5 +368,3 @@ def test_hierarchical_backends():
     for i in range(depth):
         with pytest.raises(ua.BackendNotImplementedError):
             mms[i]()
-
-
