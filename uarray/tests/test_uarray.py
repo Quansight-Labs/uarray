@@ -308,3 +308,69 @@ def test_pickle_state():
     state_loaded = pickle.loads(pickle.dumps(state))
 
     assert state._pickle() == state_loaded._pickle()
+
+
+def test_hierarchical_backends():
+    mm = ua.generate_multimethod(
+        lambda: (), lambda a, kw, d: (a, kw), "ua_tests.foo.bar"
+    )
+    subdomains = "ua_tests.foo.bar".split(".")
+    depth = len(subdomains)
+
+    mms = [
+        ua.generate_multimethod(
+            lambda: (), lambda a, kw, d: (a, kw), ".".join(subdomains[: i + 1])
+        )
+        for i in range(depth)
+    ]
+
+    class DisableBackend:
+        def __init__(self, domain):
+            self.__ua_domain__ = domain
+            self.active = True
+            self.ret = object()
+
+        def __ua_function__(self, f, a, kw):
+            if self.active:
+                return self.ret
+
+            raise ua.BackendNotImplementedError(self.__ua_domain__)
+
+    be = [DisableBackend(".".join(subdomains[: i + 1])) for i in range(depth)]
+
+    ua.set_global_backend(be[1])
+    with pytest.raises(ua.BackendNotImplementedError):
+        mms[0]()
+
+    for i in range(1, depth):
+        assert mms[i]() is be[1].ret
+
+    ua.set_global_backend(be[0])
+
+    for i in range(depth):
+        assert mms[i]() is be[min(i, 1)].ret
+
+    ua.set_global_backend(be[2])
+
+    for i in range(depth):
+        assert mms[i]() is be[i].ret
+
+    be[2].active = False
+    for i in range(depth):
+        print(i)
+        assert mms[i]() is be[min(i, 1)].ret
+
+    be[1].active = False
+    for i in range(depth):
+        assert mms[i]() is be[0].ret
+
+    be[0].active = False
+    for i in range(depth):
+        with pytest.raises(ua.BackendNotImplementedError):
+            mms[i]()
+
+    # only=True prevents all further domain checking
+    be[0].active = True
+    be[1].active = True
+    with ua.set_backend(be[2], only=True), pytest.raises(ua.BackendNotImplementedError):
+        mms[2]()

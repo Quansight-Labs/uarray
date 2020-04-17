@@ -92,7 +92,8 @@ py_ref py_bool(bool input) { return py_ref::ref(input ? Py_True : Py_False); }
 
 struct backend_options {
   py_ref backend;
-  bool coerce, only;
+  bool coerce = false;
+  bool only = false;
 
   bool operator==(const backend_options & other) const {
     return (
@@ -719,20 +720,35 @@ struct SkipBackendContext {
   }
 };
 
+const local_backends & get_local_backends(const std::string & domain_key) {
+  static const local_backends null_local_backends;
+  auto itr = local_domain_map.find(domain_key);
+  if (itr == local_domain_map.end()) {
+    return null_local_backends;
+  }
+  return itr->second;
+}
+
+
+const global_backends & get_global_backends(const std::string & domain_key) {
+  static const global_backends null_global_backends;
+  const auto & cur_globals = *current_global_state;
+  auto itr = cur_globals.find(domain_key);
+  if (itr == cur_globals.end()) {
+    return null_global_backends;
+  }
+  return itr->second;
+}
+
 enum class LoopReturn { Continue, Break, Error };
 
 template <typename Callback>
-LoopReturn for_each_backend(const std::string & domain_key, Callback call) {
-  local_backends * locals = nullptr;
-  try {
-    locals = &local_domain_map[domain_key];
-  } catch (std::bad_alloc &) {
-    PyErr_NoMemory();
-    return LoopReturn::Error;
-  }
+LoopReturn for_each_backend_in_domain(
+    const std::string & domain_key, Callback call) {
+  const local_backends & locals = get_local_backends(domain_key);
 
-  auto & skip = locals->skipped;
-  auto & pref = locals->preferred;
+  auto & skip = locals.skipped;
+  auto & pref = locals.preferred;
 
   auto should_skip = [&](PyObject * backend) -> int {
     bool success = true;
@@ -763,10 +779,10 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call) {
       return ret;
 
     if (options.only || options.coerce)
-      return ret;
+      return LoopReturn::Break;
   }
 
-  auto & globals = (*current_global_state)[domain_key];
+  auto & globals = get_global_backends(domain_key);
   auto try_global_backend = [&] {
     auto & options = globals.global;
     if (!options.backend)
@@ -783,10 +799,11 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call) {
 
   if (!globals.try_global_backend_last) {
     ret = try_global_backend();
-
-    bool is_last = globals.global.coerce || globals.global.only;
-    if (ret != LoopReturn::Continue || is_last)
+    if (ret != LoopReturn::Continue)
       return ret;
+
+    if (globals.global.only || globals.global.coerce)
+      return LoopReturn::Break;
   }
 
   for (size_t i = 0; i < globals.registered.size(); ++i) {
@@ -806,6 +823,24 @@ LoopReturn for_each_backend(const std::string & domain_key, Callback call) {
     return ret;
   }
   return try_global_backend();
+}
+
+template <typename Callback>
+LoopReturn for_each_backend(std::string domain, Callback call) {
+  do {
+    auto ret = for_each_backend_in_domain(domain, call);
+    if (ret != LoopReturn::Continue) {
+      return ret;
+    }
+
+    auto dot_pos = domain.rfind('.');
+    if (dot_pos == std::string::npos) {
+      return ret;
+    }
+
+    domain.resize(dot_pos);
+  } while (!domain.empty());
+  return LoopReturn::Continue;
 }
 
 struct py_func_args {
@@ -1115,7 +1150,10 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_) {
         return LoopReturn::Break; // Backend called successfully
       });
 
-  if (ret != LoopReturn::Continue)
+  if (ret == LoopReturn::Error)
+    return nullptr;
+
+  if (result && result != Py_NotImplemented)
     return result.release();
 
   if (def_impl_ != Py_None) {

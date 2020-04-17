@@ -25,9 +25,13 @@ or temporarily.
 Domain
 ------
 
-A domain is a collection or grouping of multimethods. A domain's string,
-by convention (although not by force), is the name of the module that provides
-the multimethods.
+A domain defines the hierarchical grouping of multimethods. The domain string
+is, by convention, the name of the module that provides the multimethods.
+
+Sub-domains are denoted with a separating ``.``. For example, a multimethod in
+``"numpy.fft"`` is also considered to be in the domain ``"numpy"``. When calling
+a multimethod, the backends for the most specific sub-domain are always tried first,
+followed by the next domain up the hierarchy.
 
 Dispatching
 -----------
