@@ -149,17 +149,22 @@ def test_clear_backends(nullary_mm):
         nullary_mm()
 
 
-def test_get_extractor_replacer():
+def test_function_attrs():
     def extractor():
         return ()
 
     def replacer(a, kw, d):
         return a, kw
 
-    mm = ua.generate_multimethod(extractor, replacer, "ua_tests")
+    def default():
+        return NotImplemented
+
+    mm = ua.generate_multimethod(extractor, replacer, "ua_tests", default=default)
 
     assert mm.arg_extractor is extractor
     assert mm.arg_replacer is replacer
+    assert mm.default is default
+    assert mm.domain == "ua_tests"
 
 
 def test_raising_from_backend(nullary_mm):
