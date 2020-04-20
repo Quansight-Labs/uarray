@@ -22,3 +22,4 @@ htmlcov/
 sandbox.py
 *.so
 build/
+default.profraw
