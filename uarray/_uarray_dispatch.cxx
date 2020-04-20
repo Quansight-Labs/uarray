@@ -925,6 +925,8 @@ struct Function {
   static int clear(Function * self);
   static PyObject * get_extractor(Function * self);
   static PyObject * get_replacer(Function * self);
+  static PyObject * get_domain(Function * self);
+  static PyObject * get_default(Function * self);
 };
 
 
@@ -1243,6 +1245,16 @@ PyObject * Function::get_replacer(Function * self) {
   return self->replacer_.get();
 }
 
+PyObject * Function::get_default(Function * self) {
+  Py_INCREF(self->def_impl_.get());
+  return self->def_impl_.get();
+}
+
+PyObject * Function::get_domain(Function * self) {
+  return PyUnicode_FromStringAndSize(
+      self->domain_key_.c_str(), self->domain_key_.size());
+}
+
 
 PyMethodDef BackendState_Methods[] = {
     {"_pickle", (PyCFunction)BackendState::pickle_, METH_NOARGS, nullptr},
@@ -1343,10 +1355,14 @@ PyObject * set_state(PyObject * /* self */, PyObject * args) {
 static char dict__[] = "__dict__";
 static char arg_extractor[] = "arg_extractor";
 static char arg_replacer[] = "arg_replacer";
+static char default_[] = "default";
+static char domain[] = "domain";
 PyGetSetDef Function_getset[] = {
     {dict__, PyObject_GenericGetDict, PyObject_GenericSetDict},
     {arg_extractor, (getter)Function::get_extractor, NULL},
     {arg_replacer, (getter)Function::get_replacer, NULL},
+    {default_, (getter)Function::get_default, NULL},
+    {domain, (getter)Function::get_domain, NULL},
     {NULL} /* Sentinel */
 };
 
