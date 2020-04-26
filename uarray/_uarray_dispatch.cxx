@@ -9,6 +9,7 @@
 
 #include <Python.h>
 
+#include "small_dynamic_array.h"
 
 namespace {
 
@@ -178,13 +179,69 @@ std::string domain_to_string(PyObject * domain) {
   return std::string(str, size);
 }
 
-std::string backend_to_domain_string(PyObject * backend) {
+Py_ssize_t backend_get_num_domains(PyObject * backend) {
   auto domain =
       py_ref::steal(PyObject_GetAttr(backend, identifiers.ua_domain.get()));
   if (!domain)
-    return {};
+    return -1;
 
-  return domain_to_string(domain.get());
+  if (PyUnicode_Check(domain.get())) {
+    return 1;
+  }
+
+  if (!PySequence_Check(domain.get())) {
+    PyErr_SetString(
+        PyExc_TypeError,
+        "__ua_domain__ must be a string or sequence of strings");
+    return -1;
+  }
+
+  return PySequence_Size(domain.get());
+}
+
+template <typename Func>
+bool backend_for_each_domain(PyObject * backend, Func f) {
+  auto domain =
+      py_ref::steal(PyObject_GetAttr(backend, identifiers.ua_domain.get()));
+  if (!domain)
+    return false;
+
+  if (PyUnicode_Check(domain.get())) {
+    auto domain_string = domain_to_string(domain.get());
+    if (domain_string.empty())
+      return false;
+
+    f(domain_string);
+    return true;
+  }
+
+  if (!PySequence_Check(domain.get())) {
+    PyErr_SetString(
+        PyExc_TypeError,
+        "__ua_domain__ must be a string or sequence of strings");
+    return false;
+  }
+
+  auto size = PySequence_Size(domain.get());
+  if (size < 0)
+    return false;
+  if (size == 0) {
+    PyErr_SetString(PyExc_ValueError, "__ua_domain__ lists must be non-empty");
+    return false;
+  }
+
+  for (Py_ssize_t i = 0; i < size; ++i) {
+    auto dom = py_ref::steal(PySequence_GetItem(domain.get(), i));
+    if (!dom)
+      return false;
+
+    auto domain_string = domain_to_string(dom.get());
+    if (domain_string.empty())
+      return false;
+
+    f(domain_string);
+  }
+  return true;
 }
 
 struct BackendState {
@@ -294,7 +351,7 @@ struct BackendState {
     if (PyErr_Occurred())
       throw std::invalid_argument("");
 
-    return std::move(output);
+    return output;
   }
 
   static std::string convert_domain(PyObject * input) {
@@ -464,18 +521,20 @@ PyObject * set_global_backend(PyObject * /* self */, PyObject * args) {
   if (!PyArg_ParseTuple(args, "O|ppp", &backend, &coerce, &only, &try_last))
     return nullptr;
 
-  auto domain = backend_to_domain_string(backend);
-  if (domain.empty())
+  const bool success =
+      backend_for_each_domain(backend, [&](const std::string & domain) {
+        backend_options options;
+        options.backend = py_ref::ref(backend);
+        options.coerce = coerce;
+        options.only = only;
+
+        auto & domain_globals = (*current_global_state)[domain];
+        domain_globals.global = options;
+        domain_globals.try_global_backend_last = try_last;
+      });
+
+  if (!success)
     return nullptr;
-
-  backend_options options;
-  options.backend = py_ref::ref(backend);
-  options.coerce = coerce;
-  options.only = only;
-
-  auto & domain_globals = (*current_global_state)[domain];
-  domain_globals.global = options;
-  domain_globals.try_global_backend_last = try_last;
 
   Py_RETURN_NONE;
 }
@@ -485,11 +544,14 @@ PyObject * register_backend(PyObject * /* self */, PyObject * args) {
   if (!PyArg_ParseTuple(args, "O", &backend))
     return nullptr;
 
-  auto domain = backend_to_domain_string(backend);
-  if (domain.empty())
+  const bool success =
+      backend_for_each_domain(backend, [&](const std::string & domain) {
+        (*current_global_state)[domain].registered.push_back(
+            py_ref::ref(backend));
+      });
+  if (!success)
     return nullptr;
 
-  (*current_global_state)[domain].registered.push_back(py_ref::ref(backend));
   Py_RETURN_NONE;
 }
 
@@ -532,24 +594,48 @@ PyObject * clear_backends(PyObject * /* self */, PyObject * args) {
 /** Common functionality of set_backend and skip_backend */
 template <typename T>
 class context_helper {
+public:
+  using BackendLists = SmallDynamicArray<std::vector<T> *>;
+  // using BackendLists = std::vector<std::vector<T> *>;
+private:
   T new_backend_;
-  std::vector<T> * backends_;
+  BackendLists backend_lists_;
 
 public:
   const T & get_backend() const { return new_backend_; }
 
-  context_helper(): backends_(nullptr) {}
+  context_helper() {}
+
+  bool init(BackendLists && backend_lists, T new_backend) {
+    static_assert(std::is_nothrow_move_assignable<BackendLists>::value, "");
+    backend_lists_ = std::move(backend_lists);
+    new_backend_ = std::move(new_backend);
+    return true;
+  }
 
   bool init(std::vector<T> & backends, T new_backend) {
-    backends_ = &backends;
+    try {
+      backend_lists_ = BackendLists(1, &backends);
+    } catch (std::bad_alloc &) {
+      PyErr_NoMemory();
+      return false;
+    }
     new_backend_ = std::move(new_backend);
     return true;
   }
 
   bool enter() {
+    auto first = backend_lists_.begin();
+    auto last = backend_lists_.end();
+    auto cur = first;
     try {
-      backends_->push_back(new_backend_);
+      for (; cur < last; ++cur) {
+        (*cur)->push_back(new_backend_);
+      }
     } catch (std::bad_alloc &) {
+      for (; first < cur; ++first) {
+        (*first)->pop_back();
+      }
       PyErr_NoMemory();
       return false;
     }
@@ -558,19 +644,26 @@ public:
 
   bool exit() {
     bool success = true;
-    if (backends_->empty()) {
-      PyErr_SetString(
-          PyExc_SystemExit, "__exit__ call has no matching __enter__");
-      return false;
-    }
-    if (backends_->back() != new_backend_) {
-      PyErr_SetString(
-          PyExc_RuntimeError, "Found invalid context state while in __exit__. "
-                              "__enter__ and __exit__ may be unmatched");
-      success = false;
+
+    for (auto * backends : backend_lists_) {
+      if (backends->empty()) {
+        PyErr_SetString(
+            PyExc_SystemExit, "__exit__ call has no matching __enter__");
+        success = false;
+        continue;
+      }
+
+      if (backends->back() != new_backend_) {
+        PyErr_SetString(
+            PyExc_RuntimeError,
+            "Found invalid context state while in __exit__. "
+            "__enter__ and __exit__ may be unmatched");
+        success = false;
+      }
+
+      backends->pop_back();
     }
 
-    backends_->pop_back();
     return success;
   }
 };
@@ -608,17 +701,33 @@ struct SetBackendContext {
             args, kwargs, "O|pp", (char **)kwlist, &backend, &coerce, &only))
       return -1;
 
-    auto domain = backend_to_domain_string(backend);
-    if (domain.empty())
+    auto num_domains = backend_get_num_domains(backend);
+    if (num_domains < 0) {
       return -1;
-    backend_options opt;
-    opt.backend = py_ref::ref(backend);
-    opt.coerce = coerce;
-    opt.only = only;
+    }
 
     try {
-      if (!self->ctx_.init(local_domain_map[domain].preferred, std::move(opt)))
+      decltype(ctx_)::BackendLists backend_lists(num_domains);
+      int idx = 0;
+
+      const bool success =
+          backend_for_each_domain(backend, [&](const std::string & domain) {
+            backend_lists[idx] = &local_domain_map[domain].preferred;
+            ++idx;
+          });
+
+      if (!success) {
         return -1;
+      }
+
+      backend_options opt;
+      opt.backend = py_ref::ref(backend);
+      opt.coerce = coerce;
+      opt.only = only;
+
+      if (!self->ctx_.init(std::move(backend_lists), opt)) {
+        return -1;
+      }
     } catch (std::bad_alloc &) {
       PyErr_NoMemory();
       return -1;
@@ -682,14 +791,28 @@ struct SkipBackendContext {
             args, kwargs, "O", (char **)kwlist, &backend))
       return -1;
 
-    auto domain = backend_to_domain_string(backend);
-    if (domain.empty())
+    auto num_domains = backend_get_num_domains(backend);
+    if (num_domains < 0) {
       return -1;
+    }
 
     try {
-      if (!self->ctx_.init(
-              local_domain_map[domain].skipped, py_ref::ref(backend)))
+      decltype(ctx_)::BackendLists backend_lists(num_domains);
+      int idx = 0;
+
+      const bool success =
+          backend_for_each_domain(backend, [&](const std::string & domain) {
+            backend_lists[idx] = &local_domain_map[domain].skipped;
+            ++idx;
+          });
+
+      if (!success) {
         return -1;
+      }
+
+      if (!self->ctx_.init(std::move(backend_lists), py_ref::ref(backend))) {
+        return -1;
+      }
     } catch (std::bad_alloc &) {
       PyErr_NoMemory();
       return -1;

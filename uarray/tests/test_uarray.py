@@ -14,6 +14,19 @@ class Backend:
     __ua_domain__ = "ua_tests"
 
 
+class DisableBackend:
+    def __init__(self, domain="ua_tests"):
+        self.__ua_domain__ = domain
+        self.active = True
+        self.ret = object()
+
+    def __ua_function__(self, f, a, kw):
+        if self.active:
+            return self.ret
+
+        raise ua.BackendNotImplementedError(self.__ua_domain__)
+
+
 @pytest.fixture()
 def nullary_mm():
     return ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
@@ -329,18 +342,6 @@ def test_hierarchical_backends():
         for i in range(depth)
     ]
 
-    class DisableBackend:
-        def __init__(self, domain):
-            self.__ua_domain__ = domain
-            self.active = True
-            self.ret = object()
-
-        def __ua_function__(self, f, a, kw):
-            if self.active:
-                return self.ret
-
-            raise ua.BackendNotImplementedError(self.__ua_domain__)
-
     be = [DisableBackend(".".join(subdomains[: i + 1])) for i in range(depth)]
 
     ua.set_global_backend(be[1])
@@ -379,3 +380,31 @@ def test_hierarchical_backends():
     be[1].active = True
     with ua.set_backend(be[2], only=True), pytest.raises(ua.BackendNotImplementedError):
         mms[2]()
+
+
+def test_multidomain_backends():
+    n_domains = 2
+    be = DisableBackend(domain=["ua_tests" + str(i) for i in range(n_domains)])
+
+    mms = [
+        ua.generate_multimethod(
+            lambda: (), lambda a, kw, d: (a, kw), "ua_tests" + str(i)
+        )
+        for i in range(n_domains)
+    ]
+
+    with pytest.raises(ua.BackendNotImplementedError):
+        mms[0]()
+    with pytest.raises(ua.BackendNotImplementedError):
+        mms[1]()
+
+    with ua.set_backend(be):
+        assert all(mms[i]() is be.ret for i in range(len(mms)))
+
+    with pytest.raises(ua.BackendNotImplementedError):
+        mms[0]()
+    with pytest.raises(ua.BackendNotImplementedError):
+        mms[1]()
+
+    ua.set_global_backend(be)
+    assert all(mms[i]() is be.ret for i in range(len(mms)))
