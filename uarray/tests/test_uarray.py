@@ -393,18 +393,42 @@ def test_multidomain_backends():
         for i in range(n_domains)
     ]
 
-    with pytest.raises(ua.BackendNotImplementedError):
-        mms[0]()
-    with pytest.raises(ua.BackendNotImplementedError):
-        mms[1]()
+    def assert_no_backends():
+        for i in range(len(mms)):
+            with pytest.raises(ua.BackendNotImplementedError):
+                mms[i]()
+
+    def assert_backend_active(backend):
+        assert all(mms[i]() is backend.ret for i in range(len(mms)))
+
+
+
+    assert_no_backends()
 
     with ua.set_backend(be):
-        assert all(mms[i]() is be.ret for i in range(len(mms)))
+        assert_backend_active(be)
 
-    with pytest.raises(ua.BackendNotImplementedError):
-        mms[0]()
-    with pytest.raises(ua.BackendNotImplementedError):
-        mms[1]()
 
     ua.set_global_backend(be)
-    assert all(mms[i]() is be.ret for i in range(len(mms)))
+    assert_backend_active(be)
+
+    with ua.skip_backend(be):
+        assert_no_backends()
+
+    assert_backend_active(be)
+
+    for i in range(len(mms)):
+        ua.clear_backends(mms[i].domain, globals=True)
+
+        with pytest.raises(ua.BackendNotImplementedError):
+            mms[i]()
+
+        for j in range(i + 1, len(mms)):
+            assert mms[j]() == be.ret
+
+    assert_no_backends()
+
+    ua.register_backend(be)
+    assert_backend_active(be)
+
+
