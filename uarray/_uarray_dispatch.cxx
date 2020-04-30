@@ -1,3 +1,6 @@
+#include "small_dynamic_array.h"
+
+#include <Python.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -7,9 +10,7 @@
 #include <utility>
 #include <vector>
 
-#include <Python.h>
 
-#include "small_dynamic_array.h"
 
 namespace {
 

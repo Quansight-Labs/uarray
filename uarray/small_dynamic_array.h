@@ -3,12 +3,13 @@
 #include <type_traits>
 #include <new>
 #include <cstdlib>
+#include <cassert>
 
 
 /** Fixed size dynamic array with small buffer optimisation */
-template <typename T, size_t SmallCapacity = 1>
+template <typename T, ptrdiff_t SmallCapacity = 1>
 class SmallDynamicArray {
-  Py_ssize_t size_;
+  ptrdiff_t size_;
   union {
     T elements[SmallCapacity];
     T * array;
@@ -74,7 +75,7 @@ public:
   using const_iterator = const value_type *;
   using reference = value_type &;
   using const_reference = const value_type &;
-  using size_type = Py_ssize_t;
+  using size_type = ptrdiff_t;
 
   SmallDynamicArray():
     size_(0)
