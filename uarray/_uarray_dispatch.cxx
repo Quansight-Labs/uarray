@@ -160,9 +160,23 @@ struct {
   }
 } identifiers;
 
-std::string domain_to_string(PyObject * domain) {
+bool domain_validate(PyObject * domain) {
   if (!PyUnicode_Check(domain)) {
     PyErr_SetString(PyExc_TypeError, "__ua_domain__ must be a string");
+    return false;
+  }
+
+  auto size = PyUnicode_GetLength(domain);
+  if (size == 0) {
+    PyErr_SetString(PyExc_ValueError, "__ua_domain__ must be non-empty");
+    return false;
+  }
+
+  return true;
+}
+
+std::string domain_to_string(PyObject * domain) {
+  if (!domain_validate(domain)) {
     return {};
   }
 
@@ -199,49 +213,67 @@ Py_ssize_t backend_get_num_domains(PyObject * backend) {
   return PySequence_Size(domain.get());
 }
 
+enum class LoopReturn { Continue, Break, Error };
+
 template <typename Func>
-bool backend_for_each_domain(PyObject * backend, Func f) {
+LoopReturn backend_for_each_domain(PyObject * backend, Func f) {
   auto domain =
       py_ref::steal(PyObject_GetAttr(backend, identifiers.ua_domain.get()));
   if (!domain)
-    return false;
+    return LoopReturn::Error;
 
   if (PyUnicode_Check(domain.get())) {
-    auto domain_string = domain_to_string(domain.get());
-    if (domain_string.empty())
-      return false;
-
-    f(domain_string);
-    return true;
+    return f(domain.get());
   }
 
   if (!PySequence_Check(domain.get())) {
     PyErr_SetString(
         PyExc_TypeError,
         "__ua_domain__ must be a string or sequence of strings");
-    return false;
+    return LoopReturn::Error;
   }
 
   auto size = PySequence_Size(domain.get());
   if (size < 0)
-    return false;
+    return LoopReturn::Error;
   if (size == 0) {
     PyErr_SetString(PyExc_ValueError, "__ua_domain__ lists must be non-empty");
-    return false;
+    return LoopReturn::Error;
   }
 
   for (Py_ssize_t i = 0; i < size; ++i) {
     auto dom = py_ref::steal(PySequence_GetItem(domain.get(), i));
     if (!dom)
-      return false;
+      return LoopReturn::Error;
 
-    auto domain_string = domain_to_string(dom.get());
-    if (domain_string.empty())
-      return false;
-
-    f(domain_string);
+    auto res = f(dom.get());
+    if (res != LoopReturn::Continue) {
+      return res;
+    }
   }
-  return true;
+  return LoopReturn::Continue;
+}
+
+template <typename Func>
+LoopReturn backend_for_each_domain_string(PyObject * backend, Func f) {
+  return backend_for_each_domain(
+    backend,
+    [&](PyObject * domain) {
+      auto domain_string = domain_to_string(domain);
+      if (domain_string.empty()) {
+        return LoopReturn::Error;
+      }
+      return f(domain_string);
+    });
+}
+
+bool backend_validate_ua_domain(PyObject * backend) {
+  const auto res = backend_for_each_domain(
+    backend,
+    [&](PyObject * domain) {
+      return domain_validate(domain) ? LoopReturn::Continue : LoopReturn::Error;
+    });
+  return (res != LoopReturn::Error);
 }
 
 struct BackendState {
@@ -521,8 +553,12 @@ PyObject * set_global_backend(PyObject * /* self */, PyObject * args) {
   if (!PyArg_ParseTuple(args, "O|ppp", &backend, &coerce, &only, &try_last))
     return nullptr;
 
-  const bool success =
-      backend_for_each_domain(backend, [&](const std::string & domain) {
+  if (!backend_validate_ua_domain(backend)) {
+    return nullptr;
+  }
+
+  const auto res =
+    backend_for_each_domain_string(backend, [&](const std::string & domain) {
         backend_options options;
         options.backend = py_ref::ref(backend);
         options.coerce = coerce;
@@ -531,9 +567,10 @@ PyObject * set_global_backend(PyObject * /* self */, PyObject * args) {
         auto & domain_globals = (*current_global_state)[domain];
         domain_globals.global = options;
         domain_globals.try_global_backend_last = try_last;
+        return LoopReturn::Continue;
       });
 
-  if (!success)
+  if (res == LoopReturn::Error)
     return nullptr;
 
   Py_RETURN_NONE;
@@ -544,12 +581,17 @@ PyObject * register_backend(PyObject * /* self */, PyObject * args) {
   if (!PyArg_ParseTuple(args, "O", &backend))
     return nullptr;
 
-  const bool success =
-      backend_for_each_domain(backend, [&](const std::string & domain) {
+  if (!backend_validate_ua_domain(backend)) {
+    return nullptr;
+  }
+
+  const auto ret =
+      backend_for_each_domain_string(backend, [&](const std::string & domain) {
         (*current_global_state)[domain].registered.push_back(
             py_ref::ref(backend));
+        return LoopReturn::Continue;
       });
-  if (!success)
+  if (ret == LoopReturn::Error)
     return nullptr;
 
   Py_RETURN_NONE;
@@ -701,6 +743,10 @@ struct SetBackendContext {
             args, kwargs, "O|pp", (char **)kwlist, &backend, &coerce, &only))
       return -1;
 
+    if (!backend_validate_ua_domain(backend)) {
+      return -1;
+    }
+
     auto num_domains = backend_get_num_domains(backend);
     if (num_domains < 0) {
       return -1;
@@ -710,13 +756,14 @@ struct SetBackendContext {
       decltype(ctx_)::BackendLists backend_lists(num_domains);
       int idx = 0;
 
-      const bool success =
-          backend_for_each_domain(backend, [&](const std::string & domain) {
+      const auto ret =
+          backend_for_each_domain_string(backend, [&](const std::string & domain) {
             backend_lists[idx] = &local_domain_map[domain].preferred;
             ++idx;
+            return LoopReturn::Continue;
           });
 
-      if (!success) {
+      if (ret == LoopReturn::Error) {
         return -1;
       }
 
@@ -791,6 +838,10 @@ struct SkipBackendContext {
             args, kwargs, "O", (char **)kwlist, &backend))
       return -1;
 
+    if (!backend_validate_ua_domain(backend)) {
+      return -1;
+    }
+
     auto num_domains = backend_get_num_domains(backend);
     if (num_domains < 0) {
       return -1;
@@ -800,13 +851,14 @@ struct SkipBackendContext {
       decltype(ctx_)::BackendLists backend_lists(num_domains);
       int idx = 0;
 
-      const bool success =
-          backend_for_each_domain(backend, [&](const std::string & domain) {
+      const auto ret =
+          backend_for_each_domain_string(backend, [&](const std::string & domain) {
             backend_lists[idx] = &local_domain_map[domain].skipped;
             ++idx;
+            return LoopReturn::Continue;
           });
 
-      if (!success) {
+      if (ret == LoopReturn::Error) {
         return -1;
       }
 
@@ -862,8 +914,6 @@ const global_backends & get_global_backends(const std::string & domain_key) {
   }
   return itr->second;
 }
-
-enum class LoopReturn { Continue, Break, Error };
 
 template <typename Callback>
 LoopReturn for_each_backend_in_domain(
