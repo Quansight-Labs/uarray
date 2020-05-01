@@ -11,7 +11,6 @@
 #include <vector>
 
 
-
 namespace {
 
 /** Handle to a python object that automatically DECREFs */
@@ -257,23 +256,19 @@ LoopReturn backend_for_each_domain(PyObject * backend, Func f) {
 
 template <typename Func>
 LoopReturn backend_for_each_domain_string(PyObject * backend, Func f) {
-  return backend_for_each_domain(
-    backend,
-    [&](PyObject * domain) {
-      auto domain_string = domain_to_string(domain);
-      if (domain_string.empty()) {
-        return LoopReturn::Error;
-      }
-      return f(domain_string);
-    });
+  return backend_for_each_domain(backend, [&](PyObject * domain) {
+    auto domain_string = domain_to_string(domain);
+    if (domain_string.empty()) {
+      return LoopReturn::Error;
+    }
+    return f(domain_string);
+  });
 }
 
 bool backend_validate_ua_domain(PyObject * backend) {
-  const auto res = backend_for_each_domain(
-    backend,
-    [&](PyObject * domain) {
-      return domain_validate(domain) ? LoopReturn::Continue : LoopReturn::Error;
-    });
+  const auto res = backend_for_each_domain(backend, [&](PyObject * domain) {
+    return domain_validate(domain) ? LoopReturn::Continue : LoopReturn::Error;
+  });
   return (res != LoopReturn::Error);
 }
 
@@ -559,7 +554,7 @@ PyObject * set_global_backend(PyObject * /* self */, PyObject * args) {
   }
 
   const auto res =
-    backend_for_each_domain_string(backend, [&](const std::string & domain) {
+      backend_for_each_domain_string(backend, [&](const std::string & domain) {
         backend_options options;
         options.backend = py_ref::ref(backend);
         options.coerce = coerce;
@@ -757,8 +752,8 @@ struct SetBackendContext {
       decltype(ctx_)::BackendLists backend_lists(num_domains);
       int idx = 0;
 
-      const auto ret =
-          backend_for_each_domain_string(backend, [&](const std::string & domain) {
+      const auto ret = backend_for_each_domain_string(
+          backend, [&](const std::string & domain) {
             backend_lists[idx] = &local_domain_map[domain].preferred;
             ++idx;
             return LoopReturn::Continue;
@@ -852,8 +847,8 @@ struct SkipBackendContext {
       decltype(ctx_)::BackendLists backend_lists(num_domains);
       int idx = 0;
 
-      const auto ret =
-          backend_for_each_domain_string(backend, [&](const std::string & domain) {
+      const auto ret = backend_for_each_domain_string(
+          backend, [&](const std::string & domain) {
             backend_lists[idx] = &local_domain_map[domain].skipped;
             ++idx;
             return LoopReturn::Continue;

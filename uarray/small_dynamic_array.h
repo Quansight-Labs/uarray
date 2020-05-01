@@ -1,9 +1,10 @@
 #pragma once
-#include <memory>
-#include <type_traits>
-#include <new>
-#include <cstdlib>
 #include <cassert>
+#include <cstddef>
+#include <cstdlib>
+#include <memory>
+#include <new>
+#include <type_traits>
 
 
 /** Fixed size dynamic array with small buffer optimisation */
@@ -15,12 +16,10 @@ class SmallDynamicArray {
     T * array;
   } storage_;
 
-  bool is_small() const {
-    return size_ <= SmallCapacity;
-  }
+  bool is_small() const { return size_ <= SmallCapacity; }
 
   void destroy_buffer(T * first, T * last) noexcept {
-    for (;first < last; ++first) {
+    for (; first < last; ++first) {
       first->~T();
     }
   }
@@ -29,7 +28,7 @@ class SmallDynamicArray {
     auto cur = first;
     try {
       for (; cur < last; ++cur) {
-        new (cur) T();  // Placement new
+        new (cur) T(); // Placement new
       }
     } catch (...) {
       // If construction failed, destroy already constructed values
@@ -38,8 +37,8 @@ class SmallDynamicArray {
     }
   }
 
-  void move_construct_buffer(T * first, T * last, T * d_first)
-      noexcept(std::is_nothrow_move_constructible<T>::value) {
+  void move_construct_buffer(T * first, T * last, T * d_first) noexcept(
+      std::is_nothrow_move_constructible<T>::value) {
     T * d_cur = d_first;
 
     try {
@@ -54,9 +53,10 @@ class SmallDynamicArray {
 
   void allocate() {
     assert(size_ >= 0);
-    if (is_small()) return;
+    if (is_small())
+      return;
 
-    storage_.array = (T*) malloc(size_ * sizeof(T));
+    storage_.array = (T *)malloc(size_ * sizeof(T));
     if (!storage_.array) {
       throw std::bad_alloc();
     }
@@ -69,7 +69,6 @@ class SmallDynamicArray {
   }
 
 public:
-
   using value_type = T;
   using iterator = value_type *;
   using const_iterator = const value_type *;
@@ -77,14 +76,9 @@ public:
   using const_reference = const value_type &;
   using size_type = ptrdiff_t;
 
-  SmallDynamicArray():
-    size_(0)
-  {
-  }
+  SmallDynamicArray(): size_(0) {}
 
-  explicit SmallDynamicArray(size_t size):
-    size_(size)
-  {
+  explicit SmallDynamicArray(size_t size): size_(size) {
     allocate();
     auto first = begin();
     try {
@@ -95,9 +89,7 @@ public:
     }
   }
 
-  SmallDynamicArray(size_type size, const T & fill_value):
-    size_(size)
-  {
+  SmallDynamicArray(size_type size, const T & fill_value): size_(size) {
     allocate();
     try {
       std::uninitialized_fill_n(begin(), size_, fill_value);
@@ -107,9 +99,7 @@ public:
     }
   }
 
-  SmallDynamicArray(const SmallDynamicArray & copy):
-    size_(copy.size_)
-  {
+  SmallDynamicArray(const SmallDynamicArray & copy): size_(copy.size_) {
     allocate();
     try {
       std::uninitialized_copy_n(copy.begin(), size_, begin());
@@ -119,9 +109,9 @@ public:
     }
   }
 
-  SmallDynamicArray(SmallDynamicArray && move)
-      noexcept(std::is_nothrow_move_constructible<T>::value):
-      size_(move.size_) {
+  SmallDynamicArray(SmallDynamicArray && move) noexcept(
+      std::is_nothrow_move_constructible<T>::value)
+      : size_(move.size_) {
     if (!move.is_small()) {
       storage_.array = move.storage_.array;
       move.storage_.array = nullptr;
@@ -149,8 +139,9 @@ public:
     deallocate();
   }
 
-  SmallDynamicArray & operator = (const SmallDynamicArray & copy) {
-    if (&copy == this) return *this;
+  SmallDynamicArray & operator=(const SmallDynamicArray & copy) {
+    if (&copy == this)
+      return *this;
 
     auto first = begin();
     destroy_buffer(first, first + size_);
@@ -174,9 +165,10 @@ public:
     return *this;
   }
 
-  SmallDynamicArray & operator = (SmallDynamicArray && move)
-      noexcept(std::is_nothrow_move_constructible<T>::value) {
-    if (&move == this) return *this;
+  SmallDynamicArray & operator=(SmallDynamicArray && move) noexcept(
+      std::is_nothrow_move_constructible<T>::value) {
+    if (&move == this)
+      return *this;
 
     if (!move.is_small()) {
       storage_.array = move.storage_.array;
@@ -214,28 +206,22 @@ public:
     return is_small() ? &storage_.elements[0] : storage_.array;
   }
 
-  iterator end() {
-    return begin() + size_;
-  }
+  iterator end() { return begin() + size_; }
 
-  const_iterator cend() const {
-    return cbegin() + size_;
-  }
+  const_iterator cend() const { return cbegin() + size_; }
 
   const_iterator begin() const { return cbegin(); }
 
   const_iterator end() const { return cend(); }
 
-  size_type size() const {
-    return size_;
-  }
+  size_type size() const { return size_; }
 
-  const_reference operator[] (size_type idx) const {
+  const_reference operator[](size_type idx) const {
     assert(0 < idx && idx < size_);
     return begin()[idx];
   }
 
-  reference operator[] (size_type idx) {
+  reference operator[](size_type idx) {
     assert(0 < idx && idx < size);
     return begin()[idx];
   }

@@ -6,7 +6,7 @@ steps:
     sudo apt-get install -y clang-format-8
   displayName: Install clang-format
 - bash: |
-    clang-format-8 -i uarray/_uarray_dispatch.cxx
+    clang-format-8 -i uarray/_uarray_dispatch.cxx uarray/small_dynamic_array.h
     if [ "$(git diff)" != "" ]; then
       echo "Detected formatting errors, suggested changes below:"
       git diff
