@@ -24,7 +24,8 @@ class SmallDynamicArray {
     }
   }
 
-  void default_construct_buffer(T * first, T * last) {
+  void default_construct_buffer(T * first, T * last) noexcept(
+      std::is_nothrow_destructible<T>::value) {
     auto cur = first;
     try {
       for (; cur < last; ++cur) {
@@ -133,19 +134,13 @@ public:
     move.size_ = 0;
   }
 
-  ~SmallDynamicArray() {
-    auto first = begin();
-    destroy_buffer(first, first + size_);
-    deallocate();
-  }
+  ~SmallDynamicArray() { clear(); }
 
   SmallDynamicArray & operator=(const SmallDynamicArray & copy) {
     if (&copy == this)
       return *this;
 
-    auto first = begin();
-    destroy_buffer(first, first + size_);
-    deallocate();
+    clear();
 
     size_ = copy.size;
     try {
@@ -178,9 +173,7 @@ public:
       return *this;
     }
 
-    auto first = begin();
-    destroy_buffer(first, first + size_);
-    deallocate();
+    clear();
 
     size_ = move.size_;
     auto m_first = move.begin();
@@ -196,6 +189,13 @@ public:
     destroy_buffer(m_first, m_first + size_);
     move.size_ = 0;
     return *this;
+  }
+
+  void clear() noexcept(std::is_nothrow_destructible<T>::value) {
+    auto first = begin();
+    destroy_buffer(first, first + size_);
+    deallocate();
+    size_ = 0;
   }
 
   iterator begin() {
