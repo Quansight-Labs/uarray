@@ -14,6 +14,19 @@ class Backend:
     __ua_domain__ = "ua_tests"
 
 
+class DisableBackend:
+    def __init__(self, domain="ua_tests"):
+        self.__ua_domain__ = domain
+        self.active = True
+        self.ret = object()
+
+    def __ua_function__(self, f, a, kw):
+        if self.active:
+            return self.ret
+
+        raise ua.BackendNotImplementedError(self.__ua_domain__)
+
+
 @pytest.fixture()
 def nullary_mm():
     return ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
@@ -329,18 +342,6 @@ def test_hierarchical_backends():
         for i in range(depth)
     ]
 
-    class DisableBackend:
-        def __init__(self, domain):
-            self.__ua_domain__ = domain
-            self.active = True
-            self.ret = object()
-
-        def __ua_function__(self, f, a, kw):
-            if self.active:
-                return self.ret
-
-            raise ua.BackendNotImplementedError(self.__ua_domain__)
-
     be = [DisableBackend(".".join(subdomains[: i + 1])) for i in range(depth)]
 
     ua.set_global_backend(be[1])
@@ -379,3 +380,50 @@ def test_hierarchical_backends():
     be[1].active = True
     with ua.set_backend(be[2], only=True), pytest.raises(ua.BackendNotImplementedError):
         mms[2]()
+
+
+def test_multidomain_backends():
+    n_domains = 2
+    be = DisableBackend(domain=["ua_tests" + str(i) for i in range(n_domains)])
+
+    mms = [
+        ua.generate_multimethod(
+            lambda: (), lambda a, kw, d: (a, kw), "ua_tests" + str(i)
+        )
+        for i in range(n_domains)
+    ]
+
+    def assert_no_backends():
+        for i in range(len(mms)):
+            with pytest.raises(ua.BackendNotImplementedError):
+                mms[i]()
+
+    def assert_backend_active(backend):
+        assert all(mms[i]() is backend.ret for i in range(len(mms)))
+
+    assert_no_backends()
+
+    with ua.set_backend(be):
+        assert_backend_active(be)
+
+    ua.set_global_backend(be)
+    assert_backend_active(be)
+
+    with ua.skip_backend(be):
+        assert_no_backends()
+
+    assert_backend_active(be)
+
+    for i in range(len(mms)):
+        ua.clear_backends(mms[i].domain, globals=True)
+
+        with pytest.raises(ua.BackendNotImplementedError):
+            mms[i]()
+
+        for j in range(i + 1, len(mms)):
+            assert mms[j]() is be.ret
+
+    assert_no_backends()
+
+    ua.register_backend(be)
+    assert_backend_active(be)

@@ -20,7 +20,11 @@ the last is optional.
 ``__ua_domain__`` is a string containing the domain of the backend. This is,
 by convention, the name of the module (or one of its dependencies or parents)
 that contains the multimethods. For example, ``scipy`` and ``numpy.fft`` could
-both use the ``numpy`` domain.
+both be in the ``numpy`` domain or one of its subdomains.
+
+Additionally, ``__ua_domain__`` can be a sequence of domains, such as a tuple or
+list of strings. This allows a single backend to implement functions from more
+than one domain.
 
 ``__ua_function__``
 -------------------
