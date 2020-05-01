@@ -401,13 +401,10 @@ def test_multidomain_backends():
     def assert_backend_active(backend):
         assert all(mms[i]() is backend.ret for i in range(len(mms)))
 
-
-
     assert_no_backends()
 
     with ua.set_backend(be):
         assert_backend_active(be)
-
 
     ua.set_global_backend(be)
     assert_backend_active(be)
@@ -430,5 +427,3 @@ def test_multidomain_backends():
 
     ua.register_backend(be)
     assert_backend_active(be)
-
-
