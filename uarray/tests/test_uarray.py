@@ -421,7 +421,7 @@ def test_multidomain_backends():
             mms[i]()
 
         for j in range(i + 1, len(mms)):
-            assert mms[j]() == be.ret
+            assert mms[j]() is be.ret
 
     assert_no_backends()
 
