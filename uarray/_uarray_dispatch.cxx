@@ -1542,7 +1542,7 @@ PyObject * determine_backend(PyObject * /*self*/, PyObject * args) {
             PyObject_GetAttr(backend, identifiers.ua_convert.get()));
 
         if (!ua_convert) {
-	        // If no __ua_convert__, assume it won't accept the type
+          // If no __ua_convert__, assume it won't accept the type
           PyErr_Clear();
           return LoopReturn::Continue;
         }
