@@ -1542,10 +1542,9 @@ PyObject * determine_backend(PyObject * /*self*/, PyObject * args) {
             PyObject_GetAttr(backend, identifiers.ua_convert.get()));
 
         if (!ua_convert) {
+	        // If no __ua_convert__, assume it won't accept the type
           PyErr_Clear();
-          // If no __ua_convert__, assume it accepts anything
-          selected_backend = py_ref::ref(backend);
-          return LoopReturn::Break;
+          return LoopReturn::Continue;
         }
 
         auto convert_args = py_make_tuple(

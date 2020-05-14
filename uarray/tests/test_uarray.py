@@ -468,10 +468,10 @@ def test_determine_backend(nullary_mm):
         with ua.determine_backend(TypeB(), mark, domain="ua_tests"):
             assert nullary_mm() is TypeB
 
-    BackendAny = DisableBackend()  # Has no __ua_convert__, so accepts anything
-    with ua.set_backend(BackendAny):
+    # Has no __ua_convert__, so assumed to not accept the type
+    with ua.set_backend(DisableBackend()), pytest.raises(ua.BackendNotImplementedError):
         with ua.determine_backend(TypeB(), mark, domain="ua_tests"):
-            assert nullary_mm() is BackendAny.ret
+            pass
 
     with ua.set_backend(BackendA), ua.set_backend(BackendB):
         with pytest.raises(ua.BackendNotImplementedError):
