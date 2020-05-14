@@ -427,3 +427,113 @@ def test_multidomain_backends():
 
     ua.register_backend(be)
     assert_backend_active(be)
+
+
+def test_determine_backend(nullary_mm):
+    class TypeA:
+        pass
+
+    class TypeB:
+        pass
+
+    mark = "determine_backend_test"
+
+    class TypeBackend:
+        __ua_domain__ = "ua_tests"
+
+        def __init__(self, my_type):
+            self.my_type = my_type
+
+        def __ua_convert__(self, dispatchables, coerce):
+            if not all(
+                type(d.value) is self.my_type and d.type is mark for d in dispatchables
+            ):
+                return NotImplemented
+            return tuple(d.value for d in dispatchables)
+
+        def __ua_function__(self, func, args, kwargs):
+            return self.my_type
+
+    BackendA = TypeBackend(TypeA)
+    BackendB = TypeBackend(TypeB)
+
+    with ua.set_backend(BackendA), pytest.raises(ua.BackendNotImplementedError):
+        with ua.determine_backend(TypeB(), mark, domain="ua_tests"):
+            pass
+
+    with ua.set_backend(BackendA), ua.set_backend(BackendB):
+        with ua.determine_backend(TypeA(), mark, domain="ua_tests"):
+            assert nullary_mm() is TypeA
+
+        with ua.determine_backend(TypeB(), mark, domain="ua_tests"):
+            assert nullary_mm() is TypeB
+
+    BackendAny = DisableBackend()  # Has no __ua_convert__, so accepts anything
+    with ua.set_backend(BackendAny):
+        with ua.determine_backend(TypeB(), mark, domain="ua_tests"):
+            assert nullary_mm() is BackendAny.ret
+
+    with ua.set_backend(BackendA), ua.set_backend(BackendB):
+        with pytest.raises(ua.BackendNotImplementedError):
+            with ua.determine_backend_multi(
+                ua.Dispatchable(TypeA(), mark),
+                ua.Dispatchable(TypeB(), mark),
+                domain="ua_tests",
+            ):
+                pass
+
+        with ua.determine_backend_multi(
+            ua.Dispatchable(TypeA(), mark),
+            ua.Dispatchable(TypeA(), mark),
+            domain="ua_tests",
+        ):
+            assert nullary_mm() is TypeA
+
+
+def test_determine_backend_coerce(nullary_mm):
+    class TypeA:
+        pass
+
+    class TypeB:
+        pass
+
+    mark = "determine_backend_test"
+
+    class TypeBackend:
+        __ua_domain__ = "ua_tests"
+
+        def __init__(self, my_type):
+            self.my_type = my_type
+
+        def __ua_convert__(self, dispatchables, coerce):
+            if len(dispatchables) > 0:
+                print(dispatchables[0], coerce)
+            if coerce and all(d.coercible for d in dispatchables):
+                return tuple(self.my_type() for _ in dispatchables)
+
+            if not all(
+                type(d.value) is self.my_type and d.type is mark for d in dispatchables
+            ):
+                return NotImplemented
+            return tuple(d.value for d in dispatchables)
+
+        def __ua_function__(self, func, args, kwargs):
+            return self.my_type
+
+    BackendA = TypeBackend(TypeA)
+    BackendB = TypeBackend(TypeB)
+    unary_mm = ua.generate_multimethod(
+        lambda a: (ua.Dispatchable(a, mark),), lambda a, kw, d: (d, kw), "ua_tests"
+    )
+
+    # coercion is not forced on the existing set backend
+    with ua.set_backend(BackendA), ua.set_backend(BackendB):
+        with ua.determine_backend(TypeA(), mark, domain="ua_tests", coerce=True):
+            assert nullary_mm() is TypeA
+            assert unary_mm(TypeB()) is TypeA
+
+    # But is allowed if the backend was set with coerce in the first place
+    with ua.set_backend(BackendA), ua.set_backend(BackendB, coerce=True):
+        with ua.determine_backend(TypeA(), mark, domain="ua_tests", coerce=True):
+            assert nullary_mm() is TypeB
+            assert unary_mm(TypeA()) is TypeB
