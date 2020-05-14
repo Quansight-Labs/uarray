@@ -2,7 +2,7 @@ import sys
 import uarray
 import pytest  # type: ignore
 
-from . import example_helpers
+from .tests import example_helpers
 
 
 def pytest_cmdline_preparse(args):
