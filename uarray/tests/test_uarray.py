@@ -476,15 +476,13 @@ def test_determine_backend(nullary_mm):
     with ua.set_backend(BackendA), ua.set_backend(BackendB):
         with pytest.raises(ua.BackendNotImplementedError):
             with ua.determine_backend_multi(
-                ua.Dispatchable(TypeA(), mark),
-                ua.Dispatchable(TypeB(), mark),
+                [ua.Dispatchable(TypeA(), mark), ua.Dispatchable(TypeB(), mark)],
                 domain="ua_tests",
             ):
                 pass
 
         with ua.determine_backend_multi(
-            ua.Dispatchable(TypeA(), mark),
-            ua.Dispatchable(TypeA(), mark),
+            [ua.Dispatchable(TypeA(), mark), ua.Dispatchable(TypeA(), mark)],
             domain="ua_tests",
         ):
             assert nullary_mm() is TypeA

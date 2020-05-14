@@ -615,7 +615,7 @@ def determine_backend(value, dispatch_type, *, domain, only=True, coerce=False):
     return set_backend(backend, coerce=coerce, only=only)
 
 
-def determine_backend_multi(*dispatchables, domain, only=True, coerce=False):
+def determine_backend_multi(dispatchables, *, domain, only=True, coerce=False):
     """Set a backend supporting all ``dispatchables``
 
     This is useful for functions that call multimethods without any
@@ -624,7 +624,7 @@ def determine_backend_multi(*dispatchables, domain, only=True, coerce=False):
 
     Parameters
     ----------
-    *dispatchables: List[uarray.Dispatchable]
+    dispatchables: List[uarray.Dispatchable]
         The dispatchables that must be supported
     domain: string
         The domain to query for backends and set.
