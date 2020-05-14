@@ -222,7 +222,8 @@ def generate_multimethod(
     >>> overridden_me(1, "a")
     Traceback (most recent call last):
         ...
-    uarray.backend.BackendNotImplementedError: ...
+    uarray.BackendNotImplementedError: ...
+
     >>> overridden_me2 = generate_multimethod(
     ...     override_me, override_replacer, "ua_examples", default=lambda x, y: (x, y)
     ... )
@@ -579,8 +580,8 @@ def determine_backend(value, dispatch_type, *, domain, only=True, coerce=False):
     Suppose we have two backends ``BackendA`` and ``BackendB`` each supporting
     different types, ``TypeA`` and ``TypeB``. Neither supporting the other type:
 
-    >>> with ua.set_backend(BackendA):
-    ...     call_multimethod(TypeB(), TypeB())
+    >>> with ua.set_backend(ex.BackendA):
+    ...     ex.call_multimethod(ex.TypeB(), ex.TypeB())
     Traceback (most recent call last):
         ...
     uarray.BackendNotImplementedError: ...
@@ -588,9 +589,9 @@ def determine_backend(value, dispatch_type, *, domain, only=True, coerce=False):
     Now consider a multimethod that creates a new object of ``TypeA``, or
     ``TypeB`` depending on the active backend.
 
-    >>> with ua.set_backend(BackendA), ua.set_backend(BackendB):
-    ...         res = creation_multimethod()
-    ...         call_multimethod(res, TypeA())
+    >>> with ua.set_backend(ex.BackendA), ua.set_backend(ex.BackendB):
+    ...         res = ex.creation_multimethod()
+    ...         ex.call_multimethod(res, ex.TypeA())
     Traceback (most recent call last):
         ...
     uarray.BackendNotImplementedError: ...
@@ -601,11 +602,11 @@ def determine_backend(value, dispatch_type, *, domain, only=True, coerce=False):
 
     Instead, we need to first find a backend suitable for all of our objects.
 
-    >>> with ua.set_backend(BackendA), ua.set_backend(BackendB):
-    ...     x = TypeA()
+    >>> with ua.set_backend(ex.BackendA), ua.set_backend(ex.BackendB):
+    ...     x = ex.TypeA()
     ...     with ua.determine_backend(x, "mark", domain="ua_examples"):
-    ...         res = creation_multimethod()
-    ...         type(call_multimethod(res, x))
+    ...         res = ex.creation_multimethod()
+    ...         ex.call_multimethod(res, x)
     TypeA
 
     """
@@ -654,14 +655,15 @@ def determine_backend_multi(dispatchables, *, domain, only=True, coerce=False):
     ``BackendAB`` which supports ``TypeA`` and ``TypeB`` in the same call,
     and a ``BackendBC`` that doesn't support ``TypeA``.
 
-    >>> with ua.set_backend(BackendAB), ua.set_backend(BackendBC):
-    ...     a, b = TypeA(), TypeB()
-    ...     with ua.determine_backend(
+    >>> with ua.set_backend(ex.BackendAB), ua.set_backend(ex.BackendBC):
+    ...     a, b = ex.TypeA(), ex.TypeB()
+    ...     with ua.determine_backend_multi(
     ...         [ua.Dispatchable(a, "mark"), ua.Dispatchable(b, "mark")],
     ...         domain="ua_examples"
     ...     ):
-    ...         res = creation_multimethod()
-    ...         call_multimethod(res, x, y)
+    ...         res = ex.creation_multimethod()
+    ...         ex.call_multimethod(res, a, b)
+    TypeA
 
     This won't call ``BackendBC`` because it doesn't support ``TypeA``.
 
