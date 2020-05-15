@@ -616,7 +616,9 @@ def determine_backend(value, dispatch_type, *, domain, only=True, coerce=False):
     return set_backend(backend, coerce=coerce, only=only)
 
 
-def determine_backend_multi(dispatchables, *, domain, only=True, coerce=False):
+def determine_backend_multi(
+    dispatchables, *, domain, only=True, coerce=False, **kwargs
+):
     """Set a backend supporting all ``dispatchables``
 
     This is useful for functions that call multimethods without any
@@ -625,7 +627,7 @@ def determine_backend_multi(dispatchables, *, domain, only=True, coerce=False):
 
     Parameters
     ----------
-    dispatchables: List[uarray.Dispatchable]
+    dispatchables: Sequence[Union[uarray.Dispatchable, Any]]
         The dispatchables that must be supported
     domain: string
         The domain to query for backends and set.
@@ -633,6 +635,9 @@ def determine_backend_multi(dispatchables, *, domain, only=True, coerce=False):
         Whether or not to allow coercion to the backend's types. Implies ``only``.
     only: bool
         Whether or not this should be the last backend to try.
+    dispatch_type: Optional[Any]
+        The default dispatch type associated with ``dispatchables``, aka
+        ":ref:`marking <MarkingGlossary>`".
 
     See Also
     --------
@@ -667,10 +672,32 @@ def determine_backend_multi(dispatchables, *, domain, only=True, coerce=False):
 
     This won't call ``BackendBC`` because it doesn't support ``TypeA``.
 
+    We can also use leave out the ``ua.Dispatchable`` if we specify the
+    default ``dispatch_type`` for the ``dispatchables`` argument.
+
+    >>> with ua.set_backend(ex.BackendAB), ua.set_backend(ex.BackendBC):
+    ...     a, b = ex.TypeA(), ex.TypeB()
+    ...     with ua.determine_backend_multi(
+    ...         [a, b], dispatch_type="mark", domain="ua_examples"
+    ...     ):
+    ...         res = ex.creation_multimethod()
+    ...         ex.call_multimethod(res, a, b)
+    TypeA
+
     """
-    dispatchables = tuple(dispatchables)
-    if not all(isinstance(d, Dispatchable) for d in dispatchables):
-        raise TypeError("dispatchables must be instances of uarray.Dispatchable")
+    if "dispatch_type" in kwargs:
+        disp_type = kwargs.pop("dispatch_type")
+        dispatchables = tuple(
+            d if isinstance(d, Dispatchable) else Dispatchable(d, disp_type)
+            for d in dispatchables
+        )
+    else:
+        dispatchables = tuple(dispatchables)
+        if not all(isinstance(d, Dispatchable) for d in dispatchables):
+            raise TypeError("dispatchables must be instances of uarray.Dispatchable")
+
+    if len(kwargs) != 0:
+        raise TypeError("Received unexpected keyword arguments: {}".format(kwargs))
 
     backend = _uarray.determine_backend(domain, dispatchables, coerce)
 
