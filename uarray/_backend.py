@@ -545,9 +545,9 @@ def wrap_single_convertor_instance(convert_single):
 def determine_backend(value, dispatch_type, *, domain, only=True, coerce=False):
     """Set the backend to the first active backend that supports ``value``
 
-    This is useful for functions that call multimethods without any
-    dispatchable arguments. You can use `determine_backend` to ensure the same
-    backend is used within a block of multimethod calls.
+    This is useful for functions that call multimethods without any dispatchable
+    arguments. You can use :func:`determine_backend` to ensure the same backend
+    is used everywhere in a block of multimethod calls.
 
     Parameters
     ----------
@@ -621,9 +621,10 @@ def determine_backend_multi(
 ):
     """Set a backend supporting all ``dispatchables``
 
-    This is useful for functions that call multimethods without any
-    dispatchable arguments. You can use `determine_backend` to ensure the same
-    backend is used within a block of multimethod calls.
+    This is useful for functions that call multimethods without any dispatchable
+    arguments. You can use :func:`determine_backend_multi` to ensure the same
+    backend is used everywhere in a block of multimethod calls involving
+    multiple arrays.
 
     Parameters
     ----------
