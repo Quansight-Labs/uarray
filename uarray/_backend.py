@@ -26,6 +26,8 @@ __all__ = [
     "set_global_backend",
     "skip_backend",
     "register_backend",
+    "determine_backend",
+    "determine_backend_multi",
     "clear_backends",
     "create_multimethod",
     "generate_multimethod",
@@ -220,7 +222,8 @@ def generate_multimethod(
     >>> overridden_me(1, "a")
     Traceback (most recent call last):
         ...
-    uarray.backend.BackendNotImplementedError: ...
+    uarray.BackendNotImplementedError: ...
+
     >>> overridden_me2 = generate_multimethod(
     ...     override_me, override_replacer, "ua_examples", default=lambda x, y: (x, y)
     ... )
@@ -537,3 +540,166 @@ def wrap_single_convertor_instance(convert_single):
         return converted
 
     return __ua_convert__
+
+
+def determine_backend(value, dispatch_type, *, domain, only=True, coerce=False):
+    """Set the backend to the first active backend that supports ``value``
+
+    This is useful for functions that call multimethods without any dispatchable
+    arguments. You can use :func:`determine_backend` to ensure the same backend
+    is used everywhere in a block of multimethod calls.
+
+    Parameters
+    ----------
+    value
+        The value being tested
+    dispatch_type
+        The dispatch type associated with ``value``, aka
+        ":ref:`marking <MarkingGlossary>`".
+    domain: string
+        The domain to query for backends and set.
+    coerce: bool
+        Whether or not to allow coercion to the backend's types. Implies ``only``.
+    only: bool
+        Whether or not this should be the last backend to try.
+
+    See Also
+    --------
+    set_backend: For when you know which backend to set
+
+    Notes
+    -----
+
+    Support is determined by the ``__ua_convert__`` protocol. Backends not
+    supporting the type must return ``NotImplemented`` from their
+    ``__ua_convert__`` if they don't support input of that type.
+
+    Examples
+    --------
+
+    Suppose we have two backends ``BackendA`` and ``BackendB`` each supporting
+    different types, ``TypeA`` and ``TypeB``. Neither supporting the other type:
+
+    >>> with ua.set_backend(ex.BackendA):
+    ...     ex.call_multimethod(ex.TypeB(), ex.TypeB())
+    Traceback (most recent call last):
+        ...
+    uarray.BackendNotImplementedError: ...
+
+    Now consider a multimethod that creates a new object of ``TypeA``, or
+    ``TypeB`` depending on the active backend.
+
+    >>> with ua.set_backend(ex.BackendA), ua.set_backend(ex.BackendB):
+    ...         res = ex.creation_multimethod()
+    ...         ex.call_multimethod(res, ex.TypeA())
+    Traceback (most recent call last):
+        ...
+    uarray.BackendNotImplementedError: ...
+
+    ``res`` is an object of ``TypeB`` because ``BackendB`` is set in the
+    innermost with statement. So, ``call_multimethod`` fails since the types
+    don't match.
+
+    Instead, we need to first find a backend suitable for all of our objects.
+
+    >>> with ua.set_backend(ex.BackendA), ua.set_backend(ex.BackendB):
+    ...     x = ex.TypeA()
+    ...     with ua.determine_backend(x, "mark", domain="ua_examples"):
+    ...         res = ex.creation_multimethod()
+    ...         ex.call_multimethod(res, x)
+    TypeA
+
+    """
+    dispatchables = (Dispatchable(value, dispatch_type, coerce),)
+    backend = _uarray.determine_backend(domain, dispatchables, coerce)
+
+    return set_backend(backend, coerce=coerce, only=only)
+
+
+def determine_backend_multi(
+    dispatchables, *, domain, only=True, coerce=False, **kwargs
+):
+    """Set a backend supporting all ``dispatchables``
+
+    This is useful for functions that call multimethods without any dispatchable
+    arguments. You can use :func:`determine_backend_multi` to ensure the same
+    backend is used everywhere in a block of multimethod calls involving
+    multiple arrays.
+
+    Parameters
+    ----------
+    dispatchables: Sequence[Union[uarray.Dispatchable, Any]]
+        The dispatchables that must be supported
+    domain: string
+        The domain to query for backends and set.
+    coerce: bool
+        Whether or not to allow coercion to the backend's types. Implies ``only``.
+    only: bool
+        Whether or not this should be the last backend to try.
+    dispatch_type: Optional[Any]
+        The default dispatch type associated with ``dispatchables``, aka
+        ":ref:`marking <MarkingGlossary>`".
+
+    See Also
+    --------
+    determine_backend: For a single dispatch value
+    set_backend: For when you know which backend to set
+
+    Notes
+    -----
+
+    Support is determined by the ``__ua_convert__`` protocol. Backends not
+    supporting the type must return ``NotImplemented`` from their
+    ``__ua_convert__`` if they don't support input of that type.
+
+    Examples
+    --------
+
+    :func:`determine_backend` allows the backend to be set from a single
+    object. :func:`determine_backend_multi` allows multiple objects to be
+    checked simultaneously for support in the backend. Suppose we have a
+    ``BackendAB`` which supports ``TypeA`` and ``TypeB`` in the same call,
+    and a ``BackendBC`` that doesn't support ``TypeA``.
+
+    >>> with ua.set_backend(ex.BackendAB), ua.set_backend(ex.BackendBC):
+    ...     a, b = ex.TypeA(), ex.TypeB()
+    ...     with ua.determine_backend_multi(
+    ...         [ua.Dispatchable(a, "mark"), ua.Dispatchable(b, "mark")],
+    ...         domain="ua_examples"
+    ...     ):
+    ...         res = ex.creation_multimethod()
+    ...         ex.call_multimethod(res, a, b)
+    TypeA
+
+    This won't call ``BackendBC`` because it doesn't support ``TypeA``.
+
+    We can also use leave out the ``ua.Dispatchable`` if we specify the
+    default ``dispatch_type`` for the ``dispatchables`` argument.
+
+    >>> with ua.set_backend(ex.BackendAB), ua.set_backend(ex.BackendBC):
+    ...     a, b = ex.TypeA(), ex.TypeB()
+    ...     with ua.determine_backend_multi(
+    ...         [a, b], dispatch_type="mark", domain="ua_examples"
+    ...     ):
+    ...         res = ex.creation_multimethod()
+    ...         ex.call_multimethod(res, a, b)
+    TypeA
+
+    """
+    if "dispatch_type" in kwargs:
+        disp_type = kwargs.pop("dispatch_type")
+        dispatchables = tuple(
+            d if isinstance(d, Dispatchable) else Dispatchable(d, disp_type)
+            for d in dispatchables
+        )
+    else:
+        dispatchables = tuple(dispatchables)
+        if not all(isinstance(d, Dispatchable) for d in dispatchables):
+            raise TypeError("dispatchables must be instances of uarray.Dispatchable")
+
+    if len(kwargs) != 0:
+        raise TypeError("Received unexpected keyword arguments: {}".format(kwargs))
+
+    backend = _uarray.determine_backend(domain, dispatchables, coerce)
+
+    return set_backend(backend, coerce=coerce, only=only)

@@ -1,4 +1,8 @@
 import sys
+import uarray
+import pytest  # type: ignore
+
+from .tests import example_helpers
 
 
 def pytest_cmdline_preparse(args):
@@ -17,3 +21,9 @@ def pytest_cmdline_preparse(args):
     else:
         args.append("--mypy")
         print("uarray: Enabling pytest-mypy")
+
+
+@pytest.fixture(autouse=True)
+def add_namespaces(doctest_namespace):
+    doctest_namespace["ua"] = uarray
+    doctest_namespace["ex"] = example_helpers

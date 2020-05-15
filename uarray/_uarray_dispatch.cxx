@@ -1519,6 +1519,64 @@ PyObject * set_state(PyObject * /* self */, PyObject * args) {
   Py_RETURN_NONE;
 }
 
+PyObject * determine_backend(PyObject * /*self*/, PyObject * args) {
+  PyObject *domain_object, *dispatchables;
+  int coerce;
+  if (!PyArg_ParseTuple(
+          args, "OOp:determine_backend", &domain_object, &dispatchables,
+          &coerce))
+    return nullptr;
+
+  auto domain = domain_to_string(domain_object);
+  if (domain.empty())
+    return nullptr;
+
+  auto dispatchables_tuple = py_ref::steal(PySequence_Tuple(dispatchables));
+  if (!dispatchables_tuple)
+    return nullptr;
+
+  py_ref selected_backend;
+  auto result = for_each_backend_in_domain(
+      domain, [&](PyObject * backend, bool coerce_backend) {
+        auto ua_convert = py_ref::steal(
+            PyObject_GetAttr(backend, identifiers.ua_convert.get()));
+
+        if (!ua_convert) {
+          // If no __ua_convert__, assume it won't accept the type
+          PyErr_Clear();
+          return LoopReturn::Continue;
+        }
+
+        auto convert_args = py_make_tuple(
+            dispatchables_tuple, py_bool(coerce && coerce_backend));
+        if (!convert_args)
+          return LoopReturn::Error;
+
+        auto res = py_ref::steal(
+            PyObject_Call(ua_convert.get(), convert_args.get(), nullptr));
+        if (!res) {
+          return LoopReturn::Error;
+        }
+
+        if (res == Py_NotImplemented) {
+          return LoopReturn::Continue;
+        }
+
+        // __ua_convert__ succeeded, so select this backend
+        selected_backend = py_ref::ref(backend);
+        return LoopReturn::Break;
+      });
+
+  if (result != LoopReturn::Continue)
+    return selected_backend.get();
+
+  // All backends failed, raise an error
+  PyErr_SetString(
+      BackendNotImplementedError.get(),
+      "No backends could accept input of this type.");
+  return nullptr;
+}
+
 
 // getset takes mutable char * in python < 3.7
 static char dict__[] = "__dict__";
@@ -1683,6 +1741,7 @@ PyMethodDef method_defs[] = {
     {"register_backend", register_backend, METH_VARARGS, nullptr},
     {"clear_all_globals", clear_all_globals, METH_NOARGS, nullptr},
     {"clear_backends", clear_backends, METH_VARARGS, nullptr},
+    {"determine_backend", determine_backend, METH_VARARGS, nullptr},
     {"get_state", get_state, METH_NOARGS, nullptr},
     {"set_state", set_state, METH_VARARGS, nullptr},
     {NULL} /* Sentinel */

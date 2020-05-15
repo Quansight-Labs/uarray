@@ -23,6 +23,8 @@ uarray
       get_state
       set_state
       reset_state
+      determine_backend
+      determine_backend_multi
 
 
 
