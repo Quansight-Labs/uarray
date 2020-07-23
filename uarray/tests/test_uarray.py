@@ -535,3 +535,46 @@ def test_determine_backend_coerce(nullary_mm):
         with ua.determine_backend(TypeA(), mark, domain="ua_tests", coerce=True):
             assert nullary_mm() is TypeB
             assert unary_mm(TypeA()) is TypeB
+
+
+def test_default(nullary_mm):
+    obj = object()
+    be = Backend()
+    be.__ua_function__ = lambda f, a, kw: NotImplemented
+
+    # If a backend returns NotImplemented, the default is called
+    def default1(*a, **kw):
+        return obj
+
+    mm1 = ua.generate_multimethod(
+        lambda: (), lambda a, kw, d: (a, kw), "ua_tests", default=default1
+    )
+
+    with ua.set_backend(be):
+        assert mm1() is obj
+
+    # If all backends fail, the default is called again without a specific backend
+    num_calls = [0]
+
+    def default2(*a, **kw):
+        num_calls[0] = num_calls[0] + 1
+        raise ua.BackendNotImplementedError()
+
+    mm2 = ua.generate_multimethod(
+        lambda: (), lambda a, kw, d: (a, kw), "ua_tests", default=default2
+    )
+
+    with ua.set_backend(be), pytest.raises(ua.BackendNotImplementedError):
+        mm2()
+
+    assert num_calls[0] == 2
+
+    # If the last backend is set as only or coerce, the last default call is skipped
+    num_calls[0] = 0
+    with ua.set_backend(be, only=True), pytest.raises(ua.BackendNotImplementedError):
+        mm2()
+    assert num_calls[0] == 1
+    num_calls[0] = 0
+    with ua.set_backend(be, coerce=True), pytest.raises(ua.BackendNotImplementedError):
+        mm2()
+    assert num_calls[0] == 1

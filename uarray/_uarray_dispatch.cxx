@@ -1327,7 +1327,9 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_) {
   if (result && result != Py_NotImplemented)
     return result.release();
 
-  if (def_impl_ != Py_None) {
+  // Last resort, try calling default implementation directly
+  // Only call if no backend was marked only or coerce
+  if (ret == LoopReturn::Continue && def_impl_ != Py_None) {
     result =
         py_ref::steal(PyObject_Call(def_impl_.get(), args.get(), kwargs.get()));
     if (!result) {
