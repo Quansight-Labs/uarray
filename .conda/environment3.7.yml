@@ -9,9 +9,7 @@ dependencies:
   - sphinx_rtd_theme
   - pytest
   - pytest-cov
-  - mypy
   - doc8
   - black
   - pip:
-    - pytest-mypy
     - pytest-black
