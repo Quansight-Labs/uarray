@@ -713,6 +713,7 @@ struct SetBackendContext {
   context_helper<backend_options> ctx_;
 
   static void dealloc(SetBackendContext * self) {
+    PyObject_GC_UnTrack(self);
     self->~SetBackendContext();
     Py_TYPE(self)->tp_free(self);
   }
@@ -810,6 +811,7 @@ struct SkipBackendContext {
   context_helper<py_ref> ctx_;
 
   static void dealloc(SkipBackendContext * self) {
+    PyObject_GC_UnTrack(self);
     self->~SkipBackendContext();
     Py_TYPE(self)->tp_free(self);
   }
@@ -1570,7 +1572,7 @@ PyObject * determine_backend(PyObject * /*self*/, PyObject * args) {
       });
 
   if (result != LoopReturn::Continue)
-    return selected_backend.get();
+    return selected_backend.release();
 
   // All backends failed, raise an error
   PyErr_SetString(
@@ -1665,7 +1667,7 @@ PyTypeObject SetBackendContextType = {
     0,                                         /* tp_getattro */
     0,                                         /* tp_setattro */
     0,                                         /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT,                        /* tp_flags */
+    (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC), /* tp_flags */
     0,                                         /* tp_doc */
     (traverseproc)SetBackendContext::traverse, /* tp_traverse */
     0,                                         /* tp_clear */
@@ -1716,7 +1718,7 @@ PyTypeObject SkipBackendContextType = {
     0,                                          /* tp_getattro */
     0,                                          /* tp_setattro */
     0,                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT,                         /* tp_flags */
+    (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC),  /* tp_flags */
     0,                                          /* tp_doc */
     (traverseproc)SkipBackendContext::traverse, /* tp_traverse */
     0,                                          /* tp_clear */
