@@ -1,7 +1,8 @@
 variables:
   CIBW_TEST_COMMAND: "pip install -r {project}/requirements/tests.txt && pytest --pyargs uarray"
-  CIBW_BUILD: cp3?-* pp3?-*
-  CIBW_BEFORE_BUILD: "git clean -xdf && git reset --hard HEAD"
+  CIBW_BUILD: cp38-* pp3?-*
+  CIBW_BEFORE_BUILD: "git status"
+  CIBW_BEFORE_TEST: "git status"
 
 jobs:
 - job: Linux
@@ -9,31 +10,11 @@ jobs:
     vmImage: 'Ubuntu-16.04'
   steps:
     - template: ci/azure-steps.yml
-- job: MacOS
-  pool:
-    vmImage: 'macOS-10.15'
-  steps:
-    - template: ci/azure-steps.yml
 - job: Windows
   pool:
     vmImage: 'vs2017-win2016'
   steps:
     - template: ci/azure-steps.yml
-- job: Docs_Linting_Coverage
-  pool:
-    vmImage: 'Ubuntu-16.04'
-  steps:
-    - template: ci/azure-doc-lint-cov.yml
-- job: SciPy_FFT_Linux
-  pool:
-    vmImage: 'ubuntu-16.04'
-  steps:
-    - template: ci/azure-test-scipy-fft.yml
-- job: clang_format
-  pool:
-    vmImage: 'ubuntu-16.04'
-  steps:
-    - template: ci/azure-run-clang-format.yml
 
 
 trigger:
