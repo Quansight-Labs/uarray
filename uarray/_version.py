@@ -284,6 +284,12 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
 
     # look for -dirty suffix
     dirty = git_describe.endswith("-dirty")
+    if dirty:
+        run_command(
+        GITS,
+        ["status"],
+        cwd=root,
+
     pieces["dirty"] = dirty
     if dirty:
         git_describe = git_describe[: git_describe.rindex("-dirty")]
