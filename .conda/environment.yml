@@ -1,1 +1,15 @@
-environment3.7.yml
+name: uarray
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python
+  - pip
+  - sphinx
+  - sphinx_rtd_theme
+  - pytest
+  - pytest-cov
+  - doc8
+  - black
+  - pip:
+    - pytest-black
