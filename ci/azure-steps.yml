@@ -5,6 +5,5 @@ steps:
     pip install cibuildwheel==1.6.1
     git status
     cibuildwheel --output-dir wheelhouse .
-    git status
 - task: PublishBuildArtifacts@1
   inputs: {pathtoPublish: 'wheelhouse'}

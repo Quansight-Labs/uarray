@@ -697,7 +697,12 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
             ["status"],
             cwd=root,
         )
-        raise ValueError(describe_out2)
+        describe_out3, rc3 = run_command(
+            GITS,
+            ["diff", "--exit-code"],
+            cwd=root,
+        )
+        raise ValueError(describe_out2 + "\n" + describe_out3)
 
     if dirty:
         git_describe = git_describe[:git_describe.rindex("-dirty")]
@@ -1112,7 +1117,12 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
             ["status"],
             cwd=root,
         )
-        raise ValueError(describe_out2)
+        describe_out3, rc3 = run_command(
+            GITS,
+            ["diff", "--exit-code"],
+            cwd=root,
+        )
+        raise ValueError(describe_out2 + "\n" + describe_out3)
 
     if dirty:
         git_describe = git_describe[: git_describe.rindex("-dirty")]
