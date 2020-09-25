@@ -692,6 +692,14 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
     dirty = git_describe.endswith("-dirty")
     pieces["dirty"] = dirty
     if dirty:
+        describe_out2, rc2 = run_command(
+            GITS,
+            ["status"],
+            cwd=root,
+        )
+        raise ValueError(describe_out2)
+
+    if dirty:
         git_describe = git_describe[:git_describe.rindex("-dirty")]
 
     # now we have TAG-NUM-gHEX or HEX
@@ -1098,6 +1106,14 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
     # look for -dirty suffix
     dirty = git_describe.endswith("-dirty")
     pieces["dirty"] = dirty
+    if dirty:
+        describe_out2, rc2 = run_command(
+            GITS,
+            ["status"],
+            cwd=root,
+        )
+        raise ValueError(describe_out2)
+
     if dirty:
         git_describe = git_describe[: git_describe.rindex("-dirty")]
 
