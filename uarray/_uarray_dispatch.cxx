@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <new>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <utility>
