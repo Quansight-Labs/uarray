@@ -1,6 +1,7 @@
 variables:
   CIBW_TEST_COMMAND: "pip install -r {project}/requirements/tests.txt && pytest --pyargs uarray"
   CIBW_BUILD: cp3?-* pp3?-*
+  CIBW_SKIP: cp35-* pp35-*
   CIBW_BEFORE_BUILD: "git clean -xdf && git reset --hard HEAD"
 
 jobs:
