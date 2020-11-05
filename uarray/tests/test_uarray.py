@@ -6,6 +6,11 @@ import pytest  # type: ignore
 
 @pytest.fixture(scope="function", autouse=True)
 def cleanup_backends():
+    """
+    Cleanup backends
+
+    Args:
+    """
     with ua.reset_state():
         yield
 
@@ -16,11 +21,27 @@ class Backend:
 
 class DisableBackend:
     def __init__(self, domain="ua_tests"):
+        """
+        Initialize the domain.
+
+        Args:
+            self: (todo): write your description
+            domain: (str): write your description
+        """
         self.__ua_domain__ = domain
         self.active = True
         self.ret = object()
 
     def __ua_function__(self, f, a, kw):
+        """
+        Return the result of a function.
+
+        Args:
+            self: (todo): write your description
+            f: (todo): write your description
+            a: (todo): write your description
+            kw: (todo): write your description
+        """
         if self.active:
             return self.ret
 
@@ -29,15 +50,33 @@ class DisableBackend:
 
 @pytest.fixture()
 def nullary_mm():
+    """
+    Generate null null null version 1d arrays.
+
+    Args:
+    """
     return ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
 
 
 def test_nestedbackend(nullary_mm):
+    """
+    Test if a_mm is a nested function.
+
+    Args:
+        nullary_mm: (bool): write your description
+    """
     obj = object()
     be_outer = Backend()
     be_outer.__ua_function__ = lambda f, a, kw: obj
 
     def default(*a, **kw):
+        """
+        Default factory function that returns the default value.
+
+        Args:
+            a: (todo): write your description
+            kw: (todo): write your description
+        """
         return nullary_mm(*a, **kw)
 
     mm2 = ua.generate_multimethod(
@@ -46,6 +85,14 @@ def test_nestedbackend(nullary_mm):
     be_inner = Backend()
 
     def be2_ua_func(f, a, kw):
+        """
+        Beamplemented function f ( f )
+
+        Args:
+            f: (todo): write your description
+            a: (todo): write your description
+            kw: (todo): write your description
+        """
         with ua.skip_backend(be_inner):
             return f(*a, **kw)
 
@@ -55,21 +102,43 @@ def test_nestedbackend(nullary_mm):
 
 
 def _replacer(args, kwargs, dispatchables):
+    """
+    Decorator to injectables.
+
+    Args:
+        dispatchables: (str): write your description
+    """
     return (args, kwargs)
 
 
 @ua.create_multimethod(_replacer, "ua_tests")
 def pickle_mm():
+    """
+    Pickle_mm of all possible picklemm ).
+
+    Args:
+    """
     return ()
 
 
 def test_pickle_support():
+    """
+    Test if pickle is a pickle.
+
+    Args:
+    """
     unpickle_mm = pickle.loads(pickle.dumps(pickle_mm))
 
     assert unpickle_mm is pickle_mm
 
 
 def test_registration(nullary_mm):
+    """
+    Test if the registration.
+
+    Args:
+        nullary_mm: (bool): write your description
+    """
     obj = object()
     be = Backend()
     be.__ua_function__ = lambda f, a, kw: obj
@@ -79,6 +148,12 @@ def test_registration(nullary_mm):
 
 
 def test_global(nullary_mm):
+    """
+    Test if the global global global.
+
+    Args:
+        nullary_mm: (bool): write your description
+    """
     obj = object()
     be = Backend()
     be.__ua_function__ = lambda f, a, kw: obj
@@ -88,6 +163,12 @@ def test_global(nullary_mm):
 
 
 def ctx_before_global(nullary_mm):
+    """
+    Ctx global global global global function.
+
+    Args:
+        nullary_mm: (bool): write your description
+    """
     obj = object()
     obj2 = object()
     be = Backend()
@@ -103,6 +184,12 @@ def ctx_before_global(nullary_mm):
 
 
 def test_global_before_registered(nullary_mm):
+    """
+    Test if the global global global
+
+    Args:
+        nullary_mm: (bool): write your description
+    """
     obj = object()
     obj2 = object()
     be = Backend()
@@ -117,6 +204,12 @@ def test_global_before_registered(nullary_mm):
 
 
 def test_global_try_last(nullary_mm):
+    """
+    Test if the last call
+
+    Args:
+        nullary_mm: (bool): write your description
+    """
     obj = object()
     obj2 = object()
     be = Backend()
@@ -131,6 +224,12 @@ def test_global_try_last(nullary_mm):
 
 
 def test_global_only(nullary_mm):
+    """
+    Test if the global test.
+
+    Args:
+        nullary_mm: (bool): write your description
+    """
     obj = object()
     be = Backend()
     be.__ua_function__ = lambda f, a, kw: NotImplemented
@@ -146,6 +245,12 @@ def test_global_only(nullary_mm):
 
 
 def test_clear_backends(nullary_mm):
+    """
+    Clear all backends
+
+    Args:
+        nullary_mm: (todo): write your description
+    """
     obj = object()
     obj2 = object()
     be = Backend()
@@ -163,13 +268,36 @@ def test_clear_backends(nullary_mm):
 
 
 def test_function_attrs():
+    """
+    Extractor function.
+
+    Args:
+    """
     def extractor():
+        """
+        Extracts a list of this function that.
+
+        Args:
+        """
         return ()
 
     def replacer(a, kw, d):
+        """
+        Replacer a function that d d.
+
+        Args:
+            a: (array): write your description
+            kw: (todo): write your description
+            d: (array): write your description
+        """
         return a, kw
 
     def default():
+        """
+        Return the default value.
+
+        Args:
+        """
         return NotImplemented
 
     mm = ua.generate_multimethod(extractor, replacer, "ua_tests", default=default)
@@ -181,7 +309,19 @@ def test_function_attrs():
 
 
 def test_raising_from_backend(nullary_mm):
+    """
+    Test if the backend is a 3doo.
+
+    Args:
+        nullary_mm: (bool): write your description
+    """
     def raise_(foo):
+        """
+        Checks if the given iterator.
+
+        Args:
+            foo: (todo): write your description
+        """
         raise foo
 
     Foo = ua.BackendNotImplementedError("Foo")
@@ -219,6 +359,11 @@ def test_raising_from_backend(nullary_mm):
 
 
 def test_nested():
+    """
+    Test if nested nested nested nested nested nested directories.
+
+    Args:
+    """
     be = Backend()
     be.__ua_function__ = lambda f, a, kw: None
 
@@ -229,6 +374,11 @@ def test_nested():
 
 
 def test_invalid():
+    """
+    Test if the current state that will be run.
+
+    Args:
+    """
     be1 = Backend()
     be1.__ua_function__ = lambda f, a, kw: None
 
@@ -250,15 +400,36 @@ def test_invalid():
 
 
 def test_skip_comparison(nullary_mm):
+    """
+    Decorator todo that the wrapped functions.
+
+    Args:
+        nullary_mm: (bool): write your description
+    """
     be1 = Backend()
     be1.__ua_function__ = lambda f, a, kw: None
 
     class Backend2(Backend):
         @staticmethod
         def __ua_function__(f, a, kw):
+            """
+            Decor function decorators a function.
+
+            Args:
+                f: (todo): write your description
+                a: (todo): write your description
+                kw: (todo): write your description
+            """
             pass
 
         def __eq__(self, other):
+            """
+            Determine whether two values are equal.
+
+            Args:
+                self: (todo): write your description
+                other: (todo): write your description
+            """
             return other is self or other is be1
 
     with pytest.raises(ua.BackendNotImplementedError):
@@ -267,6 +438,12 @@ def test_skip_comparison(nullary_mm):
 
 
 def test_skip_raises(nullary_mm):
+    """
+    Decorator tomodified cross - validation.
+
+    Args:
+        nullary_mm: (bool): write your description
+    """
     be1 = Backend()
     be1.__ua_function__ = lambda f, a, kw: None
 
@@ -275,9 +452,24 @@ def test_skip_raises(nullary_mm):
     class Backend2(Backend):
         @staticmethod
         def __ua_function__(f, a, kw):
+            """
+            Decor function decorators a function.
+
+            Args:
+                f: (todo): write your description
+                a: (todo): write your description
+                kw: (todo): write your description
+            """
             pass
 
         def __eq__(self, other):
+            """
+            Determine if the given object is equal todo.
+
+            Args:
+                self: (todo): write your description
+                other: (todo): write your description
+            """
             raise foo
 
     with pytest.raises(Exception) as e:
@@ -288,6 +480,12 @@ def test_skip_raises(nullary_mm):
 
 
 def test_getset_state(cleanup_backends):
+    """
+    Test if the global state.
+
+    Args:
+        cleanup_backends: (todo): write your description
+    """
     ua.set_global_backend(Backend())
     ua.register_backend(Backend())
 
@@ -304,17 +502,43 @@ def test_getset_state(cleanup_backends):
 
 class ComparableBackend(Backend):
     def __init__(self, obj):
+        """
+        Initialize the object.
+
+        Args:
+            self: (todo): write your description
+            obj: (todo): write your description
+        """
         super().__init__()
         self.obj = obj
 
     def __eq__(self, other):
+        """
+        Determine if two values are equal.
+
+        Args:
+            self: (todo): write your description
+            other: (todo): write your description
+        """
         return isinstance(other, ComparableBackend) and self.obj == other.obj
 
     def __ne__(self, other):
+        """
+        Returns true if self is a and false otherwise.
+
+        Args:
+            self: (todo): write your description
+            other: (todo): write your description
+        """
         return not (self == other)
 
 
 def test_pickle_state():
+    """
+    Perform state of the global.
+
+    Args:
+    """
     ua.set_global_backend(ComparableBackend("a"))
     ua.register_backend(ComparableBackend("b"))
 
@@ -329,6 +553,11 @@ def test_pickle_state():
 
 
 def test_hierarchical_backends():
+    """
+    Generate backends.
+
+    Args:
+    """
     mm = ua.generate_multimethod(
         lambda: (), lambda a, kw, d: (a, kw), "ua_tests.foo.bar"
     )
@@ -383,6 +612,11 @@ def test_hierarchical_backends():
 
 
 def test_multidomain_backends():
+    """
+    Generate a multidom algorithm.
+
+    Args:
+    """
     n_domains = 2
     be = DisableBackend(domain=["ua_tests" + str(i) for i in range(n_domains)])
 
@@ -394,11 +628,22 @@ def test_multidomain_backends():
     ]
 
     def assert_no_backends():
+        """
+        Asserts that the backends are backends.
+
+        Args:
+        """
         for i in range(len(mms)):
             with pytest.raises(ua.BackendNotImplementedError):
                 mms[i]()
 
     def assert_backend_active(backend):
+        """
+        Check if all backend is active.
+
+        Args:
+            backend: (str): write your description
+        """
         assert all(mms[i]() is backend.ret for i in range(len(mms)))
 
     assert_no_backends()
@@ -430,6 +675,12 @@ def test_multidomain_backends():
 
 
 def test_determine_backend(nullary_mm):
+    """
+    Determine ifend of the backend. backend.
+
+    Args:
+        nullary_mm: (todo): write your description
+    """
     class TypeA:
         pass
 
@@ -442,9 +693,24 @@ def test_determine_backend(nullary_mm):
         __ua_domain__ = "ua_tests"
 
         def __init__(self, my_type):
+            """
+            Initialize a new type.
+
+            Args:
+                self: (todo): write your description
+                my_type: (todo): write your description
+            """
             self.my_type = my_type
 
         def __ua_convert__(self, dispatchables, coerce):
+            """
+            Convert all of the given type to a dimtype.
+
+            Args:
+                self: (todo): write your description
+                dispatchables: (str): write your description
+                coerce: (str): write your description
+            """
             if not all(
                 type(d.value) is self.my_type and d.type is mark for d in dispatchables
             ):
@@ -452,6 +718,13 @@ def test_determine_backend(nullary_mm):
             return tuple(d.value for d in dispatchables)
 
         def __ua_function__(self, func, args, kwargs):
+            """
+            Returns a function of the given function.
+
+            Args:
+                self: (todo): write your description
+                func: (todo): write your description
+            """
             return self.my_type
 
     BackendA = TypeBackend(TypeA)
@@ -489,6 +762,12 @@ def test_determine_backend(nullary_mm):
 
 
 def test_determine_backend_coerce(nullary_mm):
+    """
+    Determine whether the backend can be a subclass of backendables.
+
+    Args:
+        nullary_mm: (todo): write your description
+    """
     class TypeA:
         pass
 
@@ -501,9 +780,24 @@ def test_determine_backend_coerce(nullary_mm):
         __ua_domain__ = "ua_tests"
 
         def __init__(self, my_type):
+            """
+            Initialize a new type.
+
+            Args:
+                self: (todo): write your description
+                my_type: (todo): write your description
+            """
             self.my_type = my_type
 
         def __ua_convert__(self, dispatchables, coerce):
+            """
+            Determine whether or notmarkables type.
+
+            Args:
+                self: (todo): write your description
+                dispatchables: (str): write your description
+                coerce: (str): write your description
+            """
             if len(dispatchables) > 0:
                 print(dispatchables[0], coerce)
             if coerce and all(d.coercible for d in dispatchables):
@@ -516,6 +810,13 @@ def test_determine_backend_coerce(nullary_mm):
             return tuple(d.value for d in dispatchables)
 
         def __ua_function__(self, func, args, kwargs):
+            """
+            Returns a function of the given function.
+
+            Args:
+                self: (todo): write your description
+                func: (todo): write your description
+            """
             return self.my_type
 
     BackendA = TypeBackend(TypeA)
@@ -538,12 +839,25 @@ def test_determine_backend_coerce(nullary_mm):
 
 
 def test_default(nullary_mm):
+    """
+    Default test test.
+
+    Args:
+        nullary_mm: (bool): write your description
+    """
     obj = object()
     be = Backend()
     be.__ua_function__ = lambda f, a, kw: NotImplemented
 
     # If a backend returns NotImplemented, the default is called
     def default1(*a, **kw):
+        """
+        Return a default value.
+
+        Args:
+            a: (todo): write your description
+            kw: (todo): write your description
+        """
         return obj
 
     mm1 = ua.generate_multimethod(
@@ -557,6 +871,13 @@ def test_default(nullary_mm):
     num_calls = [0]
 
     def default2(*a, **kw):
+        """
+        Convenience function.
+
+        Args:
+            a: (todo): write your description
+            kw: (todo): write your description
+        """
         num_calls[0] = num_calls[0] + 1
         raise ua.BackendNotImplementedError()
 

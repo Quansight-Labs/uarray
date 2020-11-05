@@ -48,6 +48,14 @@ __all__ = [
 
 
 def unpickle_function(mod_name, qname, self_):
+    """
+    Unpickle a function by name
+
+    Args:
+        mod_name: (str): write your description
+        qname: (str): write your description
+        self_: (todo): write your description
+    """
     import importlib
 
     try:
@@ -68,6 +76,12 @@ def unpickle_function(mod_name, qname, self_):
 
 
 def pickle_function(func):
+    """
+    Decorator for pickle
+
+    Args:
+        func: (callable): write your description
+    """
     mod_name = getattr(func, "__module__", None)
     qname = getattr(func, "__qualname__", None)
     self_ = getattr(func, "__self__", None)
@@ -86,14 +100,32 @@ def pickle_function(func):
 
 
 def pickle_state(state):
+    """
+    Pickle state.
+
+    Args:
+        state: (todo): write your description
+    """
     return _uarray._BackendState._unpickle, state._pickle()
 
 
 def pickle_set_backend_context(ctx):
+    """
+    Pickle the pickle context.
+
+    Args:
+        ctx: (todo): write your description
+    """
     return _SetBackendContext, ctx._pickle()
 
 
 def pickle_skip_backend_context(ctx):
+    """
+    Return the pickle context.
+
+    Args:
+        ctx: (todo): write your description
+    """
     return _SkipBackendContext, ctx._pickle()
 
 
@@ -168,6 +200,12 @@ def create_multimethod(*args, **kwargs):
     """
 
     def wrapper(a):
+        """
+        Generate a function that returns a generator.
+
+        Args:
+            a: (int): write your description
+        """
         return generate_multimethod(a, *args, **kwargs)
 
     return wrapper
@@ -307,6 +345,12 @@ def skip_backend(backend):
 
 
 def get_defaults(f):
+    """
+    Returns a dictionary of default keyword arguments.
+
+    Args:
+        f: (dict): write your description
+    """
     sig = inspect.signature(f)
     kw_defaults = {}
     arg_defaults = []
@@ -435,14 +479,36 @@ class Dispatchable:
     """
 
     def __init__(self, value, dispatch_type, coercible=True):
+        """
+        Initialize a new transform.
+
+        Args:
+            self: (todo): write your description
+            value: (todo): write your description
+            dispatch_type: (str): write your description
+            coercible: (todo): write your description
+        """
         self.value = value
         self.type = dispatch_type
         self.coercible = coercible
 
     def __getitem__(self, index):
+        """
+        Return the value at index.
+
+        Args:
+            self: (todo): write your description
+            index: (int): write your description
+        """
         return (self.type, self.value)[index]
 
     def __str__(self):
+        """
+        Return a string representation of this type.
+
+        Args:
+            self: (todo): write your description
+        """
         return "<{0}: type={1!r}, value={2!r}>".format(
             type(self).__name__, self.type, self.value
         )
@@ -477,8 +543,19 @@ def all_of_type(arg_type):
     """
 
     def outer(func):
+        """
+        Decorator for making a function into a wrapped function.
+
+        Args:
+            func: (todo): write your description
+        """
         @functools.wraps(func)
         def inner(*args, **kwargs):
+            """
+            Decorator to apply args and kwargs.
+
+            Args:
+            """
             extracted_args = func(*args, **kwargs)
             return tuple(
                 Dispatchable(arg, arg_type)
@@ -503,6 +580,13 @@ def wrap_single_convertor(convert_single):
 
     @functools.wraps(convert_single)
     def __ua_convert__(dispatchables, coerce):
+        """
+        Convert a single dimce of dict.
+
+        Args:
+            dispatchables: (str): write your description
+            coerce: (str): write your description
+        """
         converted = []
         for d in dispatchables:
             c = convert_single(d.value, d.type, coerce and d.coercible)
@@ -528,6 +612,14 @@ def wrap_single_convertor_instance(convert_single):
 
     @functools.wraps(convert_single)
     def __ua_convert__(self, dispatchables, coerce):
+        """
+        Convert a single diminstance.
+
+        Args:
+            self: (todo): write your description
+            dispatchables: (str): write your description
+            coerce: (str): write your description
+        """
         converted = []
         for d in dispatchables:
             c = convert_single(self, d.value, d.type, coerce and d.coercible)

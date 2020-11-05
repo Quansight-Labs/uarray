@@ -12,6 +12,15 @@ cwd = Path(os.path.dirname(os.path.abspath(__file__)))
 
 
 def open_reqs_file(file, reqs_path=Path(cwd)):
+    """
+    Takes a file.
+
+    Args:
+        file: (str): write your description
+        reqs_path: (str): write your description
+        Path: (str): write your description
+        cwd: (str): write your description
+    """
     with (reqs_path / file).open() as f:
         reqs = list(f.read().strip().split("\n"))
 
@@ -30,6 +39,11 @@ reqs = []  # type: List[str]
 
 
 def parse_requires():
+    """
+    Parse requirements file.
+
+    Args:
+    """
     reqs_path = cwd / "requirements"
     reqs.extend(open_reqs_file("requirements.txt"))
 
@@ -45,6 +59,13 @@ with open("README.md") as f:
 
 class build_cpp11_ext(build_ext):
     def build_extension(self, ext):
+        """
+        Build the extension
+
+        Args:
+            self: (todo): write your description
+            ext: (str): write your description
+        """
         cc = self.compiler
         if cc.compiler_type == "unix":
             ext.extra_compile_args.append("--std=c++11")
