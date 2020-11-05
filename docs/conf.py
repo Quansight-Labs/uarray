@@ -25,6 +25,13 @@ except ImportError:
     class Mock(MagicMock):
         @classmethod
         def __getattr__(cls, name):
+            """
+            Get an attribute by name
+
+            Args:
+                cls: (callable): write your description
+                name: (str): write your description
+            """
             return MagicMock()
 
     MOCK_MODULES = ["uarray._uarray"]
