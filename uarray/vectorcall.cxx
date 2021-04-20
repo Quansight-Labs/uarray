@@ -36,6 +36,7 @@ static PyObject * build_kwarg_dict(
   return dict;
 }
 #elif (PY_VERSION_HEX < 0x03090000)
+// clang-format off
 
 static int is_method_descr(PyTypeObject* descr_tp) {
     return (
@@ -139,6 +140,7 @@ static int _PyObject_GetMethod(PyObject *obj, PyObject *name, PyObject **method)
     return 0;
 }
 
+// clang-format on
 #endif /* PYPY_VERSION */
 
 
