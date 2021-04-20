@@ -318,11 +318,8 @@ struct BackendState {
   static PyObject * unpickle_(PyObject * cls, PyObject * args) {
     try {
       PyObject *py_locals, *py_global;
-      py_ref empty_tuple = py_ref::steal(PyTuple_New(0));
-      if (!empty_tuple)
-        return nullptr;
-
-      py_ref ref = py_ref::steal(PyObject_Call(cls, empty_tuple.get(), NULL));
+      py_ref ref =
+          py_ref::steal(Q_PyObject_Vectorcall(cls, nullptr, 0, nullptr));
       BackendState * output = reinterpret_cast<BackendState *>(ref.get());
       if (output == nullptr)
         return nullptr;
@@ -1475,12 +1472,8 @@ PyTypeObject BackendStateType = {
 };
 
 PyObject * get_state(PyObject * /* self */, PyObject * /* args */) {
-  py_ref new_tuple = py_ref::steal(PyTuple_New(0));
-  if (!new_tuple)
-    return nullptr;
-
-  py_ref ref = py_ref::steal(PyObject_Call(
-      reinterpret_cast<PyObject *>(&BackendStateType), new_tuple.get(), NULL));
+  py_ref ref = py_ref::steal(Q_PyObject_Vectorcall(
+      reinterpret_cast<PyObject *>(&BackendStateType), nullptr, 0, nullptr));
   BackendState * output = reinterpret_cast<BackendState *>(ref.get());
 
   output->locals = local_domain_map;
