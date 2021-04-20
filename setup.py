@@ -59,7 +59,10 @@ cmdclass.update(versioneer.get_cmdclass())
 
 
 extensions = [
-    Extension("uarray._uarray", sources=["uarray/_uarray_dispatch.cxx"], language="c++")
+    Extension("uarray._uarray",
+              sources=["uarray/_uarray_dispatch.cxx", "uarray/vectorcall.cxx"],
+              depends=["uarray/small_dynamic_array.h", "uarray/vectorcall.h"],
+              language="c++")
 ]
 
 setup(

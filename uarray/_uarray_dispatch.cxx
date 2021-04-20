@@ -1,4 +1,5 @@
 #include "small_dynamic_array.h"
+#include "vectorcall.h"
 
 #include <Python.h>
 
@@ -91,6 +92,11 @@ py_ref py_make_tuple(const Ts &... args) {
 }
 
 py_ref py_bool(bool input) { return py_ref::ref(input ? Py_True : Py_False); }
+
+template <typename T, size_t N>
+constexpr size_t array_size(const T (&array)[N]) {
+  return N;
+}
 
 struct backend_options {
   py_ref backend;
@@ -312,11 +318,8 @@ struct BackendState {
   static PyObject * unpickle_(PyObject * cls, PyObject * args) {
     try {
       PyObject *py_locals, *py_global;
-      py_ref empty_tuple = py_ref::steal(PyTuple_New(0));
-      if (!empty_tuple)
-        return nullptr;
-
-      py_ref ref = py_ref::steal(PyObject_Call(cls, empty_tuple.get(), NULL));
+      py_ref ref =
+          py_ref::steal(Q_PyObject_Vectorcall(cls, nullptr, 0, nullptr));
       BackendState * output = reinterpret_cast<BackendState *>(ref.get());
       if (output == nullptr)
         return nullptr;
@@ -1147,11 +1150,8 @@ py_ref Function::canonicalize_kwargs(PyObject * kwargs) {
 
 py_func_args Function::replace_dispatchables(
     PyObject * backend, PyObject * args, PyObject * kwargs, PyObject * coerce) {
-  auto ua_convert =
-      py_ref::steal(PyObject_GetAttr(backend, identifiers.ua_convert.get()));
-
-  if (!ua_convert) {
-    PyErr_Clear();
+  auto has_ua_convert = PyObject_HasAttr(backend, identifiers.ua_convert.get());
+  if (!has_ua_convert) {
     return {py_ref::ref(args), py_ref::ref(kwargs)};
   }
 
@@ -1160,9 +1160,10 @@ py_func_args Function::replace_dispatchables(
   if (!dispatchables)
     return {};
 
-  auto convert_args = py_make_tuple(dispatchables, coerce);
-  auto res = py_ref::steal(
-      PyObject_Call(ua_convert.get(), convert_args.get(), nullptr));
+  PyObject * convert_args[] = {backend, dispatchables.get(), coerce};
+  auto res = py_ref::steal(Q_PyObject_VectorcallMethod(
+      identifiers.ua_convert.get(), convert_args,
+      array_size(convert_args) | Q_PY_VECTORCALL_ARGUMENTS_OFFSET, nullptr));
   if (!res) {
     return {};
   }
@@ -1175,12 +1176,11 @@ py_func_args Function::replace_dispatchables(
   if (!replaced_args)
     return {};
 
-  auto replacer_args = py_make_tuple(args, kwargs, replaced_args);
-  if (!replacer_args)
-    return {};
-
-  res = py_ref::steal(
-      PyObject_Call(replacer_.get(), replacer_args.get(), nullptr));
+  PyObject * replacer_args[] = {nullptr, args, kwargs, replaced_args.get()};
+  res = py_ref::steal(Q_PyObject_Vectorcall(
+      replacer_.get(), &replacer_args[1],
+      (array_size(replacer_args) - 1) | Q_PY_VECTORCALL_ARGUMENTS_OFFSET,
+      nullptr));
   if (!res)
     return {};
 
@@ -1263,18 +1263,11 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_) {
         if (new_args.args == nullptr)
           return LoopReturn::Error;
 
-        auto ua_function = py_ref::steal(
-            PyObject_GetAttr(backend, identifiers.ua_function.get()));
-        if (!ua_function)
-          return LoopReturn::Error;
-
-        auto ua_func_args = py_make_tuple(
-            reinterpret_cast<PyObject *>(this), new_args.args, new_args.kwargs);
-        if (!ua_func_args)
-          return LoopReturn::Error;
-
-        result = py_ref::steal(
-            PyObject_Call(ua_function.get(), ua_func_args.get(), nullptr));
+        PyObject * args[] = {backend, reinterpret_cast<PyObject *>(this),
+                             new_args.args.get(), new_args.kwargs.get()};
+        result = py_ref::steal(Q_PyObject_VectorcallMethod(
+            identifiers.ua_function.get(), args,
+            array_size(args) | Q_PY_VECTORCALL_ARGUMENTS_OFFSET, nullptr));
 
         // raise BackendNotImplemeted is equivalent to return NotImplemented
         if (!result &&
@@ -1479,12 +1472,8 @@ PyTypeObject BackendStateType = {
 };
 
 PyObject * get_state(PyObject * /* self */, PyObject * /* args */) {
-  py_ref new_tuple = py_ref::steal(PyTuple_New(0));
-  if (!new_tuple)
-    return nullptr;
-
-  py_ref ref = py_ref::steal(PyObject_Call(
-      reinterpret_cast<PyObject *>(&BackendStateType), new_tuple.get(), NULL));
+  py_ref ref = py_ref::steal(Q_PyObject_Vectorcall(
+      reinterpret_cast<PyObject *>(&BackendStateType), nullptr, 0, nullptr));
   BackendState * output = reinterpret_cast<BackendState *>(ref.get());
 
   output->locals = local_domain_map;
@@ -1543,22 +1532,22 @@ PyObject * determine_backend(PyObject * /*self*/, PyObject * args) {
   py_ref selected_backend;
   auto result = for_each_backend_in_domain(
       domain, [&](PyObject * backend, bool coerce_backend) {
-        auto ua_convert = py_ref::steal(
-            PyObject_GetAttr(backend, identifiers.ua_convert.get()));
+        auto has_ua_convert =
+            PyObject_HasAttr(backend, identifiers.ua_convert.get());
 
-        if (!ua_convert) {
+        if (!has_ua_convert) {
           // If no __ua_convert__, assume it won't accept the type
-          PyErr_Clear();
           return LoopReturn::Continue;
         }
 
-        auto convert_args = py_make_tuple(
-            dispatchables_tuple, py_bool(coerce && coerce_backend));
-        if (!convert_args)
-          return LoopReturn::Error;
+        PyObject * convert_args[] = {backend, dispatchables_tuple.get(),
+                                     (coerce && coerce_backend) ? Py_True
+                                                                : Py_False};
 
-        auto res = py_ref::steal(
-            PyObject_Call(ua_convert.get(), convert_args.get(), nullptr));
+        auto res = py_ref::steal(Q_PyObject_VectorcallMethod(
+            identifiers.ua_convert.get(), convert_args,
+            array_size(convert_args) | Q_PY_VECTORCALL_ARGUMENTS_OFFSET,
+            nullptr));
         if (!res) {
           return LoopReturn::Error;
         }
@@ -1599,44 +1588,45 @@ PyGetSetDef Function_getset[] = {
 };
 
 PyTypeObject FunctionType = {
-    PyVarObject_HEAD_INIT(NULL, 0)             /* boilerplate */
-    "uarray._Function",                        /* tp_name */
-    sizeof(Function),                          /* tp_basicsize */
-    0,                                         /* tp_itemsize */
-    (destructor)Function::dealloc,             /* tp_dealloc */
-    0,                                         /* tp_print */
-    0,                                         /* tp_getattr */
-    0,                                         /* tp_setattr */
-    0,                                         /* tp_reserved */
-    (reprfunc)Function::repr,                  /* tp_repr */
-    0,                                         /* tp_as_number */
-    0,                                         /* tp_as_sequence */
-    0,                                         /* tp_as_mapping */
-    0,                                         /* tp_hash  */
-    (ternaryfunc)Function_call,                /* tp_call */
-    0,                                         /* tp_str */
-    PyObject_GenericGetAttr,                   /* tp_getattro */
-    PyObject_GenericSetAttr,                   /* tp_setattro */
-    0,                                         /* tp_as_buffer */
-    (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC), /* tp_flags */
-    0,                                         /* tp_doc */
-    (traverseproc)Function::traverse,          /* tp_traverse */
-    (inquiry)Function::clear,                  /* tp_clear */
-    0,                                         /* tp_richcompare */
-    0,                                         /* tp_weaklistoffset */
-    0,                                         /* tp_iter */
-    0,                                         /* tp_iternext */
-    0,                                         /* tp_methods */
-    0,                                         /* tp_members */
-    Function_getset,                           /* tp_getset */
-    0,                                         /* tp_base */
-    0,                                         /* tp_dict */
-    Function::descr_get,                       /* tp_descr_get */
-    0,                                         /* tp_descr_set */
-    offsetof(Function, dict_),                 /* tp_dictoffset */
-    (initproc)Function::init,                  /* tp_init */
-    0,                                         /* tp_alloc */
-    Function::new_,                            /* tp_new */
+    PyVarObject_HEAD_INIT(NULL, 0) /* boilerplate */
+    /* tp_name= */ "uarray._Function",
+    /* tp_basicsize= */ sizeof(Function),
+    /* tp_itemsize= */ 0,
+    /* tp_dealloc= */ (destructor)Function::dealloc,
+    /* tp_print= */ 0,
+    /* tp_getattr= */ 0,
+    /* tp_setattr= */ 0,
+    /* tp_reserved= */ 0,
+    /* tp_repr= */ (reprfunc)Function::repr,
+    /* tp_as_number= */ 0,
+    /* tp_as_sequence= */ 0,
+    /* tp_as_mapping= */ 0,
+    /* tp_hash= */ 0,
+    /* tp_call= */ (ternaryfunc)Function_call,
+    /* tp_str= */ 0,
+    /* tp_getattro= */ PyObject_GenericGetAttr,
+    /* tp_setattro= */ PyObject_GenericSetAttr,
+    /* tp_as_buffer= */ 0,
+    /* tp_flags= */
+    (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC | Q_Py_TPFLAGS_METHOD_DESCRIPTOR),
+    /* tp_doc= */ 0,
+    /* tp_traverse= */ (traverseproc)Function::traverse,
+    /* tp_clear= */ (inquiry)Function::clear,
+    /* tp_richcompare= */ 0,
+    /* tp_weaklistoffset= */ 0,
+    /* tp_iter= */ 0,
+    /* tp_iternext= */ 0,
+    /* tp_methods= */ 0,
+    /* tp_members= */ 0,
+    /* tp_getset= */ Function_getset,
+    /* tp_base= */ 0,
+    /* tp_dict= */ 0,
+    /* tp_descr_get= */ Function::descr_get,
+    /* tp_descr_set= */ 0,
+    /* tp_dictoffset= */ offsetof(Function, dict_),
+    /* tp_init= */ (initproc)Function::init,
+    /* tp_alloc= */ 0,
+    /* tp_new= */ Function::new_,
 };
 
 
