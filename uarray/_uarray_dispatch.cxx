@@ -1762,7 +1762,7 @@ PyMethodDef method_defs[] = {
 };
 
 PyModuleDef uarray_module = {PyModuleDef_HEAD_INIT,
-                             /* m_name= */ "_uarray",
+                             /* m_name= */ "uarray._uarray",
                              /* m_doc= */ nullptr,
                              /* m_size= */ -1,
                              /* m_methods= */ method_defs,
