@@ -4,7 +4,6 @@ import inspect
 import functools
 from . import _uarray
 import copyreg
-import atexit
 import pickle
 import contextlib
 
@@ -101,7 +100,6 @@ copyreg.pickle(_Function, pickle_function)
 copyreg.pickle(_uarray._BackendState, pickle_state)
 copyreg.pickle(_SetBackendContext, pickle_set_backend_context)
 copyreg.pickle(_SkipBackendContext, pickle_skip_backend_context)
-atexit.register(_uarray.clear_all_globals)
 
 
 def get_state():

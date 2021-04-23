@@ -535,16 +535,36 @@ struct BackendState {
   }
 };
 
-/** Use to clean up python references before the interpreter is finalized.
- *
- * This must be installed in a python atexit handler. This prevents Py_DECREF
- * being called after the interpreter has already shudown.
- */
-PyObject * clear_all_globals(PyObject * /* self */, PyObject * /* args */) {
+/** Clean up global python references when the module is finalized. */
+void globals_free(void * /* self */) {
   global_domain_map.clear();
   BackendNotImplementedError.reset();
   identifiers.clear();
-  Py_RETURN_NONE;
+}
+
+/** Allow GC to break reference cycles between the module and global backends.
+ *
+ * NOTE: local state and "thread local globals" can't be visited because we
+ * can't access locals from another thread. However, since those are only
+ * set through context managers they should always be unset before module
+ * cleanup.
+ */
+int globals_traverse(PyObject * self, visitproc visit, void * arg) {
+  for (const auto & kv : global_domain_map) {
+    const auto & globals = kv.second;
+    PyObject * backend = globals.global.backend.get();
+    Py_VISIT(backend);
+    for (const auto & reg : globals.registered) {
+      backend = reg.get();
+      Py_VISIT(backend);
+    }
+  }
+  return 0;
+}
+
+int globals_clear(PyObject * /* self */) {
+  global_domain_map.clear();
+  return 0;
 }
 
 PyObject * set_global_backend(PyObject * /* self */, PyObject * args) {
@@ -1734,7 +1754,6 @@ PyTypeObject SkipBackendContextType = {
 PyMethodDef method_defs[] = {
     {"set_global_backend", set_global_backend, METH_VARARGS, nullptr},
     {"register_backend", register_backend, METH_VARARGS, nullptr},
-    {"clear_all_globals", clear_all_globals, METH_NOARGS, nullptr},
     {"clear_backends", clear_backends, METH_VARARGS, nullptr},
     {"determine_backend", determine_backend, METH_VARARGS, nullptr},
     {"get_state", get_state, METH_NOARGS, nullptr},
@@ -1742,9 +1761,15 @@ PyMethodDef method_defs[] = {
     {NULL} /* Sentinel */
 };
 
-PyModuleDef uarray_module = {
-    PyModuleDef_HEAD_INIT, "_uarray", nullptr, -1, method_defs,
-};
+PyModuleDef uarray_module = {PyModuleDef_HEAD_INIT,
+                             /* m_name= */ "uarray._uarray",
+                             /* m_doc= */ nullptr,
+                             /* m_size= */ -1,
+                             /* m_methods= */ method_defs,
+                             /* m_slots= */ nullptr,
+                             /* m_traverse= */ globals_traverse,
+                             /* m_clear= */ globals_clear,
+                             /* m_free= */ globals_free};
 
 } // namespace
 
