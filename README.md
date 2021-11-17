@@ -1,6 +1,8 @@
 # `uarray` - A back-end mechanism geared towards array computing
 
-[![Join the chat at https://gitter.im/Plures/uarray](https://badges.gitter.im/Plures/uarray.svg)](https://gitter.im/Plures/uarray?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Quansight-Labs/uarray/master) [![Build Status](https://dev.azure.com/Quansight-Labs/uarray/_apis/build/status/Quansight-Labs.uarray?branchName=master)](https://dev.azure.com/Quansight-Labs/uarray/_build/latest?definitionId=1&branchName=master) [![PyPI](https://img.shields.io/pypi/v/uarray.svg?style=flat-square)](https://pypi.org/project/uarray/)
+[![Join the chat at https://gitter.im/Plures/uarray](https://badges.gitter.im/Plures/uarray.svg)](https://gitter.im/Plures/uarray?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Build Status](https://github.com/Quansight-Labs/uarray/workflows/build/badge.svg)](https://github.com/Quansight-Labs/uarray/actions)
+[![PyPI](https://img.shields.io/pypi/v/uarray.svg?style=flat-square)](https://pypi.org/project/uarray/)
 
 <img src="docs/logo.png" style="width: 20em; text-align: center;" alt="uarray logo">
 

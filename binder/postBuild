@@ -1,5 +1,0 @@
-set -ex
-
-conda install jupyterlab jupyterlab_launcher
-pip install --no-deps -e .
-jupyter lab clean
