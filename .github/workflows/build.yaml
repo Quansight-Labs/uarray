@@ -1,0 +1,112 @@
+name: Build
+
+on:
+  # Trigger the workflow on push or pull request,
+  # but only for the main branch
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.2.2
+        env:
+          CIBW_TEST_COMMAND: "pip install -r {project}/requirements/tests.txt && pytest --pyargs uarray"
+          # Update according to NEP-29
+          CIBW_BUILD: "{cp3{8..10}-*,pp37-*}"
+          CIBW_ARCHS_MACOS: x86_64 universal2
+
+      - uses: actions/upload-artifact@v2
+        with:
+          path: ./wheelhouse/*.whl
+  
+  doc_lint_cov:
+    name: Documentation, Linting and Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+          cache: 'pip'
+      - name: Install package
+        run: |
+          pip install -ve .[all]
+      - name: Build documentation
+        run: |
+          sphinx-build -W -b html docs/ _build/html
+      - name: Lint documentation
+        run: |
+          doc8
+      - name: Upload documentation
+        uses: actions/upload-artifact@v2
+        with:
+          name: documentation
+          path: _build/html
+      - name: Code style and tests
+        run: |
+          pytest --cov=./ --cov-report=xml --pyargs uarray
+      - name: Run clang-format style check for C/C++ programs.
+        uses: jidicula/clang-format-action@v4.3.1
+        with:
+          clang-format-version: '13'
+          check-path: 'uarray'
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v2
+        with:
+          directory: ./coverage/reports/
+          env_vars: OS,PYTHON
+          fail_ci_if_error: false
+          verbose: true
+  
+  pypy3:
+    name: Tests for PyPy3
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 'pypy-3.7-v7.x'
+          cache: 'pip'
+      - name: Install package
+        run: |
+          pip install -ve .[tests]
+      - name: Run tests
+        run: |
+          pytest --pyargs uarray
+  
+  scipy_fft:
+    name: Run SciPy FFT tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+          cache: 'pip'
+      - name: Install package
+        run: |
+          pip install -ve .[tests]
+          pip install scipy==1.7.2
+      - name: SciPy tests
+        run: |
+          import scipy.fft
+          assert scipy.fft.test()
+        shell: python
