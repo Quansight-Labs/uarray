@@ -54,15 +54,16 @@ class build_cpp11_ext(build_ext):
         build_ext.build_extension(self, ext)
 
 
-cmdclass = {"build_ext": build_cpp11_ext}
-cmdclass.update(versioneer.get_cmdclass())
+cmdclass = versioneer.get_cmdclass({"build_ext": build_cpp11_ext})
 
 
 extensions = [
-    Extension("uarray._uarray",
-              sources=["uarray/_uarray_dispatch.cxx", "uarray/vectorcall.cxx"],
-              depends=["uarray/small_dynamic_array.h", "uarray/vectorcall.h"],
-              language="c++")
+    Extension(
+        "uarray._uarray",
+        sources=["uarray/_uarray_dispatch.cxx", "uarray/vectorcall.cxx"],
+        depends=["uarray/small_dynamic_array.h", "uarray/vectorcall.h"],
+        language="c++",
+    )
 ]
 
 setup(
