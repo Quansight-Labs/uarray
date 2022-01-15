@@ -2,7 +2,6 @@
 
 from setuptools import setup, find_packages, Extension
 from setuptools.command.build_ext import build_ext
-import versioneer
 from pathlib import Path
 import sys
 import os
@@ -54,9 +53,6 @@ class build_cpp11_ext(build_ext):
         build_ext.build_extension(self, ext)
 
 
-cmdclass = versioneer.get_cmdclass({"build_ext": build_cpp11_ext})
-
-
 extensions = [
     Extension(
         "uarray._uarray",
@@ -68,8 +64,7 @@ extensions = [
 
 setup(
     name="uarray",
-    version=versioneer.get_version(),
-    cmdclass=cmdclass,
+    cmdclass={"build_ext": build_cpp11_ext},
     description="Array interface object for Python with pluggable backends and a multiple-dispatch"
     "mechanism for defining down-stream functions",
     url="https://github.com/Quansight-Labs/uarray/",

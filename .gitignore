@@ -23,3 +23,4 @@ sandbox.py
 *.so
 build/
 default.profraw
+uarray/_version.py

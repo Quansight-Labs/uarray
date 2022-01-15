@@ -14,6 +14,7 @@
 #
 import os
 import sys
+from importlib.metadata import version
 
 
 # Mock Extension modules
@@ -34,9 +35,6 @@ except ImportError:
 # sys.path.insert(0, os.path.abspath('.'))
 from typing import List, Dict
 
-sys.path.insert(0, os.path.abspath(".."))
-from uarray import __version__  # noqa: E402
-
 
 # -- Project information -----------------------------------------------------
 
@@ -44,11 +42,10 @@ project = "uarray"
 copyright = "2019, Quansight-Labs"
 author = "Quansight-Labs"
 
-# The short X.Y version
-version = __version__
 # The full version, including alpha/beta/rc tags
-release = __version__
-
+release = version("uarray")
+# The short X.Y version
+version = ".".join(release.split(".")[:2])
 
 # -- General configuration ---------------------------------------------------
 
