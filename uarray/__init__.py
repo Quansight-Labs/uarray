@@ -113,6 +113,4 @@ possible.
 """
 
 from ._backend import *
-from . import _version
-
-__version__ = _version.version
+from ._version import version as __version__
