@@ -26,11 +26,11 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.2.2
+        uses: pypa/cibuildwheel@v2.3.1
         env:
           CIBW_TEST_COMMAND: "pip install -r {project}/requirements/tests.txt && pytest --pyargs uarray"
           # Update according to NEP-29
-          CIBW_BUILD: "{cp3{8..10}-*,pp37-*}"
+          CIBW_BUILD: "{cp3{8..10}-*,pp38-*}"
           CIBW_ARCHS_MACOS: x86_64 universal2
 
       - uses: actions/upload-artifact@v2
@@ -85,7 +85,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
-          python-version: 'pypy-3.7-v7.x'
+          python-version: 'pypy-3.8'
           cache: 'pip'
       - name: Install package
         run: |
