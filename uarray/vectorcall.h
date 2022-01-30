@@ -7,9 +7,9 @@ extern "C" {
 
 // True if python supports vectorcall on custom classes
 #if (!defined(PYPY_VERSION) && (PY_VERSION_HEX >= 0x03080000))
-  #define Q_HAS_VECTORCALL 1
+#  define Q_HAS_VECTORCALL 1
 #else
-  #define Q_HAS_VECTORCALL 0
+#  define Q_HAS_VECTORCALL 0
 #endif
 
 #if !Q_HAS_VECTORCALL
