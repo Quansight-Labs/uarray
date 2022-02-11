@@ -1,5 +1,7 @@
 import uarray as ua
 import pickle
+import subprocess
+import sys
 
 import pytest  # type: ignore
 
@@ -578,3 +580,13 @@ def test_default(nullary_mm):
     with ua.set_backend(be, coerce=True), pytest.raises(ua.BackendNotImplementedError):
         mm2()
     assert num_calls[0] == 1
+
+
+def test_refcnt():
+    out, _ = subprocess.Popen([sys.executable, "-c", """
+import uarray
+import sys
+print (sys.getrefcount(uarray._uarray.BackendNotImplementedError))
+"""], stdout=subprocess.PIPE, shell=False).communicate()
+    assert int(out.decode()) == 7
+

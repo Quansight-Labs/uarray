@@ -1816,7 +1816,6 @@ extern "C" MODULE_EXPORT PyObject * PyInit__uarray(void) {
       PyExc_NotImplementedError, nullptr));
   if (!BackendNotImplementedError)
     return nullptr;
-  Py_INCREF(BackendNotImplementedError.get());
   PyModule_AddObject(
       m.get(), "BackendNotImplementedError", BackendNotImplementedError.get());
 
