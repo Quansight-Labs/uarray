@@ -12,7 +12,7 @@ ArgumentReplacerType = typing.Callable[
     [typing.Tuple, typing.Dict, typing.Tuple], typing.Tuple[typing.Tuple, typing.Dict]
 ]
 
-from ._uarray import (  # type: ignore
+from ._uarray import (
     BackendNotImplementedError,
     _Function,
     _SkipBackendContext,

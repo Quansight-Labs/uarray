@@ -91,6 +91,7 @@ setup(
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
     ],
+    package_data={"uarray": ["*.pyi"]},
     project_urls={
         "Documentation": "https://uarray.org/",
         "Source": "https://github.com/Quansight-Labs/uarray/",
