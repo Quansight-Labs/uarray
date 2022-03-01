@@ -76,7 +76,7 @@ class _BackendState:
 class _Function(Generic[_P]):
     def __init__(
         self,
-        extractor: Callable[_P, tuple[uarray.Dispatchable, ...]],
+        extractor: Callable[_P, tuple[uarray.Dispatchable[Any, Any], ...]],
         replacer: None | _ReplacerFunc,
         domain: str,
         def_args: tuple[Any, ...],
@@ -92,7 +92,7 @@ class _Function(Generic[_P]):
         self, obj: object, type: None | type[Any] = ...
     ) -> types.MethodType: ...
     @property
-    def arg_extractor(self) -> Callable[_P, tuple[uarray.Dispatchable, ...]]: ...
+    def arg_extractor(self) -> Callable[_P, tuple[uarray.Dispatchable[Any, Any], ...]]: ...
     @property
     def arg_replacer(self) -> None | _ReplacerFunc: ...
     @property
@@ -105,7 +105,7 @@ class _Function(Generic[_P]):
     __name__: str
     __qualname__: str
     __doc__: None | str
-    __wrapped__: Callable[_P, tuple[uarray.Dispatchable, ...]]
+    __wrapped__: Callable[_P, tuple[uarray.Dispatchable[Any, Any], ...]]
     __annotations__: dict[str, Any]
 
 def set_global_backend(
@@ -123,7 +123,7 @@ def clear_backends(
 ) -> None: ...
 def determine_backend(
     domain_object: str,
-    dispatchables: Iterable[uarray.Dispatchable],
+    dispatchables: Iterable[uarray.Dispatchable[Any, Any]],
     coerce: bool,
     /,
 ) -> _SupportsUAConvert: ...
