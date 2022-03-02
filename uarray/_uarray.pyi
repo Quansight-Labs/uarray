@@ -2,7 +2,7 @@
 
 import types
 from collections.abc import Callable, Iterable
-from typing import Any, final, overload, Generic, TypeVar
+from typing import Any, final, overload, Generic
 
 # TODO: Import from `typing` once `uarray` requires Python >= 3.10
 from typing_extensions import ParamSpec
@@ -17,7 +17,6 @@ from uarray._typing import (
 )
 
 _P = ParamSpec("_P")
-_ReturnT = TypeVar("_ReturnT", bound=tuple[uarray.Dispatchable, ...])
 
 class BackendNotImplementedError(NotImplementedError): ...
 
@@ -74,10 +73,10 @@ class _BackendState:
 
 # TODO: Remove the `type: ignore` once python/mypy#12033 has been bug fixed
 @final  # type: ignore[arg-type]
-class _Function(Generic[_P, _ReturnT]):
+class _Function(Generic[_P]):
     def __init__(
         self,
-        extractor: Callable[_P, _ReturnT],
+        extractor: Callable[_P, tuple[uarray.Dispatchable, ...]],
         replacer: None | _ReplacerFunc,
         domain: str,
         def_args: tuple[Any, ...],
@@ -85,7 +84,7 @@ class _Function(Generic[_P, _ReturnT]):
         def_impl: None | Callable[..., Any],
     ) -> None: ...
     def __repr__(self) -> str: ...
-    def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _ReturnT: ...
+    def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> Any: ...
     @overload
     def __get__(self, obj: None, type: type[Any]) -> _Function: ...
     @overload
@@ -93,7 +92,7 @@ class _Function(Generic[_P, _ReturnT]):
         self, obj: object, type: None | type[Any] = ...
     ) -> types.MethodType: ...
     @property
-    def arg_extractor(self) -> Callable[_P, _ReturnT]: ...
+    def arg_extractor(self) -> Callable[_P, tuple[uarray.Dispatchable, ...]]: ...
     @property
     def arg_replacer(self) -> None | _ReplacerFunc: ...
     @property
@@ -106,7 +105,7 @@ class _Function(Generic[_P, _ReturnT]):
     __name__: str
     __qualname__: str
     __doc__: None | str
-    __wrapped__: Callable[_P, _ReturnT]
+    __wrapped__: Callable[_P, tuple[uarray.Dispatchable, ...]]
     __annotations__: dict[str, Any]
 
 def set_global_backend(
