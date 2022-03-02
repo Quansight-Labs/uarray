@@ -90,8 +90,9 @@ setup(
         "Programming Language :: Python :: 3 :: Only",
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
+        "Typing :: Typed",
     ],
-    package_data={"uarray": ["*.pyi"]},
+    package_data={"uarray": ["*.pyi", "py.typed"]},
     project_urls={
         "Documentation": "https://uarray.org/",
         "Source": "https://github.com/Quansight-Labs/uarray/",
