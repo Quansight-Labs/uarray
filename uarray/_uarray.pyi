@@ -2,7 +2,10 @@
 
 import types
 from collections.abc import Callable, Iterable
-from typing import Any, final, overload
+from typing import Any, final, overload, Generic, TypeVar
+
+# TODO: Import from `typing` once `uarray` requires Python >= 3.10
+from typing_extensions import ParamSpec
 
 import uarray
 from uarray._typing import (
@@ -12,6 +15,9 @@ from uarray._typing import (
     _SupportsUAConvert,
     _SupportsUADomain,
 )
+
+_P = ParamSpec("_P")
+_ReturnT = TypeVar("_ReturnT", bound=tuple[uarray.Dispatchable, ...])
 
 class BackendNotImplementedError(NotImplementedError): ...
 
@@ -66,11 +72,12 @@ class _BackendState:
         /,
     ) -> _BackendState: ...
 
-@final
-class _Function:
+# TODO: Remove the `type: ignore` once python/mypy#12033 has been bug fixed
+@final  # type: ignore[arg-type]
+class _Function(Generic[_P, _ReturnT]):
     def __init__(
         self,
-        extractor: Callable[..., tuple[uarray.Dispatchable, ...]],
+        extractor: Callable[_P, _ReturnT],
         replacer: None | _ReplacerFunc,
         domain: str,
         def_args: tuple[Any, ...],
@@ -78,7 +85,7 @@ class _Function:
         def_impl: None | Callable[..., Any],
     ) -> None: ...
     def __repr__(self) -> str: ...
-    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
+    def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _ReturnT: ...
     @overload
     def __get__(self, obj: None, type: type[Any]) -> _Function: ...
     @overload
@@ -86,7 +93,7 @@ class _Function:
         self, obj: object, type: None | type[Any] = ...
     ) -> types.MethodType: ...
     @property
-    def arg_extractor(self) -> Callable[..., tuple[uarray.Dispatchable, ...]]: ...
+    def arg_extractor(self) -> Callable[_P, _ReturnT]: ...
     @property
     def arg_replacer(self) -> None | _ReplacerFunc: ...
     @property
@@ -99,7 +106,7 @@ class _Function:
     __name__: str
     __qualname__: str
     __doc__: None | str
-    __wrapped__: Callable[..., tuple[uarray.Dispatchable, ...]]
+    __wrapped__: Callable[_P, _ReturnT]
     __annotations__: dict[str, Any]
 
 def set_global_backend(
