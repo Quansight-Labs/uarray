@@ -99,7 +99,7 @@ def pickle_skip_backend_context(ctx):
 # TODO: Remove the `if` block once python/typeshed#7415
 # has been integrated into mypy
 if not typing.TYPE_CHECKING:
-    copyreg.pickle(_Function, a)
+    copyreg.pickle(_Function, pickle_function)
     copyreg.pickle(_uarray._BackendState, pickle_state)
     copyreg.pickle(_SetBackendContext, pickle_set_backend_context)
     copyreg.pickle(_SkipBackendContext, pickle_skip_backend_context)
