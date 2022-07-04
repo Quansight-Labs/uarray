@@ -12,7 +12,7 @@ ArgumentReplacerType = typing.Callable[
     [typing.Tuple, typing.Dict, typing.Tuple], typing.Tuple[typing.Tuple, typing.Dict]
 ]
 
-from ._uarray import (  # type: ignore
+from ._uarray import (
     BackendNotImplementedError,
     _Function,
     _SkipBackendContext,
@@ -96,10 +96,13 @@ def pickle_skip_backend_context(ctx):
     return _SkipBackendContext, ctx._pickle()
 
 
-copyreg.pickle(_Function, pickle_function)
-copyreg.pickle(_uarray._BackendState, pickle_state)
-copyreg.pickle(_SetBackendContext, pickle_set_backend_context)
-copyreg.pickle(_SkipBackendContext, pickle_skip_backend_context)
+# TODO: Remove the `if` block once python/typeshed#7415
+# has been integrated into mypy
+if not typing.TYPE_CHECKING:
+    copyreg.pickle(_Function, pickle_function)
+    copyreg.pickle(_uarray._BackendState, pickle_state)
+    copyreg.pickle(_SetBackendContext, pickle_set_backend_context)
+    copyreg.pickle(_SkipBackendContext, pickle_skip_backend_context)
 
 
 def get_state():

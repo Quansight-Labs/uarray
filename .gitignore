@@ -24,3 +24,4 @@ sandbox.py
 build/
 default.profraw
 uarray/_version.py
+*.pyd
