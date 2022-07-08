@@ -22,7 +22,7 @@ from ._uarray import (
 if TYPE_CHECKING:
     from typing_extensions import ParamSpec
     from ._typing import (
-        _SupportsUADomain,
+        _SupportsUA,
         _PartialDispatchable,
         _ReplacerFunc,
     )
@@ -120,13 +120,13 @@ def pickle_state(
 
 def pickle_set_backend_context(
     ctx: _SetBackendContext,
-) -> tuple[type[_SetBackendContext], tuple[_SupportsUADomain, bool, bool],]:
+) -> tuple[type[_SetBackendContext], tuple[_SupportsUA, bool, bool],]:
     return _SetBackendContext, ctx._pickle()
 
 
 def pickle_skip_backend_context(
     ctx: _SkipBackendContext,
-) -> tuple[type[_SkipBackendContext], tuple[_SupportsUADomain],]:
+) -> tuple[type[_SkipBackendContext], tuple[_SupportsUA],]:
     return _SkipBackendContext, ctx._pickle()
 
 
@@ -287,7 +287,7 @@ def generate_multimethod(
 
 
 def set_backend(
-    backend: _SupportsUADomain,
+    backend: _SupportsUA,
     coerce: bool = False,
     only: bool = False,
 ) -> _SetBackendContext:
@@ -311,7 +311,7 @@ def set_backend(
     try:
         return backend.__ua_cache__["set", coerce, only]
     except AttributeError:
-        backend.__ua_cache__ = {}
+        backend.__ua_cache__ = {}  # type: ignore[misc]
     except KeyError:
         pass
 
@@ -320,7 +320,7 @@ def set_backend(
     return ctx
 
 
-def skip_backend(backend: _SupportsUADomain) -> _SkipBackendContext:
+def skip_backend(backend: _SupportsUA) -> _SkipBackendContext:
     """
     A context manager that allows one to skip a given backend from processing
     entirely. This allows one to use another backend's code in a library that
@@ -339,7 +339,7 @@ def skip_backend(backend: _SupportsUADomain) -> _SkipBackendContext:
     try:
         return backend.__ua_cache__["skip"]
     except AttributeError:
-        backend.__ua_cache__ = {}
+        backend.__ua_cache__ = {}  # type: ignore[misc]
     except KeyError:
         pass
 
@@ -369,7 +369,7 @@ def get_defaults(
 
 
 def set_global_backend(
-    backend: _SupportsUADomain,
+    backend: _SupportsUA,
     coerce: bool = False,
     only: bool = False,
     *,
@@ -409,7 +409,7 @@ def set_global_backend(
     _uarray.set_global_backend(backend, coerce, only, try_last)
 
 
-def register_backend(backend: _SupportsUADomain) -> None:
+def register_backend(backend: _SupportsUA) -> None:
     """
     This utility method sets registers backend for permanent use. It
     will be tried in the list of backends automatically, unless the

@@ -16,12 +16,11 @@ class _PySequence(Protocol[_T_co]):
     def __getitem__(self, key: int, /) -> _T_co: ...
 
 @type_check_only
-class _SupportsUADomain(Protocol):
+class _SupportsUA(Protocol):
     @property
     def __ua_domain__(self) -> str | _PySequence[str]: ...
-
-@type_check_only
-class _SupportsUAConvert(Protocol):
+    @property
+    def __ua_cache__(self) -> dict[Any, Any]: ...
     def __ua_convert__(
         self,
         dispatchables: tuple[uarray.Dispatchable[Any, Any], ...],
