@@ -9,7 +9,7 @@ import pickle
 import contextlib
 
 from collections.abc import Callable, Generator, Iterable
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, Literal, overload
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, Literal, overload, no_type_check
 
 from ._uarray import (
     BackendNotImplementedError,
@@ -60,6 +60,7 @@ __all__ = [
 ]
 
 
+@no_type_check
 def unpickle_function(
     mod_name: str,
     qname: str,
@@ -84,6 +85,7 @@ def unpickle_function(
         raise UnpicklingError from e
 
 
+@no_type_check
 def pickle_function(
     func: Callable[..., Any],
 ) -> tuple[
