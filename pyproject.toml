@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
 
 [tool.black]
 exclude = 'uarray/_version.py'
@@ -15,3 +15,11 @@ module = [
     "pytest_black.*",
 ]
 ignore_missing_imports = true
+
+[tool.cibuildwheel]
+build = "{cp3{8..10}-*,pp3{8..9}-*}"
+build-frontend = "build"
+test-command = "pip install -r {project}/requirements/tests.txt && pytest --pyargs uarray"
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "universal2"]

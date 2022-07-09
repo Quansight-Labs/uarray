@@ -23,17 +23,13 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.3.1
-        env:
-          CIBW_TEST_COMMAND: "pip install -r {project}/requirements/tests.txt && pytest --pyargs uarray"
-          # Update according to NEP-29
-          CIBW_BUILD: "{cp3{8..10}-*,pp38-*}"
-          CIBW_ARCHS_MACOS: x86_64 universal2
-
-      - uses: actions/upload-artifact@v2
+        uses: pypa/cibuildwheel@v2.8.0
+      - uses: actions/upload-artifact@v3
         with:
           name: Wheels
           path: ./wheelhouse/*.whl
@@ -42,7 +38,9 @@ jobs:
     name: Documentation, Linting and Coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v2
         with:
           # Update according to NEP-29
@@ -58,7 +56,7 @@ jobs:
         run: |
           doc8
       - name: Upload documentation
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: Documentation
           path: _build/html
@@ -85,7 +83,9 @@ jobs:
     name: Tests for PyPy3
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v2
         with:
           python-version: 'pypy-3.8'
@@ -101,7 +101,7 @@ jobs:
     name: Run SciPy FFT tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/setup-python@v2
         with:
           # Update according to NEP-29
