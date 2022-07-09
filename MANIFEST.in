@@ -1,4 +1,3 @@
-include versioneer.py
 recursive-include uarray *
 include LICENSE
 include requirements.txt
