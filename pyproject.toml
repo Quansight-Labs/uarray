@@ -9,12 +9,15 @@ write_to = "uarray/_version.py"
 
 [tool.mypy]
 show_error_codes = true
+no_implicit_reexport = true
+disallow_any_unimported = true
 
 [[tool.mypy.overrides]]
 module = [
     "pytest_black.*",
 ]
 ignore_missing_imports = true
+disallow_any_unimported = false
 
 [tool.cibuildwheel]
 build = "{cp3{8..10}-*,pp3{8..9}-*}"
