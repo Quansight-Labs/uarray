@@ -6,6 +6,7 @@ from . import _uarray
 import copyreg
 import pickle
 import contextlib
+import warnings
 
 ArgumentExtractorType = typing.Callable[..., typing.Tuple["Dispatchable", ...]]
 ArgumentReplacerType = typing.Callable[
@@ -267,6 +268,9 @@ def set_backend(backend, coerce=False, only=False):
     skip_backend: A context manager that allows skipping of backends.
     set_global_backend: Set a single, global backend for a domain.
     """
+    # Deprecated: 2022-08-17, To be removed: 2023-08-17
+    # See gh-237 and https://discuss.scientific-python.org/t/requirements-and-discussion-of-a-type-dispatcher-for-the-ecosystem/157/40
+    warnings.warn("uarray.skip_backend is deprecated, please migrate to scoped backends.", category=DeprecationWarning)
     try:
         return backend.__ua_cache__["set", coerce, only]
     except AttributeError:
