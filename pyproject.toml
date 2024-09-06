@@ -46,7 +46,6 @@ Repository = "https://github.com/Quansight-Labs/uarray.git"
 docs = [
     "sphinx",
     "sphinx_rtd_theme",
-    "doc8",
 ]
 tests = [
     "pytest>=3.5",

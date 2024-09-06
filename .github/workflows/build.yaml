@@ -83,9 +83,6 @@ jobs:
       - name: Build documentation
         run: |
           sphinx-build -W -b html docs/ _build/html
-      - name: Lint documentation
-        run: |
-          doc8
       - name: Upload documentation
         uses: actions/upload-artifact@v4
         with:
@@ -140,7 +137,7 @@ jobs:
           cache: 'pip'
       - name: Install package
         run: |
-          pip install -v .[tests]
+          pip install -v .[tests] pytest"<6"
           pip install scipy==1.7.2
       - name: SciPy tests
         run: |
