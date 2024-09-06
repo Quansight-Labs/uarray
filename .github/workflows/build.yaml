@@ -137,7 +137,7 @@ jobs:
           cache: 'pip'
       - name: Install package
         run: |
-          pip install -v .[tests] pytest"<6"
+          pip install -v .[tests] pytest"<7"
           pip install scipy==1.7.2
       - name: SciPy tests
         run: |
