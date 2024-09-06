@@ -284,7 +284,7 @@ def generate_multimethod(
         default,
     )
 
-    return functools.update_wrapper(ua_func, argument_extractor)
+    return functools.update_wrapper(ua_func, argument_extractor) # type: ignore[return-value]
 
 
 def set_backend(

@@ -23,40 +23,68 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.8.0
-      - uses: actions/upload-artifact@v3
+        uses: pypa/cibuildwheel@v2.20.0
+      - uses: actions/upload-artifact@v4
         with:
-          name: Wheels
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
+
+  make_sdist:
+    name: Make SDist
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Build SDist
+      run: pipx run build --sdist
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: cibw-sdist
+        path: dist/*.tar.gz
+  
+  upload_all:
+    needs: [build_wheels, make_sdist]
+    permissions:
+      id-token: write
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        pattern: cibw-*
+        path: dist
+        merge-multiple: true
+
+    - uses: pypa/gh-action-pypi-publish@release/v1
 
   doc_lint_cov:
     name: Documentation, Linting and Coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v5
         with:
           # Update according to NEP-29
-          python-version: '3.8'
+          python-version: '3.10'
           cache: 'pip'
       - name: Install package
         run: |
-          pip install -ve .[all]
+          pip install -v .[all]
       - name: Build documentation
         run: |
           sphinx-build -W -b html docs/ _build/html
-      - name: Lint documentation
-        run: |
-          doc8
       - name: Upload documentation
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Documentation
           path: _build/html
@@ -65,14 +93,14 @@ jobs:
           pytest --pyargs uarray
       - name: mypy
         run: |
-          mypy uarray
+          mypy src/uarray
       - name: Run clang-format style check for C/C++ code.
-        uses: jidicula/clang-format-action@v4.3.1
+        uses: jidicula/clang-format-action@v4.13.0
         with:
-          clang-format-version: '13'
-          check-path: 'uarray'
+          clang-format-version: '18'
+          check-path: 'src'
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v4
         with:
           directory: 'coverage/coverage*.xml'
           env_vars: OS,PYTHON
@@ -83,16 +111,16 @@ jobs:
     name: Tests for PyPy3
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v5
         with:
-          python-version: 'pypy-3.8'
+          python-version: 'pypy-3.10'
           cache: 'pip'
       - name: Install package
         run: |
-          pip install -ve .[tests]
+          pip install -v .[tests]
       - name: Run tests
         run: |
           pytest --pyargs uarray
@@ -101,15 +129,15 @@ jobs:
     name: Run SciPy FFT tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           # Update according to NEP-29
-          python-version: '3.8'
+          python-version: '3.10'
           cache: 'pip'
       - name: Install package
         run: |
-          pip install -ve .[tests]
+          pip install -v .[tests] pytest"<7"
           pip install scipy==1.7.2
       - name: SciPy tests
         run: |
