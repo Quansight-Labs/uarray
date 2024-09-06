@@ -1,5 +1,0 @@
-recursive-include uarray *
-include LICENSE
-include requirements.txt
-recursive-include requirements *.txt
-global-exclude *.pyc *.so *.dll *.dylib

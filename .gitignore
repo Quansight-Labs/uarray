@@ -23,5 +23,8 @@ sandbox.py
 *.so
 build/
 default.profraw
-uarray/_version.py
+src/uarray/_version.py
 *.pyd
+# pixi environments
+.pixi
+*.egg-info
