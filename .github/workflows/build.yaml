@@ -93,7 +93,7 @@ jobs:
           pytest --pyargs uarray
       - name: mypy
         run: |
-          mypy uarray
+          mypy src/uarray
       - name: Run clang-format style check for C/C++ code.
         uses: jidicula/clang-format-action@v4.13.0
         with:
