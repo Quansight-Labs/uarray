@@ -79,7 +79,7 @@ jobs:
           cache: 'pip'
       - name: Install package
         run: |
-          pip install -ve .[all]
+          pip install -v .[all]
       - name: Build documentation
         run: |
           sphinx-build -W -b html docs/ _build/html
@@ -123,7 +123,7 @@ jobs:
           cache: 'pip'
       - name: Install package
         run: |
-          pip install -ve .[tests]
+          pip install -v .[tests]
       - name: Run tests
         run: |
           pytest --pyargs uarray
@@ -140,7 +140,7 @@ jobs:
           cache: 'pip'
       - name: Install package
         run: |
-          pip install -ve .[tests]
+          pip install -v .[tests]
           pip install scipy==1.7.2
       - name: SciPy tests
         run: |
