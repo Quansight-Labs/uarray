@@ -95,7 +95,7 @@ jobs:
         run: |
           mypy src/uarray
       - name: Run clang-format style check for C/C++ code.
-        uses: jidicula/clang-format-action@v4.13.0
+        uses: jidicula/clang-format-action@v4.14.0
         with:
           clang-format-version: '19'
           check-path: 'src'
