@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.15...3.30)
-set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "Minimum OS X deployment version")
 
 project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
 

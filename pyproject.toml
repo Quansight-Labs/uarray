@@ -79,6 +79,11 @@ test-command = "pytest --pyargs uarray"
 [tool.cibuildwheel.macos]
 archs = ["universal2"]
 
+[[tool.cibuildwheel.overrides]]
+select = "*-macosx_*"
+inherit.environment = "append"
+environment.MACOSX_DEPLOYMENT_TARGET = "10.13"
+
 [tool.cibuildwheel.config-settings]
 "cmake.verbose" = true
 "logging.level" = "INFO"
