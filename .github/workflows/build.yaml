@@ -100,7 +100,7 @@ jobs:
           clang-format-version: '19'
           check-path: 'src'
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           directory: 'coverage/coverage*.xml'
           env_vars: OS,PYTHON
