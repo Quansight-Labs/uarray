@@ -73,10 +73,16 @@ disallow_any_unimported = false
 build = "{cp3{10..13}-*,pp310-*}"
 build-frontend = "build"
 free-threaded-support = true
-test-command = "pip install -r {project}/requirements/tests.txt && pytest --pyargs uarray"
+before-test = "pip install -r {project}/requirements/tests.txt"
+test-command = "pytest --pyargs uarray"
 
 [tool.cibuildwheel.macos]
 archs = ["universal2"]
+
+[[tool.cibuildwheel.overrides]]
+select = "*-macosx_*"
+inherit.environment = "append"
+environment.MACOSX_DEPLOYMENT_TARGET = "10.13"
 
 [tool.cibuildwheel.config-settings]
 "cmake.verbose" = true
