@@ -72,7 +72,7 @@ disallow_any_unimported = false
 [tool.cibuildwheel]
 build = "{cp3{10..13}-*,pp310-*}"
 build-frontend = "build"
-free-threaded-support = true
+enable = ["cpython-freethreading"]
 before-test = "pip install -r {project}/requirements/tests.txt"
 test-command = "pytest --pyargs uarray"
 
