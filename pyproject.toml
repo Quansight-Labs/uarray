@@ -10,12 +10,12 @@ readme = "README.md"
 dependencies = []
 maintainers = [{ name = "Hameer Abbasi", email = "habbasi@quansight.com" }]
 requires-python = ">=3.10"
-license = { file = "LICENSE" }
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 keywords = ["uarray", "scipy", "multiple-dispatch"]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Operating System :: OS Independent",
-    "License :: OSI Approved :: BSD License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
