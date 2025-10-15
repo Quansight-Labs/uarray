@@ -28,3 +28,4 @@ src/uarray/_version.py
 # pixi environments
 .pixi
 *.egg-info
+wheelhouse/
