@@ -8,8 +8,8 @@ dynamic = ["version"]
 description = "Array interface object for Python with pluggable backends and a multiple-dispatch mechanism for defining down-stream functions"
 readme = "README.md"
 dependencies = []
-maintainers = [{ name = "Hameer Abbasi", email = "habbasi@quansight.com" }]
-requires-python = ">=3.10"
+maintainers = [{ name = "Hameer Abbasi", email = "habbasi@openteams.com" }]
+requires-python = ">=3.11"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 keywords = ["uarray", "scipy", "multiple-dispatch"]
@@ -18,10 +18,10 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
@@ -70,7 +70,7 @@ ignore_missing_imports = true
 disallow_any_unimported = false
 
 [tool.cibuildwheel]
-build = "{cp3{10..13}-*,cp313t-*}"
+build = "{cp3{11..14}-*,cp3{13..14}t-*}"
 build-frontend = "build"
 enable = ["cpython-freethreading"]
 before-test = "pip install -r {project}/requirements/tests.txt"
@@ -82,7 +82,7 @@ archs = ["universal2"]
 [[tool.cibuildwheel.overrides]]
 select = "*-macosx_*"
 inherit.environment = "append"
-environment.MACOSX_DEPLOYMENT_TARGET = "10.13"
+environment.MACOSX_DEPLOYMENT_TARGET = "10.15"
 
 [tool.cibuildwheel.config-settings]
 "cmake.verbose" = true

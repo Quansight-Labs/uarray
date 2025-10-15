@@ -2,10 +2,7 @@
 
 import types
 from collections.abc import Callable, Iterable
-from typing import Any, final, overload, Generic
-
-# TODO: Import from `typing` once `uarray` requires Python >= 3.10
-from typing_extensions import ParamSpec
+from typing import Any, final, overload, Generic, ParamSpec
 
 import uarray
 from uarray._typing import (
