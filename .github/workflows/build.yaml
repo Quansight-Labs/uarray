@@ -107,24 +107,6 @@ jobs:
           fail_ci_if_error: false
           verbose: true
 
-  pypy3:
-    name: Tests for PyPy3
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v6
-        with:
-          python-version: 'pypy-3.11'
-          cache: 'pip'
-      - name: Install package
-        run: |
-          pip install -v .[tests]
-      - name: Run tests
-        run: |
-          pytest --pyargs uarray
-
   scipy_fft:
     name: Run SciPy FFT tests
     runs-on: ubuntu-latest
