@@ -342,8 +342,7 @@ struct BackendState {
   static PyObject * unpickle_(PyObject * cls, PyObject * args) {
     try {
       PyObject *py_locals, *py_global;
-      py_ref ref =
-          py_ref::steal(PyObject_Vectorcall(cls, nullptr, 0, nullptr));
+      py_ref ref = py_ref::steal(PyObject_Vectorcall(cls, nullptr, 0, nullptr));
       BackendState * output = reinterpret_cast<BackendState *>(ref.get());
       if (output == nullptr)
         return nullptr;
