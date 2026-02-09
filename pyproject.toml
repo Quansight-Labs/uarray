@@ -68,9 +68,6 @@ enable = ["cpython-freethreading"]
 before-test = "pip install -r {project}/requirements/tests.txt"
 test-command = "pytest --pyargs uarray"
 
-[tool.cibuildwheel.macos]
-archs = ["x86_64", "arm64"]
-
 [[tool.cibuildwheel.overrides]]
 select = "*-macosx_*"
 inherit.environment = "append"
