@@ -34,7 +34,7 @@ jobs:
           architecture: 'x86'
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
-        with:
+        env:
           CIBW_ARCHS: ${{ matrix.archs }}
       - uses: actions/upload-artifact@v6
         with:
