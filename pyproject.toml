@@ -1,10 +1,11 @@
 [build-system]
-requires = ["scikit-build-core", "setuptools_scm>=8"]
-build-backend = "scikit_build_core.setuptools.build_meta"
+requires = ["meson-python"]
+build-backend = "mesonpy"
 
 [project]
 name = "uarray"
-dynamic = ["version"]
+# dynamic = ["version"]
+version = "0.9.4.dev0"
 description = "Array interface object for Python with pluggable backends and a multiple-dispatch mechanism for defining down-stream functions"
 readme = "README.md"
 dependencies = []
@@ -28,13 +29,13 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-[tool.setuptools_scm]
-version_file = "src/uarray/_version.py"
+# [tool.setuptools_scm]
+# version_file = "src/uarray/_version.py"
 
-[tool.scikit-build]
-wheel.packages = ["src/uarray"]
-metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
-sdist.include = ["src/package/_version.py"]
+# [tool.scikit-build]
+# wheel.packages = ["src/uarray"]
+# metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
+# sdist.include = ["src/package/_version.py"]
 
 [project.urls]
 Documentation = "https://uarray.org/"
@@ -88,15 +89,25 @@ environment.MACOSX_DEPLOYMENT_TARGET = "10.15"
 "cmake.verbose" = true
 "logging.level" = "INFO"
 
-[tool.pixi.project]
+# Pixi #
+
+[tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["osx-arm64"]
+preview = ["pixi-build"]
 
-[tool.pixi.feature.all.dependencies]
-pip = "*"
+# uarray package definition #
 
-[tool.pixi.pypi-dependencies]
-uarray = { path = "." }
+[tool.pixi.package.build.backend]
+name = "pixi-build-python"
+version = "*"
+
+[tool.pixi.package.host-dependencies]
+meson-python = "*"
+# setuptools_scm = "*"
+uv = "*" # interfaces with meson-python instead of pip
+
+# workspace environments #
 
 [tool.pixi.environments]
 default = { solve-group = "default" }
@@ -105,4 +116,14 @@ docs = { features = ["docs"], solve-group = "default" }
 optional = { features = ["optional"], solve-group = "default" }
 tests = { features = ["tests"], solve-group = "default" }
 
-[tool.pixi.tasks]
+# default feature definition #
+
+[tool.pixi.dependencies]
+uarray = { path = "." }
+
+[tool.pixi.dev]
+# this pulls in uarray's host and run dependencies
+uarray = { path = "." }
+
+[tool.pixi.feature.tests.tasks]
+tests = "pytest -v"
