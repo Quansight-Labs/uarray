@@ -16,7 +16,7 @@ on:
 
 jobs:
   build_wheels:
-    name: Build wheels on ${{ matrix.os }}
+    name: Wheels ${{ matrix.os }} ${{ matrix.archs }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
