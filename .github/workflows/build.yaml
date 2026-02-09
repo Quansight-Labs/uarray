@@ -21,14 +21,21 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        archs: [auto32, auto64]
 
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
+      - name: Setup MSVC (32-bit)
+        if: ${{ matrix.os == 'windows-latest' && matrix.archs == 'auto32' }}
+        uses: bus1/cabuild/action/msdevshell@e22aba57d6e74891d059d66501b6b5aed8123c4d  # v1
+        with:
+          architecture: 'x86'
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
+        with:
+          CIBW_ARCHS: ${{ matrix.archs }}
       - uses: actions/upload-artifact@v6
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
