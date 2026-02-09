@@ -69,7 +69,7 @@ before-test = "pip install -r {project}/requirements/tests.txt"
 test-command = "pytest --pyargs uarray"
 
 [tool.cibuildwheel.macos]
-archs = ["universal2"]
+archs = ["x86_64", "arm64"]
 
 [[tool.cibuildwheel.overrides]]
 select = "*-macosx_*"
