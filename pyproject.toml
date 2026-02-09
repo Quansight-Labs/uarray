@@ -68,6 +68,9 @@ enable = ["cpython-freethreading"]
 before-test = "pip install -r {project}/requirements/tests.txt"
 test-command = "pytest --pyargs uarray"
 
+[tool.cibuildwheel.windows]
+config-settings = { setup-args = ["--vsenv"] }
+
 [[tool.cibuildwheel.overrides]]
 select = "*-macosx_*"
 inherit.environment = "append"
