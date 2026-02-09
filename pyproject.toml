@@ -77,7 +77,6 @@ inherit.environment = "append"
 environment.MACOSX_DEPLOYMENT_TARGET = "10.15"
 
 [tool.cibuildwheel.config-settings]
-"cmake.verbose" = true
 "logging.level" = "INFO"
 
 # Pixi #
