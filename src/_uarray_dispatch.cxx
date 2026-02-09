@@ -1,7 +1,6 @@
 #include <Python.h>
 
 #include "small_dynamic_array.h"
-#include "vectorcall.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -343,8 +342,7 @@ struct BackendState {
   static PyObject * unpickle_(PyObject * cls, PyObject * args) {
     try {
       PyObject *py_locals, *py_global;
-      py_ref ref =
-          py_ref::steal(Q_PyObject_Vectorcall(cls, nullptr, 0, nullptr));
+      py_ref ref = py_ref::steal(PyObject_Vectorcall(cls, nullptr, 0, nullptr));
       BackendState * output = reinterpret_cast<BackendState *>(ref.get());
       if (output == nullptr)
         return nullptr;
@@ -1207,9 +1205,9 @@ py_func_args Function::replace_dispatchables(
     return {};
 
   PyObject * convert_args[] = {backend, dispatchables.get(), coerce};
-  auto res = py_ref::steal(Q_PyObject_VectorcallMethod(
+  auto res = py_ref::steal(PyObject_VectorcallMethod(
       identifiers.ua_convert->get(), convert_args,
-      array_size(convert_args) | Q_PY_VECTORCALL_ARGUMENTS_OFFSET, nullptr));
+      array_size(convert_args) | PY_VECTORCALL_ARGUMENTS_OFFSET, nullptr));
   if (!res) {
     return {};
   }
@@ -1223,9 +1221,9 @@ py_func_args Function::replace_dispatchables(
     return {};
 
   PyObject * replacer_args[] = {nullptr, args, kwargs, replaced_args.get()};
-  res = py_ref::steal(Q_PyObject_Vectorcall(
+  res = py_ref::steal(PyObject_Vectorcall(
       replacer_.get(), &replacer_args[1],
-      (array_size(replacer_args) - 1) | Q_PY_VECTORCALL_ARGUMENTS_OFFSET,
+      (array_size(replacer_args) - 1) | PY_VECTORCALL_ARGUMENTS_OFFSET,
       nullptr));
   if (!res)
     return {};
@@ -1312,9 +1310,9 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_) {
         PyObject * args[] = {
             backend, reinterpret_cast<PyObject *>(this), new_args.args.get(),
             new_args.kwargs.get()};
-        result = py_ref::steal(Q_PyObject_VectorcallMethod(
+        result = py_ref::steal(PyObject_VectorcallMethod(
             identifiers.ua_function->get(), args,
-            array_size(args) | Q_PY_VECTORCALL_ARGUMENTS_OFFSET, nullptr));
+            array_size(args) | PY_VECTORCALL_ARGUMENTS_OFFSET, nullptr));
 
         // raise BackendNotImplemeted is equivalent to return NotImplemented
         if (!result &&
@@ -1519,7 +1517,7 @@ PyTypeObject BackendStateType = {
 };
 
 PyObject * get_state(PyObject * /* self */, PyObject * /* args */) {
-  py_ref ref = py_ref::steal(Q_PyObject_Vectorcall(
+  py_ref ref = py_ref::steal(PyObject_Vectorcall(
       reinterpret_cast<PyObject *>(&BackendStateType), nullptr, 0, nullptr));
   BackendState * output = reinterpret_cast<BackendState *>(ref.get());
 
@@ -1591,9 +1589,9 @@ PyObject * determine_backend(PyObject * /*self*/, PyObject * args) {
             backend, dispatchables_tuple.get(),
             (coerce && coerce_backend) ? Py_True : Py_False};
 
-        auto res = py_ref::steal(Q_PyObject_VectorcallMethod(
+        auto res = py_ref::steal(PyObject_VectorcallMethod(
             identifiers.ua_convert->get(), convert_args,
-            array_size(convert_args) | Q_PY_VECTORCALL_ARGUMENTS_OFFSET,
+            array_size(convert_args) | PY_VECTORCALL_ARGUMENTS_OFFSET,
             nullptr));
         if (!res) {
           return LoopReturn::Error;
@@ -1655,7 +1653,7 @@ PyTypeObject FunctionType = {
     /* tp_setattro= */ PyObject_GenericSetAttr,
     /* tp_as_buffer= */ 0,
     /* tp_flags= */
-    (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC | Q_Py_TPFLAGS_METHOD_DESCRIPTOR),
+    (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC | Py_TPFLAGS_METHOD_DESCRIPTOR),
     /* tp_doc= */ 0,
     /* tp_traverse= */ (traverseproc)Function::traverse,
     /* tp_clear= */ (inquiry)Function::clear,
