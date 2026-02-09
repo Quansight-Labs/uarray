@@ -76,9 +76,6 @@ select = "*-macosx_*"
 inherit.environment = "append"
 environment.MACOSX_DEPLOYMENT_TARGET = "10.15"
 
-[tool.cibuildwheel.config-settings]
-"logging.level" = "INFO"
-
 # Pixi #
 
 [tool.pixi.workspace]
