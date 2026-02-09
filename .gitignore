@@ -23,7 +23,6 @@ sandbox.py
 *.so
 build/
 default.profraw
-src/uarray/_version.py
 *.pyd
 # pixi environments
 .pixi

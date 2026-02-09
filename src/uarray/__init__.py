@@ -115,4 +115,4 @@ possible.
 # Explicitly re-export `__all__` so type checkers consider it a public member
 from ._backend import __all__ as __all__
 from ._backend import *
-from ._version import version as __version__
+from uarray.version import version as __version__
