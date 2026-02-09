@@ -20,8 +20,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
         archs: [auto32, auto64]
+        include:
+          - os: macos-latest
+            archs: x86_64
+          - os: macos-latest
+            archs: arm64
+      fail-fast: false
 
     steps:
       - uses: actions/checkout@v6
