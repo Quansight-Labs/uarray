@@ -20,9 +20,11 @@ endif
 
 # Installation #
 
-foreach prefix, files : python_sources
-  py.install_sources(files, subdir: prefix)
-endforeach
+if not meson.is_subproject()
+  foreach prefix, files : python_sources
+    py.install_sources(files, subdir: prefix)
+  endforeach
+endif
 
 py.install_sources([
     'conftest.py',
