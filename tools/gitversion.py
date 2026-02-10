@@ -4,7 +4,8 @@ from pathlib import Path
 import versioningit
 
 def main():
-    vig = versioningit.Versioningit.from_project_dir(Path(__file__).parents[1])
+    project_dir = Path(__file__).parents[1]
+    vig = versioningit.Versioningit.from_project_dir(project_dir)
     print(vig.get_version(write=True, fallback=False))
 
 

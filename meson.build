@@ -20,7 +20,7 @@ python_sources = {
     'src/uarray/_backend.py',
     'src/uarray/_typing.pyi',
     'src/uarray/_typing.pyi',
-    'src/uarray/version.pyi',
+    'src/uarray/_version.pyi',
     'src/uarray/_version.py',
   )
 }
@@ -46,25 +46,25 @@ py.extension_module('_uarray',
   subdir: 'uarray',
 )
 
-uarray_dir = py.get_install_dir() / 'uarray'
-
-# Generate version.py for sdist
-meson.add_dist_script(
-   ['tools/gitversion.py', '--meson-dist', '--write', 'version.py']
-)
-if not fs.exists('version.py')
-  custom_target(
-    'generate-version',
-    install: true,
-    build_always_stale: true,
-    build_by_default: true,
-    output: 'version.py',
-    input: 'tools/gitversion.py',
-    command: ['tools/gitversion.py', '--meson-dist', '--write', 'version.py'],
-    install_dir: uarray_dir,
-    install_tag: 'python-runtime',
-  )
-else
-  # When building from sdist, version.py exists and should be included
-  py.install_sources(['version.py'], subdir : 'uarray')
-endif
+# uarray_dir = py.get_install_dir() / 'uarray'
+#
+# Generate _version.py for sdist
+# meson.add_dist_script(
+#    ['tools/gitversion.py']
+# )
+# if not fs.exists('_version.py')
+#   custom_target(
+#     'generate-version',
+#     install: true,
+#     build_always_stale: true,
+#     build_by_default: true,
+#     output: '_version.py',
+#     input: 'tools/gitversion.py',
+#     command: ['tools/gitversion.py'],
+#     install_dir: uarray_dir,
+#     install_tag: 'python-runtime',
+#   )
+# else
+#   # When building from sdist, _version.py exists and should be included
+#   py.install_sources(['_version.py'], subdir : 'uarray')
+# endif
