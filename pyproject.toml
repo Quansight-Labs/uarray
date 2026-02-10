@@ -1,10 +1,10 @@
 [build-system]
-requires = ["meson-python"]
+requires = ["meson-python", "versioningit"]
 build-backend = "mesonpy"
 
 [project]
 name = "uarray"
-version = "0.9.4.dev0"
+dynamic = ["version"]
 description = "Array interface object for Python with pluggable backends and a multiple-dispatch mechanism for defining down-stream functions"
 readme = "README.md"
 dependencies = []
@@ -84,6 +84,21 @@ platforms = ["osx-arm64"]
 preview = ["pixi-build"]
 
 # uarray package definition #
+[tool.pixi.package]
+version = "0.0.1"
+
+[tool.versioningit.write]
+file = "src/uarray/_version.py"
+
+# Taken from https://github.com/jwodder/versioningit?tab=readme-ov-file#example-configurations
+# (setuptools_scm version)
+[tool.versioningit.next-version]
+method = "smallest"
+
+[tool.versioningit.format]
+distance = "{next_version}.dev{distance}+{vcs}{rev}"
+dirty = "{base_version}+d{build_date:%Y%m%d}"
+distance-dirty = "{next_version}.dev{distance}+{vcs}{rev}.d{build_date:%Y%m%d}"
 
 [tool.pixi.package.build.backend]
 name = "pixi-build-python"
@@ -91,6 +106,7 @@ version = "*"
 
 [tool.pixi.package.host-dependencies]
 meson-python = "*"
+versioningit = "*"
 uv = "*" # interfaces with meson-python instead of pip
 
 # workspace environments #

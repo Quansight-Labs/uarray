@@ -20,7 +20,8 @@ python_sources = {
     'src/uarray/_backend.py',
     'src/uarray/_typing.pyi',
     'src/uarray/_typing.pyi',
-    'src/uarray/version.pyi'
+    'src/uarray/version.pyi',
+    'src/uarray/_version.py',
   )
 }
 
