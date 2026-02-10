@@ -74,17 +74,11 @@ public:
   friend bool operator==(const py_ref & lhs, const py_ref & rhs) {
     return lhs.obj_ == rhs.obj_;
   }
-  friend bool operator==(PyObject * lhs, const py_ref & rhs) {
-    return lhs == rhs.obj_;
-  }
   friend bool operator==(const py_ref & lhs, PyObject * rhs) {
     return lhs.obj_ == rhs;
   }
   friend bool operator!=(const py_ref & lhs, const py_ref & rhs) {
     return lhs.obj_ != rhs.obj_;
-  }
-  friend bool operator!=(PyObject * lhs, const py_ref & rhs) {
-    return lhs != rhs.obj_;
   }
   friend bool operator!=(const py_ref & lhs, PyObject * rhs) {
     return lhs.obj_ != rhs;
@@ -107,7 +101,6 @@ private:
 };
 
 PyObject * py_get(const py_ref & ref) { return ref.get(); }
-PyObject * py_get(PyObject * obj) { return obj; }
 
 /** Make tuple from variadic set of PyObjects */
 template <typename... Ts>
