@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import importlib.util
 import os
 from pathlib import Path
 import shutil
@@ -8,10 +9,13 @@ def main():
     project_dir = Path(__file__).resolve().parents[1]
     source_version_path = project_dir / "src" / "uarray" / "_version.py"
     if source_version_path.exists():
-        namespace = {}
-        with open(source_version_path, "r", encoding="utf-8") as f:
-            exec(f.read(), namespace)
-        print(namespace["__version__"])
+        spec = importlib.util.spec_from_file_location(
+            "uarray._version",
+            source_version_path,
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        print(module.__version__)
     else:
         import versioningit
         vig = versioningit.Versioningit.from_project_dir(project_dir)
