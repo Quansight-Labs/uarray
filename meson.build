@@ -35,11 +35,14 @@ include_dirs = include_directories('src')
 
 # Installation
 
-py.extension_module('_uarray',
-  cpp_sources,
-  include_directories: include_dirs,
-  install: true,
-  subdir: 'uarray',
-)
+if not meson.is_subproject()
+  py.extension_module('_uarray',
+    cpp_sources,
+    cpp_args: meson.get_compiler('cpp').get_supported_arguments('-Wno-terminate'),
+    include_directories: include_dirs,
+    install: true,
+    subdir: 'uarray',
+  )
+endif
 
 subdir('src/uarray')
