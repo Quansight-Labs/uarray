@@ -16,19 +16,35 @@ on:
 
 jobs:
   build_wheels:
-    name: Build wheels on ${{ matrix.os }}
+    name: Wheels ${{ matrix.os }} ${{ matrix.archs }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
+        archs: [auto32, auto64]
+        include:
+          - os: macos-latest
+            archs: x86_64
+          - os: macos-latest
+            archs: arm64
+      fail-fast: false
 
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
+      - name: Setup MSVC (win32)
+        if: ${{ matrix.os == 'windows-latest' && matrix.archs == 'auto32' }}
+        uses: bus1/cabuild/action/msdevshell@e22aba57d6e74891d059d66501b6b5aed8123c4d  # v1
+        with:
+          architecture: 'x86'
+      - name: Remove unwanted linker (win32)
+        if: ${{ matrix.os == 'windows-latest' && matrix.archs == 'auto32' }}
+        run: rm "c:\Program Files\Git\usr\bin\link.exe"
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
+        env:
+          CIBW_ARCHS: ${{ matrix.archs }}
       - uses: actions/upload-artifact@v6
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
@@ -112,6 +128,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           # Update according to NEP-29
