@@ -122,6 +122,8 @@ tests = { features = ["tests"], solve-group = "default" }
 
 [tool.pixi.dependencies]
 uarray = { path = "." }
+pip = ">=26.0.1,<27"
+python-build = ">=1.4.0,<2"
 
 [tool.pixi.dev]
 # this pulls in uarray's host and run dependencies

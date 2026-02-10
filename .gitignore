@@ -29,3 +29,4 @@ src/uarray/_version.py
 .pixi
 *.egg-info
 wheelhouse/
+**/.DS_Store
