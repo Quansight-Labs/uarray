@@ -13,7 +13,9 @@ def main():
             "uarray._version",
             source_version_path,
         )
+        assert spec is not None
         module = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
         spec.loader.exec_module(module)
         print(module.__version__)
     else:
