@@ -66,3 +66,7 @@ else
   # When building from sdist, _version.py exists and should be included
   py.install_sources(['_version.py'], subdir : 'uarray')
 endif
+
+python_sources = python_sources + {
+  'uarray': python_sources['uarray'] + files('_version.py')
+}
