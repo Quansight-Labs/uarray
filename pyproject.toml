@@ -62,9 +62,9 @@ ignore_missing_imports = true
 disallow_any_unimported = false
 
 [tool.cibuildwheel]
-build = "{cp3{11..14}-*,cp3{13..14}t-*}"
+build = "{cp3{12..14}-*,cp314t-*}"
 build-frontend = "build"
-enable = ["cpython-freethreading"]
+enable = []
 before-test = "pip install -r {project}/requirements/tests.txt"
 test-command = "pytest --pyargs uarray"
 
@@ -74,7 +74,6 @@ config-settings = { setup-args = ["--vsenv"] }
 [[tool.cibuildwheel.overrides]]
 select = "*-macosx_*"
 inherit.environment = "append"
-environment.MACOSX_DEPLOYMENT_TARGET = "10.15"
 
 # Pixi #
 
