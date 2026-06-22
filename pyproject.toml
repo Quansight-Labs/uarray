@@ -9,7 +9,7 @@ description = "Array interface object for Python with pluggable backends and a m
 readme = "README.md"
 dependencies = []
 maintainers = [{ name = "Hameer Abbasi", email = "habbasi@openteams.com" }]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 keywords = ["uarray", "scipy", "multiple-dispatch"]
@@ -41,7 +41,6 @@ docs = [
 ]
 tests = [
     "pytest>=3.5",
-    "pytest-flake8",
     "pytest-cov",
     "mypy>=0.930",
 ]
