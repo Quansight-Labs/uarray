@@ -49,7 +49,7 @@ class _SetBackendContext:
 
 # NOTE: Parametrize w.r.t. `__ua_domain__` when returning, but use `Any`
 # when used as argument type. Due to lists being invariant the `__ua_domain__`
-# protocol will likelly be disruptivelly strict in the latter case, hence the
+# protocol will likely be disruptivelly strict in the latter case, hence the
 # usage of `Any` as an escape hatch.
 @final
 class _BackendState:
