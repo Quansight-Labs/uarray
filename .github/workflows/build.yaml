@@ -30,7 +30,7 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Setup MSVC (win32)
@@ -42,7 +42,7 @@ jobs:
         if: ${{ matrix.os == 'windows-latest' && matrix.archs == 'auto32' }}
         run: rm "c:\Program Files\Git\usr\bin\link.exe"
       - name: Build wheels
-        uses: pypa/cibuildwheel@v4.0.0
+        uses: pypa/cibuildwheel@v4.1.0
         env:
           CIBW_ARCHS: ${{ matrix.archs }}
       - uses: actions/upload-artifact@v7
@@ -54,7 +54,7 @@ jobs:
     name: Make SDist
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
 
@@ -85,13 +85,13 @@ jobs:
     name: Documentation, Linting and Coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           # Update according to NEP-29
-          python-version: '3.11'
+          python-version: '3.12'
           cache: 'pip'
       - name: Install package
         run: |
@@ -127,18 +127,18 @@ jobs:
     name: Run SciPy FFT tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           # Update according to NEP-29
-          python-version: '3.11'
+          python-version: '3.12'
           cache: 'pip'
       - name: Install package
         run: |
           pip install -v .[tests] pytest"<7"
-          pip install scipy==1.9.3
+          pip install scipy==1.11.4
       - name: SciPy tests
         run: |
           import scipy.fft
