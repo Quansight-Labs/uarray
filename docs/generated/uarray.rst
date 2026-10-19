@@ -108,7 +108,7 @@ to prefer with a simple context manager. They also have the ability to
 force a backend, and to skip a backend. This is useful for array-like
 objects that provide other array-like objects by composing them. For
 example, Dask could perform all its blockwise function calls with the
-following psuedocode (obviously, this is simplified):
+following pseudocode (obviously, this is simplified):
 
 .. code:: python
 

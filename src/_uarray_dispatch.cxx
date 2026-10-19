@@ -1311,7 +1311,7 @@ PyObject * Function::call(PyObject * args_, PyObject * kwargs_) {
             identifiers.ua_function->get(), args,
             array_size(args) | PY_VECTORCALL_ARGUMENTS_OFFSET, nullptr));
 
-        // raise BackendNotImplemeted is equivalent to return NotImplemented
+        // raise BackendNotImplemented is equivalent to return NotImplemented
         if (!result &&
             PyErr_ExceptionMatches(BackendNotImplementedError.get())) {
           errors.push_back({py_ref::ref(backend), py_errinf::fetch()});
