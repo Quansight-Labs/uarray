@@ -309,9 +309,6 @@ def set_backend(
     skip_backend: A context manager that allows skipping of backends.
     set_global_backend: Set a single, global backend for a domain.
     """
-    # Deprecated: 2022-08-17, To be removed: 2023-08-17
-    # See gh-237 and https://discuss.scientific-python.org/t/requirements-and-discussion-of-a-type-dispatcher-for-the-ecosystem/157/40
-    warnings.warn("uarray.skip_backend is deprecated, please migrate to scoped backends.", category=DeprecationWarning)
     try:
         return backend.__ua_cache__["set", coerce, only]
     except AttributeError:
@@ -340,6 +337,13 @@ def skip_backend(backend: _SupportsUA) -> _SkipBackendContext:
     set_backend: A context manager that allows setting of backends.
     set_global_backend: Set a single, global backend for a domain.
     """
+    # Deprecated: 2022-08-17, To be removed: 2023-08-17
+    # See gh-237 and https://discuss.scientific-python.org/t/requirements-and-discussion-of-a-type-dispatcher-for-the-ecosystem/157/40
+    warnings.warn(
+        "uarray.skip_backend is deprecated, please migrate to scoped backends.",
+        category=DeprecationWarning,
+        stacklevel=2,
+    )
     try:
         return backend.__ua_cache__["skip"]
     except AttributeError:

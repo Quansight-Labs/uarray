@@ -1,5 +1,7 @@
-import uarray as ua
 import pickle
+import warnings
+
+import uarray as ua
 
 import pytest  # type: ignore
 
@@ -30,6 +32,24 @@ class DisableBackend:
 @pytest.fixture()
 def nullary_mm():
     return ua.generate_multimethod(lambda: (), lambda a, kw, d: (a, kw), "ua_tests")
+
+
+def test_set_backend_does_not_warn():
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", DeprecationWarning)
+        with ua.set_backend(Backend()):
+            pass
+
+    assert not [
+        warning
+        for warning in caught
+        if issubclass(warning.category, DeprecationWarning)
+    ]
+
+
+def test_skip_backend_warns():
+    with pytest.warns(DeprecationWarning, match="uarray.skip_backend is deprecated"):
+        ua.skip_backend(Backend())
 
 
 def test_nestedbackend(nullary_mm):
